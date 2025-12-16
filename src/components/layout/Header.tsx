@@ -1,6 +1,14 @@
-import { ChevronDown, Users, Copy, Camera } from "lucide-react";
-import { useState, useRef } from "react";
+import { ChevronDown, Users, Copy, Camera, LogOut } from "lucide-react";
+import { useRef, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   onConnectWallet: () => void;
@@ -9,22 +17,25 @@ interface HeaderProps {
 
 const Header = ({ onConnectWallet, isWalletConnected }: HeaderProps) => {
   const [referrals] = useState(0);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user, signOut } = useAuth();
+  const { profile, uploadAvatar } = useProfile();
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      await uploadAvatar(file);
     }
+  };
+
+  const getInitial = () => {
+    if (profile?.username) return profile.username.charAt(0).toUpperCase();
+    if (user?.email) return user.email.charAt(0).toUpperCase();
+    return 'U';
   };
 
   return (
@@ -49,32 +60,44 @@ const Header = ({ onConnectWallet, isWalletConnected }: HeaderProps) => {
           <span className="text-sm text-muted-foreground">arx1xyz...90f3</span>
         </div>
 
-        {/* User Avatar with Upload */}
-        <div className="flex items-center gap-2 cursor-pointer group" onClick={handleAvatarClick}>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept="image/*"
-            className="hidden"
-          />
-          <div className="relative">
-            <Avatar className="w-9 h-9 border-2 border-accent">
-              {avatarUrl ? (
-                <AvatarImage src={avatarUrl} alt="User avatar" />
-              ) : (
-                <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-600 text-xs font-medium text-foreground">
-                  A
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Camera className="h-4 w-4 text-white" />
+        {/* User Avatar with Dropdown */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*"
+          className="hidden"
+        />
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-2 cursor-pointer group">
+              <div className="relative">
+                <Avatar className="w-9 h-9 border-2 border-accent">
+                  {profile?.avatar_url ? (
+                    <AvatarImage src={profile.avatar_url} alt="User avatar" />
+                  ) : (
+                    <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-600 text-xs font-medium text-foreground">
+                      {getInitial()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+              </div>
+              <span className="w-2 h-2 bg-green-500 rounded-full" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <span className="w-2 h-2 bg-green-500 rounded-full" />
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleAvatarClick} className="cursor-pointer">
+              <Camera className="mr-2 h-4 w-4" />
+              Change Avatar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
