@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, Gift, Users, Vote } from "lucide-react";
+import { LayoutDashboard, BarChart3, Gift, Users } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
@@ -6,7 +6,6 @@ const navItems = [
   { icon: BarChart3, label: "Leaderboard", path: "/leaderboard" },
   { icon: Gift, label: "Claim", path: "/claim" },
   { icon: Users, label: "Referrals", path: "/referrals" },
-  { icon: Vote, label: "Vote", path: "/vote" },
 ];
 
 const Sidebar = () => {
