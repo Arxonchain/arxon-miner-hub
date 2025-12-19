@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [isMining] = useState(true);
 
   return (
@@ -26,7 +28,10 @@ const Dashboard = () => {
         <p className="text-muted-foreground">
           Rank Boost by +2% mining rate from every 5 referrals.
         </p>
-        <button className="btn-mining">
+        <button 
+          onClick={() => navigate('/mining')}
+          className="btn-mining"
+        >
           <span className="w-2 h-2 rounded-full bg-foreground" />
           Start Mining
           <ArrowRight className="h-4 w-4" />
