@@ -2,11 +2,9 @@ import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
-import AuthDialog from "@/components/auth/AuthDialog";
 
 const Dashboard = () => {
   const [isMining] = useState(true);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -28,17 +26,12 @@ const Dashboard = () => {
         <p className="text-muted-foreground">
           Rank Boost by +2% mining rate from every 5 referrals.
         </p>
-        <button 
-          onClick={() => setShowAuthDialog(true)}
-          className="btn-mining"
-        >
+        <button className="btn-mining">
           <span className="w-2 h-2 rounded-full bg-foreground" />
           Start Mining
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
-
-      <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
     </div>
   );
 };
