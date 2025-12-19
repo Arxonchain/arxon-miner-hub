@@ -9,6 +9,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Claim from "./pages/Claim";
 import Referrals from "./pages/Referrals";
 import Mining from "./pages/Mining";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
           <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
           <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
+          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           <Route path="/mining" element={<Mining />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
