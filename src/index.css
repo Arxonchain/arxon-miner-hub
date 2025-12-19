@@ -257,7 +257,7 @@
   }
 
   .btn-wallet {
-    @apply bg-accent hover:bg-accent/90 text-accent-foreground px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors;
+    @apply bg-accent hover:bg-accent/90 text-accent-foreground px-6 py-2.5 rounded-sm font-medium flex items-center gap-2 transition-colors;
   }
 
   .btn-share {
