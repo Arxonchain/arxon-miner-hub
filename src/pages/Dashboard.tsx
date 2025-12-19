@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
+import EarningStatistics from "@/components/dashboard/EarningStatistics";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +38,8 @@ const Dashboard = () => {
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      <EarningStatistics />
     </div>
   );
 };
