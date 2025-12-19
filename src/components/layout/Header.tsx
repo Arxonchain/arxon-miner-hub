@@ -1,5 +1,6 @@
 import { Bell, ChevronDown, Users, Wallet } from "lucide-react";
 import { useState } from "react";
+import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 
 interface HeaderProps {
   onConnectWallet: () => void;
@@ -12,7 +13,7 @@ const Header = ({ onConnectWallet, isWalletConnected }: HeaderProps) => {
   return (
     <header className="h-16 border-b border-border/50 bg-background/80 backdrop-blur-xl flex items-center justify-between px-6">
       <div className="flex items-center">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">ARXON</h1>
+        <img src={arxonLogo} alt="ARXON" className="h-10 object-contain" />
       </div>
 
       <div className="flex items-center gap-4">
