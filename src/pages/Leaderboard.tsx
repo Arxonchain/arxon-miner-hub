@@ -36,7 +36,7 @@ const Leaderboard = () => {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("global")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "global" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -44,7 +44,7 @@ const Leaderboard = () => {
             </button>
             <button
               onClick={() => setActiveTab("friends")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "friends" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
