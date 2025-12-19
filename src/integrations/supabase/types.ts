@@ -14,6 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          message: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          message: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          message?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      claims: {
+        Row: {
+          claimed_amount: number
+          created_at: string
+          eligible_amount: number
+          id: string
+          last_active: string
+          proof_status: string
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          claimed_amount?: number
+          created_at?: string
+          eligible_amount?: number
+          id?: string
+          last_active?: string
+          proof_status?: string
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          claimed_amount?: number
+          created_at?: string
+          eligible_amount?: number
+          id?: string
+          last_active?: string
+          proof_status?: string
+          user_id?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      founder_allocations: {
+        Row: {
+          allocation_percentage: number
+          claimed_amount: number
+          created_at: string
+          id: string
+          name: string
+          next_unlock_date: string | null
+          notes: string | null
+          total_allocation: number
+          vesting_type: string
+          wallet_address: string
+        }
+        Insert: {
+          allocation_percentage: number
+          claimed_amount?: number
+          created_at?: string
+          id?: string
+          name: string
+          next_unlock_date?: string | null
+          notes?: string | null
+          total_allocation: number
+          vesting_type?: string
+          wallet_address: string
+        }
+        Update: {
+          allocation_percentage?: number
+          claimed_amount?: number
+          created_at?: string
+          id?: string
+          name?: string
+          next_unlock_date?: string | null
+          notes?: string | null
+          total_allocation?: number
+          vesting_type?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      mining_sessions: {
+        Row: {
+          arx_mined: number
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          arx_mined?: number
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          arx_mined?: number
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mining_settings: {
+        Row: {
+          block_reward: number
+          claiming_enabled: boolean
+          consensus_mode: string
+          id: string
+          public_mining_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          block_reward?: number
+          claiming_enabled?: boolean
+          consensus_mode?: string
+          id?: string
+          public_mining_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          block_reward?: number
+          claiming_enabled?: boolean
+          consensus_mode?: string
+          id?: string
+          public_mining_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -41,15 +197,66 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whitelist: {
+        Row: {
+          added_at: string
+          eligible: boolean
+          id: string
+          merkle_proof: string | null
+          wallet_address: string
+        }
+        Insert: {
+          added_at?: string
+          eligible?: boolean
+          id?: string
+          merkle_proof?: string | null
+          wallet_address: string
+        }
+        Update: {
+          added_at?: string
+          eligible?: boolean
+          id?: string
+          merkle_proof?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +383,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
