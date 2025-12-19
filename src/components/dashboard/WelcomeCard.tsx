@@ -14,9 +14,9 @@ const WelcomeCard = ({ title, description, isActive = false }: WelcomeCardProps)
           <h3 className="text-xl font-semibold text-foreground mb-2">{title}</h3>
           <p className="text-muted-foreground">{description}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <img src={arxonLogo} alt="Arxon" className="h-16 w-16 object-contain opacity-30 mix-blend-lighten" />
-          <span className={isActive ? "status-connected" : "status-not-active"}>
+        <div className="relative flex items-center justify-center">
+          <img src={arxonLogo} alt="Arxon" className="h-24 w-24 object-contain opacity-30 mix-blend-lighten" />
+          <span className={`absolute bottom-0 ${isActive ? "status-connected" : "status-not-active"}`}>
             <span className={`w-2 h-2 rounded-full ${isActive ? "bg-foreground" : "bg-destructive"}`} />
             {isActive ? "Active" : "Not Active"}
           </span>
