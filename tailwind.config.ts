@@ -51,11 +51,12 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         arxon: {
-          dark: "hsl(var(--arxon-dark))",
+          black: "hsl(var(--arxon-black))",
+          steel: "hsl(var(--arxon-steel))",
+          "steel-light": "hsl(var(--arxon-steel-light))",
+          silver: "hsl(var(--arxon-silver))",
           card: "hsl(var(--arxon-card))",
           glow: "hsl(var(--arxon-glow))",
-          green: "hsl(var(--arxon-green))",
-          orange: "hsl(var(--arxon-orange))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
