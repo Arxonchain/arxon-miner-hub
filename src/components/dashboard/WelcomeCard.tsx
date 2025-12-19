@@ -1,3 +1,5 @@
+import arxonLogo from "@/assets/arxon-logo.jpg";
+
 interface WelcomeCardProps {
   title: string;
   description: string;
@@ -13,7 +15,7 @@ const WelcomeCard = ({ title, description, isActive = false }: WelcomeCardProps)
           <p className="text-muted-foreground">{description}</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-6xl font-bold text-muted/30 opacity-50">A</div>
+          <img src={arxonLogo} alt="Arxon" className="h-16 w-16 object-contain opacity-50" />
           <span className={isActive ? "status-connected" : "status-not-active"}>
             <span className={`w-2 h-2 rounded-full ${isActive ? "bg-foreground" : "bg-destructive"}`} />
             {isActive ? "Active" : "Not Active"}
