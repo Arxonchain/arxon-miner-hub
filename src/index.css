@@ -116,73 +116,77 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    /* Arxon Brand: Pure black background with steel blue/silver metallic accent */
+    --background: 0 0% 0%;
+    --foreground: 220 20% 95%;
 
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 15% 6%;
+    --card-foreground: 220 20% 95%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 220 20% 95%;
 
-    --primary: 142 76% 36%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary: Steel blue from logo */
+    --primary: 220 40% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 20% 12%;
+    --secondary-foreground: 220 20% 90%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 15% 55%;
 
-    --accent: 217 91% 60%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent: Brighter steel blue for highlights */
+    --accent: 215 50% 70%;
+    --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 220 15% 18%;
+    --input: 220 15% 12%;
+    --ring: 215 50% 70%;
 
     --radius: 0.75rem;
 
-    /* Custom Arxon colors */
-    --arxon-dark: 222 47% 6%;
-    --arxon-card: 222 40% 12%;
-    --arxon-glow: 217 91% 60%;
-    --arxon-green: 142 76% 36%;
-    --arxon-orange: 25 95% 53%;
+    /* Custom Arxon brand palette */
+    --arxon-black: 0 0% 0%;
+    --arxon-steel: 220 40% 60%;
+    --arxon-steel-light: 215 50% 80%;
+    --arxon-silver: 220 20% 85%;
+    --arxon-card: 220 15% 6%;
+    --arxon-glow: 215 50% 70%;
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 20%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 220 15% 4%;
+    --sidebar-foreground: 220 20% 95%;
+    --sidebar-primary: 220 40% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 12%;
+    --sidebar-accent-foreground: 220 20% 95%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 215 50% 70%;
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --background: 0 0% 0%;
+    --foreground: 220 20% 95%;
+    --card: 220 15% 6%;
+    --card-foreground: 220 20% 95%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 220 20% 95%;
+    --primary: 220 40% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 12%;
+    --secondary-foreground: 220 20% 90%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 15% 55%;
+    --accent: 215 50% 70%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 18%;
+    --input: 220 15% 12%;
+    --ring: 215 50% 70%;
   }
 }
 
@@ -228,16 +232,20 @@
   }
 
   .glow-orb-blue {
-    background: radial-gradient(circle, hsl(217 91% 60% / 0.6) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(215 50% 70% / 0.4) 0%, transparent 70%);
   }
 
   .glow-orb-white {
-    background: radial-gradient(circle, hsl(0 0% 100% / 0.3) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(220 20% 85% / 0.2) 0%, transparent 70%);
+  }
+
+  .glow-orb-steel {
+    background: radial-gradient(circle, hsl(220 40% 60% / 0.5) 0%, transparent 70%);
   }
 
   .mining-circle {
     @apply relative rounded-full bg-card border border-border/50 flex flex-col items-center justify-center;
-    box-shadow: 0 0 60px hsl(217 91% 60% / 0.2);
+    box-shadow: 0 0 60px hsl(215 50% 70% / 0.15);
   }
 
   .status-connected {
