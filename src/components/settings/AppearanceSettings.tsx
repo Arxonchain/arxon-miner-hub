@@ -1,51 +1,20 @@
-import { useState, useEffect } from "react";
-import { Palette, Moon, Sun, Monitor, Save, Loader2 } from "lucide-react";
+import { Moon, Sun, Monitor, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/useTheme";
 import { useToast } from "@/hooks/use-toast";
 
 type ThemeMode = "dark" | "light" | "system";
 
-const STORAGE_KEY = "arxon_theme_preference";
-
 const AppearanceSettings = () => {
   const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("dark");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode;
-    if (stored) {
-      setTheme(stored);
-      applyTheme(stored);
-    }
-  }, []);
-
-  const applyTheme = (mode: ThemeMode) => {
-    const root = document.documentElement;
-    if (mode === "system") {
-      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.toggle("dark", systemPrefersDark);
-    } else {
-      root.classList.toggle("dark", mode === "dark");
-    }
-  };
+  const { theme, setTheme, resolvedTheme } = useTheme();
 
   const handleThemeChange = (newTheme: ThemeMode) => {
     setTheme(newTheme);
-    applyTheme(newTheme);
-  };
-
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, theme);
-      toast({
-        title: "Appearance Updated",
-        description: "Your theme preference has been saved",
-      });
-      setSaving(false);
-    }, 500);
+    toast({
+      title: "Theme Updated",
+      description: `Switched to ${newTheme === "system" ? "system" : newTheme} mode`,
+    });
   };
 
   const themeOptions = [
@@ -73,7 +42,6 @@ const AppearanceSettings = () => {
     <div className="space-y-4 sm:space-y-6">
       <div className="space-y-1">
         <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-          <Palette className="h-4 w-4 text-accent" />
           Theme
         </h3>
         <p className="text-xs text-muted-foreground">
@@ -108,14 +76,36 @@ const AppearanceSettings = () => {
               </div>
             </div>
             <div
-              className={`w-4 h-4 rounded-full border-2 ${
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                 theme === option.value
                   ? "bg-accent border-accent"
                   : "border-muted-foreground"
               }`}
-            />
+            >
+              {theme === option.value && <Check className="h-3 w-3 text-accent-foreground" />}
+            </div>
           </button>
         ))}
+      </div>
+
+      {/* Current Theme Info */}
+      <div className="p-3 sm:p-4 rounded-lg bg-secondary/30 border border-border/30">
+        <p className="text-xs text-muted-foreground mb-2">Currently using</p>
+        <div className="flex items-center gap-2">
+          {resolvedTheme === "dark" ? (
+            <Moon className="h-4 w-4 text-accent" />
+          ) : (
+            <Sun className="h-4 w-4 text-accent" />
+          )}
+          <span className="text-sm font-medium text-foreground capitalize">
+            {resolvedTheme} Theme
+          </span>
+          {theme === "system" && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">
+              Auto
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Mining Interface Preview */}
@@ -141,19 +131,6 @@ const AppearanceSettings = () => {
           </div>
         </div>
       </div>
-
-      <Button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-      >
-        {saving ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <Save className="h-4 w-4 mr-2" />
-        )}
-        Save Appearance
-      </Button>
     </div>
   );
 };
