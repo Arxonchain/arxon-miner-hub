@@ -13,7 +13,10 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const STORAGE_KEY = "arxon_theme_preference";
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<ThemeMode>("dark");
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+    return stored || "dark";
+  });
   const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
 
   const applyTheme = (mode: ThemeMode) => {
