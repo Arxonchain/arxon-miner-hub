@@ -10,8 +10,8 @@ const Dashboard = () => {
   const [isMining] = useState(true);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-foreground">Overview</h1>
+    <div className="space-y-4 md:space-y-6">
+      <h1 className="text-2xl md:text-3xl font-bold text-foreground">Overview</h1>
 
       <WelcomeCard
         title="Welcome to ARXON Q1, Marketing Ongoing!"
@@ -19,19 +19,19 @@ const Dashboard = () => {
         isActive={isMining}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
         <StatCard label="Mining Balance" value="3,420 ARX" />
         <StatCard label="Mining Rate" value="+10 ARX" suffix="/ 30s" />
         <StatCard label="Active Miners" value="24,211" />
       </div>
 
-      <div className="glass-card p-6 flex items-center justify-between">
-        <p className="text-muted-foreground">
+      <div className="glass-card p-4 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <p className="text-sm md:text-base text-muted-foreground">
           Rank Boost by +2% mining rate from every 5 referrals.
         </p>
         <button 
           onClick={() => navigate('/mining')}
-          className="btn-mining"
+          className="btn-mining w-full sm:w-auto justify-center text-sm md:text-base"
         >
           <span className="w-2 h-2 rounded-full bg-foreground" />
           Start Mining
