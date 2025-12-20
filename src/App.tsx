@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "@/hooks/useTheme";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
@@ -29,38 +28,36 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-            <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
-            <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
-            <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
-            <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-            <Route path="/mining" element={<Mining />} />
-            
-            {/* Admin routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="miners" element={<AdminMiners />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="controls" element={<AdminControls />} />
-              <Route path="merkle" element={<AdminMerkle />} />
-              <Route path="claims" element={<AdminClaims />} />
-              <Route path="allocations" element={<AdminAllocations />} />
-              <Route path="announcements" element={<AdminAnnouncements />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
+          <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
+          <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
+          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+          <Route path="/mining" element={<Mining />} />
+          
+          {/* Admin routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="miners" element={<AdminMiners />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="controls" element={<AdminControls />} />
+            <Route path="merkle" element={<AdminMerkle />} />
+            <Route path="claims" element={<AdminClaims />} />
+            <Route path="allocations" element={<AdminAllocations />} />
+            <Route path="announcements" element={<AdminAnnouncements />} />
+          </Route>
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { User, Bell, Shield, ChevronRight } from "lucide-react";
+import { User, Bell, Shield, Palette, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileSettings from "@/components/settings/ProfileSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
+import AppearanceSettings from "@/components/settings/AppearanceSettings";
 
 const settingsSections = [
   {
@@ -23,6 +24,12 @@ const settingsSections = [
     icon: Shield,
     title: "Security",
     description: "Update password and security settings",
+  },
+  {
+    id: "appearance",
+    icon: Palette,
+    title: "Appearance",
+    description: "Customize the look and feel",
   },
 ];
 
@@ -62,6 +69,7 @@ const Settings = () => {
             {activeSection === "profile" && <ProfileSettings />}
             {activeSection === "notifications" && <NotificationSettings />}
             {activeSection === "security" && <SecuritySettings />}
+            {activeSection === "appearance" && <AppearanceSettings />}
           </div>
         </div>
       );
@@ -113,6 +121,9 @@ const Settings = () => {
         </TabsContent>
         <TabsContent value="security" className="mt-0">
           <SecuritySettings />
+        </TabsContent>
+        <TabsContent value="appearance" className="mt-0">
+          <AppearanceSettings />
         </TabsContent>
       </div>
     </Tabs>
