@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, Gift, Users, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, BarChart3, Gift, Users, Settings, LogOut, Menu } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,11 +22,11 @@ const MobileNav = () => {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors md:hidden">
-          <Menu className="h-6 w-6" />
+        <button className="p-1.5 text-muted-foreground hover:text-foreground transition-colors lg:hidden">
+          <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 bg-sidebar border-r border-border/50 p-0">
+      <SheetContent side="left" className="w-56 sm:w-64 bg-sidebar border-r border-border/50 p-0">
         <div className="flex flex-col h-full py-6">
           <nav className="space-y-1 px-3 flex-1">
             {navItems.map((item) => (
