@@ -15,27 +15,27 @@ const EarningStatistics = () => {
   const totalReferral = earningData.reduce((sum, d) => sum + d.referral, 0);
 
   return (
-    <div className="glass-card p-6 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="glass-card p-4 md:p-6 space-y-4">
+      <div className="flex flex-col gap-3 md:gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Earning statistics</h3>
-          <p className="text-sm text-muted-foreground">Your revenue graph generated based on your mining activity</p>
+          <h3 className="text-base md:text-lg font-semibold text-foreground">Earning statistics</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">Your revenue graph based on mining activity</p>
         </div>
-        <div className="flex gap-6">
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Mining Earnings</p>
-            <p className="text-lg font-bold text-primary">{totalMining.toLocaleString()} ARX</p>
+        <div className="flex gap-4 md:gap-6">
+          <div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Mining Earnings</p>
+            <p className="text-sm md:text-lg font-bold text-primary">{totalMining.toLocaleString()} ARX</p>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Referral Earnings</p>
-            <p className="text-lg font-bold text-accent">{totalReferral.toLocaleString()} ARX</p>
+          <div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Referral Earnings</p>
+            <p className="text-sm md:text-lg font-bold text-accent">{totalReferral.toLocaleString()} ARX</p>
           </div>
         </div>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="h-48 md:h-64 w-full -ml-2 md:ml-0">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={earningData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={earningData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="miningGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(217 91% 60%)" stopOpacity={0.4} />
@@ -50,26 +50,28 @@ const EarningStatistics = () => {
               dataKey="day" 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fill: 'hsl(215 20% 65%)', fontSize: 12 }}
+              tick={{ fill: 'hsl(215 20% 65%)', fontSize: 10 }}
             />
             <YAxis 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fill: 'hsl(215 20% 65%)', fontSize: 12 }}
-              width={40}
+              tick={{ fill: 'hsl(215 20% 65%)', fontSize: 10 }}
+              width={35}
             />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: 'hsl(222 47% 11%)', 
                 border: '1px solid hsl(217 33% 17%)',
                 borderRadius: '8px',
-                color: 'hsl(210 40% 98%)'
+                color: 'hsl(210 40% 98%)',
+                fontSize: '12px',
+                padding: '8px'
               }}
               labelStyle={{ color: 'hsl(215 20% 65%)' }}
             />
             <Legend 
-              wrapperStyle={{ paddingTop: '10px' }}
-              formatter={(value) => <span className="text-muted-foreground text-sm">{value}</span>}
+              wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }}
+              formatter={(value) => <span className="text-muted-foreground text-xs md:text-sm">{value}</span>}
             />
             <Area
               type="monotone"

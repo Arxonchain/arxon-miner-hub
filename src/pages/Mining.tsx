@@ -37,12 +37,11 @@ const Mining = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center">
-      {/* Animated Background Glow Orbs */}
+    <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center px-4">
+      {/* Animated Background Glow Orbs - Smaller on mobile */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Primary moving orb - slow drift right to left */}
         <div 
-          className="absolute w-[600px] h-[600px] rounded-full opacity-70"
+          className="absolute w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full opacity-70"
           style={{
             background: 'radial-gradient(circle, hsl(217 91% 60% / 0.6) 0%, transparent 70%)',
             filter: 'blur(80px)',
@@ -53,9 +52,8 @@ const Mining = () => {
           }}
         />
         
-        {/* Secondary orb - drift from bottom right */}
         <div 
-          className="absolute w-[400px] h-[400px] rounded-full opacity-50"
+          className="absolute w-[200px] md:w-[400px] h-[200px] md:h-[400px] rounded-full opacity-50"
           style={{
             background: 'radial-gradient(circle, hsl(217 91% 60% / 0.5) 0%, transparent 70%)',
             filter: 'blur(100px)',
@@ -65,9 +63,8 @@ const Mining = () => {
           }}
         />
         
-        {/* Tertiary orb - subtle white glow */}
         <div 
-          className="absolute w-[500px] h-[500px] rounded-full opacity-30"
+          className="absolute w-[250px] md:w-[500px] h-[250px] md:h-[500px] rounded-full opacity-30"
           style={{
             background: 'radial-gradient(circle, hsl(210 40% 98% / 0.4) 0%, transparent 70%)',
             filter: 'blur(120px)',
@@ -77,9 +74,8 @@ const Mining = () => {
           }}
         />
 
-        {/* Fourth orb - bottom center glow */}
         <div 
-          className="absolute w-[350px] h-[350px] rounded-full opacity-40"
+          className="absolute w-[175px] md:w-[350px] h-[175px] md:h-[350px] rounded-full opacity-40"
           style={{
             background: 'radial-gradient(circle, hsl(217 91% 60% / 0.4) 0%, transparent 70%)',
             filter: 'blur(90px)',
@@ -93,34 +89,34 @@ const Mining = () => {
       {/* Back Button */}
       <button 
         onClick={() => navigate('/')}
-        className="absolute top-6 left-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors z-20"
+        className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors z-20"
       >
-        <ArrowLeft className="h-5 w-5" />
-        <span className="font-medium">Back to Dashboard</span>
+        <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+        <span className="text-sm md:text-base font-medium">Back</span>
       </button>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in">
+      <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in w-full max-w-md">
         {/* Earnings Card */}
         <div 
-          className="glass-card px-20 py-10 mb-12 text-center animate-scale-in"
+          className="glass-card px-10 md:px-20 py-6 md:py-10 mb-8 md:mb-12 text-center animate-scale-in w-full"
           style={{ animationDelay: '0.1s' }}
         >
-          <p className="text-muted-foreground text-xl mb-3">Earning</p>
-          <h2 className="text-6xl font-bold text-foreground tracking-tight">{earnings}ARX</h2>
+          <p className="text-muted-foreground text-base md:text-xl mb-2 md:mb-3">Earning</p>
+          <h2 className="text-4xl md:text-6xl font-bold text-foreground tracking-tight">{earnings}ARX</h2>
         </div>
 
         {/* Mining Circle */}
         <div 
-          className="mining-circle w-56 h-56 animate-float"
+          className="mining-circle w-44 h-44 md:w-56 md:h-56 animate-float"
           style={{ animationDelay: '0.2s' }}
         >
-          <p className="text-muted-foreground text-sm mb-2">Next roll call</p>
-          <p className="text-5xl font-bold text-foreground tracking-tight">
+          <p className="text-muted-foreground text-xs md:text-sm mb-1 md:mb-2">Next roll call</p>
+          <p className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">
             {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
           </p>
-          <button className="status-connected mt-4">
-            <span className="w-2 h-2 rounded-full bg-foreground" />
+          <button className="status-connected mt-3 md:mt-4 text-xs md:text-sm px-3 py-1 md:px-4 md:py-1.5">
+            <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-foreground" />
             Connected
           </button>
         </div>
@@ -128,11 +124,11 @@ const Mining = () => {
         {/* Copy Referral */}
         <button
           onClick={copyReferralCode}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mt-12 animate-fade-in"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mt-8 md:mt-12 animate-fade-in"
           style={{ animationDelay: '0.4s' }}
         >
           <Copy className="h-4 w-4" />
-          <span className="text-sm font-medium">Copy referral code</span>
+          <span className="text-xs md:text-sm font-medium">Copy referral code</span>
         </button>
       </div>
 

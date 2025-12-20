@@ -14,12 +14,11 @@ const bottomItems = [
 
 const Sidebar = () => {
   const handleLogout = () => {
-    // TODO: Implement actual logout
     console.log("Logout clicked");
   };
 
   return (
-    <aside className="w-56 min-h-screen bg-sidebar border-r border-border/50 py-6 flex flex-col">
+    <aside className="hidden md:flex w-56 min-h-screen bg-sidebar border-r border-border/50 py-6 flex-col">
       <nav className="space-y-1 px-3 flex-1">
         {navItems.map((item) => (
           <NavLink
