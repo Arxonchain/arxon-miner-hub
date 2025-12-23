@@ -116,8 +116,17 @@ const AdminControls = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Controls</h1>
-        <p className="text-muted-foreground">Manage network settings and controls</p>
+        <h1 className="text-2xl font-bold text-foreground">Mining Controls</h1>
+        <p className="text-muted-foreground">Manage ARX-P mining settings and $ARX token controls</p>
+      </div>
+
+      {/* Info Banner */}
+      <div className="glass-card p-4 border-primary/30 bg-primary/5">
+        <p className="text-sm">
+          <span className="font-medium text-foreground">Current Rate:</span> +10 ARX-P/hour | 
+          <span className="font-medium text-foreground ml-2">Max Session:</span> 8 hours | 
+          <span className="font-medium text-foreground ml-2">Token:</span> ARX-P → $ARX at TGE
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -144,8 +153,8 @@ const AdminControls = () => {
             {/* Claiming */}
             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
               <div>
-                <p className="font-medium text-foreground">Token Claiming</p>
-                <p className="text-sm text-muted-foreground">Enable or disable ARX claiming</p>
+                <p className="font-medium text-foreground">$ARX Token Claiming</p>
+                <p className="text-sm text-muted-foreground">Enable or disable ARX-P to $ARX conversion</p>
               </div>
               <Switch
                 checked={settings.claimingEnabled}
@@ -194,13 +203,13 @@ const AdminControls = () => {
         <div className="glass-card p-6 space-y-6">
           <h3 className="font-semibold text-foreground flex items-center gap-2">
             <Coins className="h-5 w-5 text-primary" />
-            Block Reward
+            Mining Reward Settings
           </h3>
 
           <div className="space-y-4">
             <div className="p-4 bg-muted/30 rounded-lg space-y-4">
               <div>
-                <Label htmlFor="blockReward">Reward per Block (ARX)</Label>
+                <Label htmlFor="blockReward">Block Reward (ARX-P)</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     id="blockReward"
@@ -218,7 +227,7 @@ const AdminControls = () => {
               <div className="flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
                 <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
                 <p className="text-xs text-yellow-500">
-                  Changing block rewards affects all active miners immediately.
+                  Changing block rewards affects all active miners immediately. Current rate: +10 ARX-P/hour.
                 </p>
               </div>
             </div>
@@ -232,7 +241,7 @@ const AdminControls = () => {
                   onClick={() => updateSetting("blockReward", value)}
                   className={settings.blockReward === value ? "border-primary" : ""}
                 >
-                  {value} ARX
+                  {value} ARX-P
                 </Button>
               ))}
             </div>
