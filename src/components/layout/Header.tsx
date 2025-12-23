@@ -1,8 +1,9 @@
-import { Bell, ChevronDown, Zap, LogIn, Twitter, Check } from "lucide-react";
+import { Bell, ChevronDown, Zap, LogIn, Check } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
+import XIcon from "@/components/icons/XIcon";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useXProfile } from "@/hooks/useXProfile";
@@ -57,7 +58,7 @@ const Header = () => {
               </>
             ) : (
               <>
-                <Twitter className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
+                <XIcon className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
                 <span className="hidden xs:inline sm:inline">Connect X</span>
               </>
             )}

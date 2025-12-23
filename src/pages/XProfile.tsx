@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Twitter, Link2, Unlink, Check, RefreshCw, Zap, Loader2 } from "lucide-react";
+import { Link2, Unlink, Check, RefreshCw, Zap, Loader2 } from "lucide-react";
+import XIcon from "@/components/icons/XIcon";
 import { useXProfile } from "@/hooks/useXProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ const XProfilePage = () => {
       <div className="glass-card p-3 sm:p-4 md:p-6 bg-blue-500/5 border-blue-500/20">
         <div className="flex items-start gap-2.5 sm:gap-3">
           <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/20 shrink-0">
-            <Twitter className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
+            <XIcon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
           </div>
           <div className="min-w-0">
             <h3 className="font-medium text-sm sm:text-base text-foreground">Why Connect Your X Account?</h3>
@@ -78,7 +79,7 @@ const XProfilePage = () => {
       {!xProfile ? (
         <div className="glass-card p-6 sm:p-8">
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
-            <Twitter className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400" />
+            <XIcon className="h-6 w-6 sm:h-8 sm:w-8 text-foreground" />
           </div>
           <h3 className="font-medium text-sm sm:text-base text-foreground mb-2 text-center">Connect Your X Profile</h3>
           <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 text-center">
@@ -118,7 +119,7 @@ const XProfilePage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                 <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/20 shrink-0">
-                  <Twitter className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
+                  <XIcon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">

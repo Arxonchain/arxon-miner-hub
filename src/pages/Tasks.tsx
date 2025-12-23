@@ -5,11 +5,11 @@ import {
   Clock, 
   XCircle, 
   Send,
-  Twitter,
   Users,
   Gift,
   Zap
 } from "lucide-react";
+import XIcon from "@/components/icons/XIcon";
 import { useTasks } from "@/hooks/useTasks";
 import { useSocialSubmissions } from "@/hooks/useSocialSubmissions";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,7 +50,7 @@ const Tasks = () => {
   const getTaskIcon = (type: string) => {
     switch (type) {
       case 'social':
-        return <Twitter className="h-5 w-5 text-blue-400" />;
+        return <XIcon className="h-5 w-5 text-foreground" />;
       case 'referral':
         return <Users className="h-5 w-5 text-green-400" />;
       default:
@@ -98,7 +98,7 @@ const Tasks = () => {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-              <Twitter className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 shrink-0" />
+              <XIcon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground shrink-0" />
               <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-foreground">Social Yapping</h2>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Clock, FileText, Users, Twitter, Zap, TrendingUp, Flame } from "lucide-react";
+import { ChevronDown, Clock, FileText, Users, Zap, TrendingUp, Flame } from "lucide-react";
+import XIcon from "@/components/icons/XIcon";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
@@ -53,7 +54,7 @@ const Leaderboard = () => {
               onClick={() => setActiveTab("yappers")} 
               className={`flex-1 sm:flex-none px-2.5 sm:px-3 lg:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs lg:text-sm font-medium transition-colors rounded flex items-center justify-center gap-1.5 ${activeTab === "yappers" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
-              <Twitter className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <XIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               Top Yappers
             </button>
             <button 
@@ -87,7 +88,7 @@ const Leaderboard = () => {
               </div>
             ) : yappers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Twitter className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <XIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">No yappers yet. Be the first to connect your X profile!</p>
                 <p className="text-xs mt-1">Go to Mining page to connect your X account.</p>
               </div>
@@ -102,7 +103,7 @@ const Leaderboard = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                          <Twitter className="h-3.5 w-3.5 text-blue-400" />
+                          <XIcon className="h-3.5 w-3.5 text-foreground" />
                           <span className="font-semibold text-sm sm:text-base text-foreground">@{yapper.username}</span>
                           <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${badge.color}`}>
                             {badge.label}
