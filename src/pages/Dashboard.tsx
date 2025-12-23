@@ -149,12 +149,12 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Links - Tab Style */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 md:gap-3">
         <button
           onClick={() => navigate('/tasks')}
-          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
                      bg-gradient-to-br from-blue-500/20 to-blue-600/10 
-                     border border-blue-500/30 rounded-xl
+                     border border-blue-500/30 rounded-lg sm:rounded-xl
                      shadow-md shadow-blue-500/10
                      hover:from-blue-500/30 hover:to-blue-600/20 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20
                      active:scale-95 active:from-blue-500/40
@@ -162,23 +162,23 @@ const Dashboard = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
-              <ListTodo className="h-4 w-4 text-blue-400" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 border border-blue-500/30 shrink-0">
+              <ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
             </div>
-            <div>
-              <p className="font-semibold text-foreground group-hover:text-blue-300 transition-colors">Tasks</p>
-              <p className="text-xs text-muted-foreground">Complete & earn</p>
+            <div className="text-center sm:text-left min-w-0">
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-blue-300 transition-colors truncate">Tasks</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Complete & earn</p>
             </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400/50 
-                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-400/50 
+                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
         <button
           onClick={() => navigate('/leaderboard')}
-          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
                      bg-gradient-to-br from-amber-500/20 to-orange-600/10 
-                     border border-amber-500/30 rounded-xl
+                     border border-amber-500/30 rounded-lg sm:rounded-xl
                      shadow-md shadow-amber-500/10
                      hover:from-amber-500/30 hover:to-orange-600/20 hover:border-amber-400/50 hover:shadow-lg hover:shadow-amber-500/20
                      active:scale-95 active:from-amber-500/40
@@ -186,23 +186,23 @@ const Dashboard = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
-              <Trophy className="h-4 w-4 text-amber-400" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-amber-500/20 border border-amber-500/30 shrink-0">
+              <Trophy className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
             </div>
-            <div>
-              <p className="font-semibold text-foreground group-hover:text-amber-300 transition-colors">Leaderboard</p>
-              <p className="text-xs text-muted-foreground">Top 100 miners</p>
+            <div className="text-center sm:text-left min-w-0">
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-amber-300 transition-colors truncate">Leaderboard</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Top 100 miners</p>
             </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400/50 
-                                  group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-amber-400/50 
+                                  group-hover:text-amber-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
         <button
           onClick={() => navigate('/wallet')}
-          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
                      bg-gradient-to-br from-emerald-500/20 to-green-600/10 
-                     border border-emerald-500/30 rounded-xl
+                     border border-emerald-500/30 rounded-lg sm:rounded-xl
                      shadow-md shadow-emerald-500/10
                      hover:from-emerald-500/30 hover:to-green-600/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/20
                      active:scale-95 active:from-emerald-500/40
@@ -210,17 +210,17 @@ const Dashboard = () => {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30">
-              <Wallet className="h-4 w-4 text-emerald-400" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-emerald-500/20 border border-emerald-500/30 shrink-0">
+              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400" />
             </div>
-            <div>
-              <p className="font-semibold text-foreground group-hover:text-emerald-300 transition-colors">Wallet</p>
-              <p className="text-xs text-muted-foreground">Connect Polkadot</p>
+            <div className="text-center sm:text-left min-w-0">
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-emerald-300 transition-colors truncate">Wallet</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Connect Polkadot</p>
             </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400/50 
-                                  group-hover:text-emerald-300 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-emerald-400/50 
+                                  group-hover:text-emerald-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
       </div>
 
