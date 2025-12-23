@@ -1,10 +1,12 @@
-import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw } from "lucide-react";
+import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw, Twitter, Link2, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
+import { useXProfile } from "@/hooks/useXProfile";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { useState } from "react";
 
@@ -23,7 +25,14 @@ const Mining = () => {
     stopMining, 
     formatTime 
   } = useMining();
+  const { xProfile, scanning, connectXProfile, refreshBoost, disconnectXProfile, getBoostedRate } = useXProfile();
   const [showAuth, setShowAuth] = useState(false);
+  const [xProfileInput, setXProfileInput] = useState('');
+  const [showXConnect, setShowXConnect] = useState(false);
+
+  const baseRate = 10;
+  const boostedRate = getBoostedRate(baseRate);
+  const hasBoost = xProfile && xProfile.boost_percentage > 0;
 
   const copyReferralCode = () => {
     navigator.clipboard.writeText("ARX-REF-12345");
@@ -39,6 +48,18 @@ const Mining = () => {
       return;
     }
     startMining();
+  };
+
+  const handleConnectX = async () => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    const success = await connectXProfile(xProfileInput);
+    if (success) {
+      setXProfileInput('');
+      setShowXConnect(false);
+    }
   };
 
   const progressPercentage = isMining 
@@ -114,6 +135,92 @@ const Mining = () => {
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in w-full max-w-md">
+        {/* X Profile Boost Card */}
+        {xProfile ? (
+          <div 
+            className="glass-card p-3 sm:p-4 mb-4 w-full border-blue-500/30 bg-blue-500/5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Twitter className="h-4 w-4 text-blue-400" />
+                <span className="text-xs sm:text-sm font-medium text-foreground">@{xProfile.username}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={refreshBoost}
+                  disabled={scanning}
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                  title="Refresh boost"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${scanning ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={disconnectXProfile}
+                  className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-2 pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
+                <span>{xProfile.qualified_posts_today} posts today</span>
+                <span>avg {xProfile.average_engagement} eng</span>
+                {xProfile.viral_bonus && <span className="text-yellow-400">🔥 Viral</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-400" />
+                <span className="text-sm sm:text-base font-bold text-yellow-400">
+                  {xProfile.boost_percentage}% Yap Boost
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Rate: {boostedRate.toFixed(1)} ARX-P/hr
+              </p>
+            </div>
+          </div>
+        ) : showXConnect ? (
+          <div className="glass-card p-3 sm:p-4 mb-4 w-full">
+            <div className="flex items-center gap-2 mb-3">
+              <Twitter className="h-4 w-4 text-blue-400" />
+              <span className="text-xs sm:text-sm font-medium">Connect X Profile for Boost</span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="@username or x.com/username"
+                value={xProfileInput}
+                onChange={(e) => setXProfileInput(e.target.value)}
+                className="flex-1 text-sm"
+              />
+              <Button 
+                onClick={handleConnectX}
+                disabled={scanning || !xProfileInput}
+                size="sm"
+              >
+                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Post with #ArxonMining, #Arxon, #Arxonchain or @Arxonarx to earn up to 800% boost!
+            </p>
+            <button 
+              onClick={() => setShowXConnect(false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground mt-2"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : user && (
+          <button
+            onClick={() => setShowXConnect(true)}
+            className="glass-card p-3 mb-4 w-full flex items-center justify-center gap-2 hover:bg-white/5 transition-colors border-dashed"
+          >
+            <Twitter className="h-4 w-4 text-blue-400" />
+            <span className="text-xs sm:text-sm text-muted-foreground">Connect X for up to 800% boost</span>
+          </button>
+        )}
+
         {/* Total Balance Card */}
         <div 
           className="glass-card px-6 sm:px-10 md:px-20 py-4 sm:py-6 md:py-8 mb-4 sm:mb-6 md:mb-8 text-center animate-scale-in w-full"
@@ -135,6 +242,11 @@ const Mining = () => {
               <p className="text-xs sm:text-sm text-green-400">Session Earnings</p>
             </div>
             <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-400">+{earnedPoints} ARX-P</p>
+            {hasBoost && (
+              <p className="text-[10px] text-yellow-400 mt-1">
+                +{xProfile.boost_percentage}% boost applied
+              </p>
+            )}
           </div>
         )}
 
@@ -187,7 +299,10 @@ const Mining = () => {
                 <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground mb-1 sm:mb-2" />
                 <p className="text-muted-foreground text-[10px] sm:text-xs">Session Duration</p>
                 <p className="text-base sm:text-lg md:text-xl font-bold text-foreground">8 Hours Max</p>
-                <p className="text-[10px] sm:text-xs text-accent mt-0.5 sm:mt-1">+10 ARX-P/hour</p>
+                <p className="text-[10px] sm:text-xs text-accent mt-0.5 sm:mt-1">
+                  +{boostedRate.toFixed(hasBoost ? 1 : 0)} ARX-P/hour
+                  {hasBoost && <span className="text-yellow-400 ml-1">🔥</span>}
+                </p>
               </>
             )}
           </div>
@@ -202,7 +317,10 @@ const Mining = () => {
             </div>
             <div className="glass-card p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground">Rate</p>
-              <p className="text-sm sm:text-lg font-bold text-accent">+10 ARX-P/hr</p>
+              <p className="text-sm sm:text-lg font-bold text-accent">
+                +{boostedRate.toFixed(hasBoost ? 1 : 0)} ARX-P/hr
+                {hasBoost && <span className="text-yellow-400 ml-1">🔥</span>}
+              </p>
             </div>
           </div>
         )}
@@ -243,7 +361,7 @@ const Mining = () => {
         {/* Info Card */}
         <div className="glass-card p-3 sm:p-4 w-full text-center mb-4 sm:mb-6">
           <p className="text-[10px] sm:text-xs text-muted-foreground">
-            Mine for up to 8 hours per session. Earn 10 ARX-P per hour. 
+            Mine for up to 8 hours per session. Earn {hasBoost ? `${boostedRate.toFixed(1)}` : '10'} ARX-P per hour. 
             {isMining ? " Stop anytime to collect your points." : " Start a new session after completion."}
           </p>
         </div>
