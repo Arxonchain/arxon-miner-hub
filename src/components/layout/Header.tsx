@@ -1,5 +1,5 @@
-import { Bell, ChevronDown, Zap, LogIn, Check } from "lucide-react";
-import { useState } from "react";
+import { Bell, ChevronDown, Zap, LogIn, Check, Megaphone } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useXProfile } from "@/hooks/useXProfile";
 import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/integrations/supabase/client";
 import AuthDialog from "@/components/auth/AuthDialog";
 import {
   DropdownMenu,
@@ -17,6 +18,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatDistanceToNow } from "date-fns";
+
+interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+}
 
 const Header = () => {
   const navigate = useNavigate();
@@ -25,6 +40,29 @@ const Header = () => {
   const { xProfile } = useXProfile();
   const { profile } = useProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchAnnouncements();
+    }
+  }, [user]);
+
+  const fetchAnnouncements = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('id, title, message, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!error && data) {
+      setAnnouncements(data);
+    }
+    setIsLoading(false);
+  };
 
   return (
     <>
@@ -71,10 +109,48 @@ const Header = () => {
           {user ? (
             <>
               {/* Notifications */}
-              <button className="relative p-1 sm:p-1.5 lg:p-2 text-muted-foreground hover:text-foreground transition-colors">
-                <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
-                <span className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 lg:top-1 lg:right-1 w-1.5 h-1.5 lg:w-2 lg:h-2 bg-primary rounded-full" />
-              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="relative p-1 sm:p-1.5 lg:p-2 text-muted-foreground hover:text-foreground transition-colors">
+                    <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+                    {announcements.length > 0 && (
+                      <span className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 lg:top-1 lg:right-1 w-1.5 h-1.5 lg:w-2 lg:h-2 bg-primary rounded-full" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 p-0 bg-card border-border">
+                  <div className="p-3 border-b border-border">
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <Megaphone className="h-4 w-4 text-accent" />
+                      Announcements
+                    </h4>
+                  </div>
+                  <ScrollArea className="max-h-80">
+                    {isLoading ? (
+                      <div className="p-4 text-center text-muted-foreground text-sm">
+                        Loading...
+                      </div>
+                    ) : announcements.length === 0 ? (
+                      <div className="p-6 text-center">
+                        <Bell className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                        <p className="text-muted-foreground text-sm">No notifications yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {announcements.map((announcement) => (
+                          <div key={announcement.id} className="p-3 hover:bg-secondary/30 transition-colors">
+                            <h5 className="font-medium text-foreground text-sm">{announcement.title}</h5>
+                            <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{announcement.message}</p>
+                            <span className="text-muted-foreground/70 text-[10px] mt-1 block">
+                              {formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
 
               {/* User Dropdown */}
               <DropdownMenu>
