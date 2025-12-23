@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import AnimatedBackground from "./AnimatedBackground";
@@ -8,18 +8,12 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-
-  const handleConnectWallet = () => {
-    setIsWalletConnected(!isWalletConnected);
-  };
-
   return (
     <div className="min-h-screen bg-background relative">
       {/* Animated Background */}
       <AnimatedBackground />
       
-      <Header onConnectWallet={handleConnectWallet} isWalletConnected={isWalletConnected} />
+      <Header />
       <div className="flex relative z-10">
         <Sidebar />
         <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 relative overflow-hidden">

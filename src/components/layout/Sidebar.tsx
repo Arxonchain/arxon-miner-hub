@@ -1,21 +1,22 @@
-import { LayoutDashboard, BarChart3, Gift, Users, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, Wallet, User, Settings, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: BarChart3, label: "Leaderboard", path: "/leaderboard" },
-  { icon: Gift, label: "Claim", path: "/claim" },
+  { icon: ListTodo, label: "Tasks", path: "/tasks" },
+  { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
+  { icon: Wallet, label: "Wallet", path: "/wallet" },
+  { icon: User, label: "Profile", path: "/profile" },
 ];
 
 const bottomItems = [
-  { icon: Settings, label: "Setting", path: "/settings" },
+  { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 const Sidebar = () => {
-  const handleLogout = () => {
-    console.log("Logout clicked");
-  };
+  const { user, signOut } = useAuth();
 
   return (
     <aside className="hidden lg:flex w-48 xl:w-56 min-h-screen bg-sidebar border-r border-border/50 py-4 xl:py-6 flex-col">
@@ -49,13 +50,15 @@ const Sidebar = () => {
           </NavLink>
         ))}
         
-        <button
-          onClick={handleLogout}
-          className="nav-item w-full text-left hover:text-destructive text-sm xl:text-base py-2.5 xl:py-3"
-        >
-          <LogOut className="h-4 w-4 xl:h-5 xl:w-5" />
-          <span className="font-medium">Logout</span>
-        </button>
+        {user && (
+          <button
+            onClick={signOut}
+            className="nav-item w-full text-left hover:text-destructive text-sm xl:text-base py-2.5 xl:py-3"
+          >
+            <LogOut className="h-4 w-4 xl:h-5 xl:w-5" />
+            <span className="font-medium">Logout</span>
+          </button>
+        )}
       </div>
     </aside>
   );

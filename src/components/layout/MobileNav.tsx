@@ -1,21 +1,25 @@
-import { LayoutDashboard, BarChart3, Gift, Users, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, Wallet, User, Settings, LogOut, Menu } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: BarChart3, label: "Leaderboard", path: "/leaderboard" },
-  { icon: Gift, label: "Claim", path: "/claim" },
+  { icon: ListTodo, label: "Tasks", path: "/tasks" },
+  { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
+  { icon: Wallet, label: "Wallet", path: "/wallet" },
+  { icon: User, label: "Profile", path: "/profile" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 const MobileNav = () => {
   const [open, setOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
-  const handleLogout = () => {
-    console.log("Logout clicked");
+  const handleLogout = async () => {
+    await signOut();
     setOpen(false);
   };
 
@@ -44,15 +48,17 @@ const MobileNav = () => {
             ))}
           </nav>
 
-          <div className="px-3 mt-auto">
-            <button
-              onClick={handleLogout}
-              className="nav-item w-full text-left hover:text-destructive"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="font-medium">Logout</span>
-            </button>
-          </div>
+          {user && (
+            <div className="px-3 mt-auto">
+              <button
+                onClick={handleLogout}
+                className="nav-item w-full text-left hover:text-destructive"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="font-medium">Logout</span>
+              </button>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
