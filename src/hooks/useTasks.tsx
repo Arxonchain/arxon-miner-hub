@@ -131,8 +131,6 @@ export const useTasks = () => {
           description: "Your submission is pending review",
         });
       }
-
-      fetchUserTasks();
     } catch (error: any) {
       console.error('Error claiming task:', error);
       toast({
@@ -148,10 +146,60 @@ export const useTasks = () => {
     return userTask?.status || 'available';
   };
 
+  // Initial fetch
   useEffect(() => {
     fetchTasks();
     fetchUserTasks();
   }, [fetchTasks, fetchUserTasks]);
+
+  // Real-time subscription for user_tasks
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for user_tasks');
+    
+    const channel = supabase
+      .channel('user-tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_tasks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time user_tasks update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setUserTasks(prev => [...prev, payload.new as UserTask]);
+          } else if (payload.eventType === 'UPDATE') {
+            setUserTasks(prev => 
+              prev.map(ut => ut.id === (payload.new as UserTask).id ? payload.new as UserTask : ut)
+            );
+            
+            // Show toast if task was approved
+            const newTask = payload.new as UserTask;
+            const oldTask = payload.old as UserTask;
+            if (oldTask.status === 'pending' && newTask.status === 'completed') {
+              triggerConfetti();
+              toast({
+                title: "Task Approved! 🎉",
+                description: `+${newTask.points_awarded} ARX-P earned`,
+              });
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setUserTasks(prev => prev.filter(ut => ut.id !== (payload.old as UserTask).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up user_tasks subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, triggerConfetti]);
 
   return {
     tasks,

@@ -55,8 +55,36 @@ export const useLeaderboard = (limit: number = 100) => {
     }
   }, [limit]);
 
+  // Initial fetch
   useEffect(() => {
     fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  // Real-time subscription for all user_points changes
+  useEffect(() => {
+    console.log('Setting up real-time subscription for leaderboard');
+    
+    const channel = supabase
+      .channel('leaderboard-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_points'
+        },
+        (payload) => {
+          console.log('Real-time leaderboard update:', payload);
+          // Refetch the entire leaderboard to get proper rankings
+          fetchLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up leaderboard subscription');
+      supabase.removeChannel(channel);
+    };
   }, [fetchLeaderboard]);
 
   return { leaderboard, loading, refreshLeaderboard: fetchLeaderboard };

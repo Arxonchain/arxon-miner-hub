@@ -6,7 +6,6 @@ import { toast } from '@/hooks/use-toast';
 
 const MAX_MINING_HOURS = 8;
 const POINTS_PER_HOUR = 10;
-const POINTS_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 export const useMining = () => {
   const { user } = useAuth();
@@ -186,9 +185,48 @@ export const useMining = () => {
     };
   }, [isMining, sessionId, earnedPoints]);
 
+  // Initial fetch
   useEffect(() => {
     checkActiveSession();
   }, [checkActiveSession]);
+
+  // Real-time subscription for mining sessions
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for mining_sessions');
+    
+    const channel = supabase
+      .channel('mining-session-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mining_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time mining session update:', payload);
+          
+          if (payload.eventType === 'UPDATE') {
+            const session = payload.new as any;
+            if (!session.is_active && session.id === sessionId) {
+              // Session was ended (possibly from another tab)
+              setIsMining(false);
+              setSessionId(null);
+            }
+            setEarnedPoints(Number(session.arx_mined));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up mining_sessions subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, sessionId]);
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
