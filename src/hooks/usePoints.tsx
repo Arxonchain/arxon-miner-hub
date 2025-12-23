@@ -101,12 +101,6 @@ export const usePoints = () => {
       .eq('user_id', user.id);
 
     if (!error) {
-      setPoints(prev => prev ? {
-        ...prev,
-        total_points: newTotal,
-        [column]: newTypePoints
-      } : null);
-      
       // Trigger confetti for significant rewards
       if (amount >= 10) {
         triggerConfetti();
@@ -114,9 +108,41 @@ export const usePoints = () => {
     }
   }, [user, points]);
 
+  // Initial fetch
   useEffect(() => {
     fetchPoints();
   }, [fetchPoints]);
+
+  // Real-time subscription for user's own points
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for user_points');
+    
+    const channel = supabase
+      .channel('user-points-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_points',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time points update:', payload);
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setPoints(payload.new as UserPoints);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up user_points subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   return { points, loading, rank, addPoints, refreshPoints: fetchPoints, triggerConfetti };
 };
