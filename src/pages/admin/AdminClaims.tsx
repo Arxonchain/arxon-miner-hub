@@ -1,20 +1,67 @@
 import { useState } from "react";
-import { Search, Filter, Download, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Filter, Download, RefreshCw, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
 
-const mockClaims = [
-  { id: "1", wallet: "0x8f3a...c2e1", eligible: 45230, claimed: 20000, proofStatus: "verified", lastActive: "2 min ago" },
-  { id: "2", wallet: "0x2b7c...9f4a", eligible: 28450, claimed: 0, proofStatus: "pending", lastActive: "5 min ago" },
-  { id: "3", wallet: "0xd1e5...7b2c", eligible: 67890, claimed: 67890, proofStatus: "verified", lastActive: "1 hour ago" },
-  { id: "4", wallet: "0x6a9f...e3d8", eligible: 125600, claimed: 50000, proofStatus: "verified", lastActive: "3 hours ago" },
-  { id: "5", wallet: "0xc4b2...1f6e", eligible: 19850, claimed: 0, proofStatus: "invalid", lastActive: "30 min ago" },
-];
+interface ClaimData {
+  id: string;
+  wallet: string;
+  eligible: number;
+  claimed: number;
+  proofStatus: string;
+  lastActive: string;
+}
 
 const AdminClaims = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredClaims = mockClaims.filter((claim) =>
+  const { data: claims = [], isLoading, refetch } = useQuery({
+    queryKey: ["admin-claims"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("claims")
+        .select("*")
+        .order("last_active", { ascending: false });
+
+      if (error) throw error;
+
+      return data.map((claim): ClaimData => ({
+        id: claim.id,
+        wallet: claim.wallet_address.length > 12 
+          ? `${claim.wallet_address.slice(0, 6)}...${claim.wallet_address.slice(-4)}`
+          : claim.wallet_address,
+        eligible: Number(claim.eligible_amount),
+        claimed: Number(claim.claimed_amount),
+        proofStatus: claim.proof_status,
+        lastActive: formatDistanceToNow(new Date(claim.last_active), { addSuffix: true }),
+      }));
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-claims-stats"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("claims")
+        .select("eligible_amount, claimed_amount");
+
+      if (error) throw error;
+
+      const totalEligible = data.reduce((sum, c) => sum + Number(c.eligible_amount), 0);
+      const totalClaimed = data.reduce((sum, c) => sum + Number(c.claimed_amount), 0);
+      const unclaimed = totalEligible - totalClaimed;
+      const claimRate = totalEligible > 0 ? Math.round((totalClaimed / totalEligible) * 100) : 0;
+
+      return { totalEligible, totalClaimed, unclaimed, claimRate };
+    },
+    refetchInterval: 30000,
+  });
+
+  const filteredClaims = claims.filter((claim) =>
     claim.wallet.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -24,13 +71,20 @@ const AdminClaims = () => {
       pending: { icon: Clock, className: "bg-yellow-500/10 text-yellow-500" },
       invalid: { icon: XCircle, className: "bg-red-500/10 text-red-500" },
     };
-    const { icon: Icon, className } = config[status as keyof typeof config];
+    const configItem = config[status as keyof typeof config] || config.pending;
+    const Icon = configItem.icon;
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${className}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${configItem.className}`}>
         <Icon className="h-3 w-3" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString();
   };
 
   return (
@@ -42,9 +96,9 @@ const AdminClaims = () => {
           <p className="text-muted-foreground">Manage token claims and merkle proofs</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button variant="outline" className="flex items-center gap-2" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
-            Recalculate Proofs
+            Refresh
           </Button>
           <Button variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
@@ -56,19 +110,19 @@ const AdminClaims = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">287.1K</p>
+          <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalEligible || 0)}</p>
           <p className="text-sm text-muted-foreground">Total Eligible</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-green-500">137.9K</p>
+          <p className="text-2xl font-bold text-green-500">{formatNumber(stats?.totalClaimed || 0)}</p>
           <p className="text-sm text-muted-foreground">Total Claimed</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-yellow-500">149.2K</p>
+          <p className="text-2xl font-bold text-yellow-500">{formatNumber(stats?.unclaimed || 0)}</p>
           <p className="text-sm text-muted-foreground">Unclaimed</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-primary">48%</p>
+          <p className="text-2xl font-bold text-primary">{stats?.claimRate || 0}%</p>
           <p className="text-sm text-muted-foreground">Claim Rate</p>
         </div>
       </div>
@@ -93,32 +147,46 @@ const AdminClaims = () => {
       {/* Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Eligible</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Claimed</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Proof Status</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClaims.map((claim) => (
-                <tr key={claim.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                  <td className="py-4 px-4 text-sm font-mono text-primary">{claim.wallet}</td>
-                  <td className="py-4 px-4 text-sm text-foreground">{claim.eligible.toLocaleString()} ARX</td>
-                  <td className="py-4 px-4 text-sm text-foreground">{claim.claimed.toLocaleString()} ARX</td>
-                  <td className="py-4 px-4">{getProofBadge(claim.proofStatus)}</td>
-                  <td className="py-4 px-4 text-sm text-muted-foreground">{claim.lastActive}</td>
-                  <td className="py-4 px-4">
-                    <Button variant="ghost" size="sm">View</Button>
-                  </td>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Eligible</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Claimed</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Proof Status</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredClaims.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      No claims found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredClaims.map((claim) => (
+                    <tr key={claim.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="py-4 px-4 text-sm font-mono text-primary">{claim.wallet}</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{claim.eligible.toLocaleString()} ARX</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{claim.claimed.toLocaleString()} ARX</td>
+                      <td className="py-4 px-4">{getProofBadge(claim.proofStatus)}</td>
+                      <td className="py-4 px-4 text-sm text-muted-foreground">{claim.lastActive}</td>
+                      <td className="py-4 px-4">
+                        <Button variant="ghost" size="sm">View</Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
