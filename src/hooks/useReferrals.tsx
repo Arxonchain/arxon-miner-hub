@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
+import { User } from '@supabase/supabase-js';
 
 interface ReferralData {
   id: string;
@@ -17,8 +17,7 @@ interface ReferralStats {
   totalEarnings: number;
 }
 
-export const useReferrals = () => {
-  const { user } = useAuth();
+export const useReferrals = (user: User | null) => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<ReferralData[]>([]);
   const [stats, setStats] = useState<ReferralStats>({
