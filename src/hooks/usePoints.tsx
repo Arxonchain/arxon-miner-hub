@@ -13,6 +13,7 @@ interface UserPoints {
   task_points: number;
   social_points: number;
   referral_points: number;
+  referral_bonus_percentage: number;
 }
 
 export const usePoints = () => {
