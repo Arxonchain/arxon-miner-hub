@@ -1,10 +1,11 @@
-import { Bell, ChevronDown, Wallet, Zap, LogIn } from "lucide-react";
+import { Bell, ChevronDown, Wallet, Zap, LogIn, Pickaxe } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
+import { useMining } from "@/hooks/useMining";
 import AuthDialog from "@/components/auth/AuthDialog";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { points } = usePoints();
+  const { isMining, elapsedTime, formatTime } = useMining();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   return (
@@ -29,6 +31,30 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 lg:gap-4">
+          {/* Mining Status Indicator */}
+          <button
+            onClick={() => navigate('/mining')}
+            className={`flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg transition-all ${
+              isMining 
+                ? 'bg-green-500/20 border border-green-500/30 hover:bg-green-500/30' 
+                : 'bg-secondary/50 hover:bg-secondary/70'
+            }`}
+          >
+            <div className="relative">
+              <Pickaxe className={`h-3.5 w-3.5 lg:h-4 lg:w-4 ${isMining ? 'text-green-400' : 'text-muted-foreground'}`} />
+              {isMining && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              )}
+            </div>
+            <span className={`text-[10px] sm:text-xs lg:text-sm font-medium ${isMining ? 'text-green-400' : 'text-muted-foreground'}`}>
+              {isMining ? (
+                <span className="hidden xs:inline">{formatTime(elapsedTime)}</span>
+              ) : (
+                <span className="hidden sm:inline">Mine</span>
+              )}
+            </span>
+          </button>
+
           {/* Points Display */}
           {user && (
             <div className="hidden sm:flex items-center gap-1.5 lg:gap-2 bg-secondary/50 px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg">
