@@ -55,56 +55,66 @@ const Mining = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center px-4">
-      {/* Animated Background Glow Orbs */}
+      {/* Animated Background Glow Orbs - Blue Theme */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Main center glow */}
         <div 
-          className="absolute w-[300px] md:w-[600px] h-[300px] md:h-[600px] rounded-full opacity-70"
+          className="absolute w-[350px] md:w-[700px] h-[350px] md:h-[700px] rounded-full"
           style={{
-            background: isMining 
-              ? 'radial-gradient(circle, hsl(142 76% 36% / 0.6) 0%, transparent 70%)' 
-              : 'radial-gradient(circle, hsl(217 91% 60% / 0.6) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-            animation: 'drift-1 15s ease-in-out infinite',
-            top: '20%',
+            background: 'radial-gradient(circle, hsl(217 91% 60% / 0.7) 0%, hsl(240 70% 50% / 0.3) 40%, transparent 70%)',
+            filter: 'blur(60px)',
+            animation: 'glow-pulse 4s ease-in-out infinite, drift-1 20s ease-in-out infinite',
+            top: '15%',
             left: '50%',
             transform: 'translateX(-50%)',
           }}
         />
         
+        {/* Right side glow */}
         <div 
-          className="absolute w-[200px] md:w-[400px] h-[200px] md:h-[400px] rounded-full opacity-50"
+          className="absolute w-[250px] md:w-[500px] h-[250px] md:h-[500px] rounded-full"
           style={{
-            background: isMining 
-              ? 'radial-gradient(circle, hsl(142 76% 36% / 0.5) 0%, transparent 70%)'
-              : 'radial-gradient(circle, hsl(217 91% 60% / 0.5) 0%, transparent 70%)',
-            filter: 'blur(100px)',
-            animation: 'drift-2 18s ease-in-out infinite',
-            bottom: '10%',
-            right: '-10%',
+            background: 'radial-gradient(circle, hsl(217 91% 60% / 0.6) 0%, hsl(200 80% 50% / 0.2) 50%, transparent 70%)',
+            filter: 'blur(80px)',
+            animation: 'glow-pulse 5s ease-in-out infinite 1s, drift-2 18s ease-in-out infinite',
+            bottom: '5%',
+            right: '-5%',
           }}
         />
         
+        {/* Left side glow */}
         <div 
-          className="absolute w-[250px] md:w-[500px] h-[250px] md:h-[500px] rounded-full opacity-30"
+          className="absolute w-[300px] md:w-[550px] h-[300px] md:h-[550px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, hsl(210 40% 98% / 0.4) 0%, transparent 70%)',
-            filter: 'blur(120px)',
-            animation: 'drift-3 20s ease-in-out infinite',
-            top: '30%',
+            background: 'radial-gradient(circle, hsl(220 85% 55% / 0.5) 0%, hsl(240 60% 45% / 0.2) 50%, transparent 70%)',
+            filter: 'blur(100px)',
+            animation: 'glow-pulse 6s ease-in-out infinite 2s, drift-3 22s ease-in-out infinite',
+            top: '20%',
             left: '-15%',
           }}
         />
 
+        {/* Bottom center glow */}
         <div 
-          className="absolute w-[175px] md:w-[350px] h-[175px] md:h-[350px] rounded-full opacity-40"
+          className="absolute w-[200px] md:w-[400px] h-[200px] md:h-[400px] rounded-full"
           style={{
-            background: isMining 
-              ? 'radial-gradient(circle, hsl(142 76% 36% / 0.4) 0%, transparent 70%)'
-              : 'radial-gradient(circle, hsl(217 91% 60% / 0.4) 0%, transparent 70%)',
-            filter: 'blur(90px)',
-            animation: 'drift-4 12s ease-in-out infinite',
-            bottom: '20%',
-            left: '30%',
+            background: 'radial-gradient(circle, hsl(210 90% 55% / 0.5) 0%, hsl(230 70% 50% / 0.15) 50%, transparent 70%)',
+            filter: 'blur(70px)',
+            animation: 'glow-pulse 4.5s ease-in-out infinite 0.5s, drift-4 15s ease-in-out infinite',
+            bottom: '15%',
+            left: '40%',
+          }}
+        />
+
+        {/* Accent white/cyan glow for depth */}
+        <div 
+          className="absolute w-[150px] md:w-[300px] h-[150px] md:h-[300px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, hsl(195 100% 70% / 0.4) 0%, transparent 60%)',
+            filter: 'blur(50px)',
+            animation: 'glow-pulse 3s ease-in-out infinite 1.5s, drift-5 12s ease-in-out infinite',
+            top: '40%',
+            right: '20%',
           }}
         />
       </div>
@@ -120,52 +130,6 @@ const Mining = () => {
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in w-full max-w-md">
-        {/* X Profile Boost Card */}
-        {xProfile ? (
-          <div 
-            className="glass-card p-3 sm:p-4 mb-4 w-full border-blue-500/30 bg-blue-500/5"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Twitter className="h-4 w-4 text-blue-400" />
-                <span className="text-xs sm:text-sm font-medium text-foreground">@{xProfile.username}</span>
-              </div>
-              <button
-                onClick={refreshBoost}
-                disabled={scanning}
-                className="p-1 hover:bg-white/10 rounded transition-colors"
-                title="Refresh boost"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${scanning ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            
-            <div className="mt-2 pt-2 border-t border-border/50">
-              <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
-                <span>{xProfile.qualified_posts_today} posts today</span>
-                <span>avg {xProfile.average_engagement} eng</span>
-                {xProfile.viral_bonus && <span className="text-yellow-400">🔥 Viral</span>}
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-400" />
-                <span className="text-sm sm:text-base font-bold text-yellow-400">
-                  {xProfile.boost_percentage}% Yap Boost
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Rate: {boostedRate.toFixed(1)} ARX-P/hr
-              </p>
-            </div>
-          </div>
-        ) : user && (
-          <button
-            onClick={() => navigate('/x-profile')}
-            className="glass-card p-3 mb-4 w-full flex items-center justify-center gap-2 hover:bg-white/5 transition-colors border-dashed"
-          >
-            <Twitter className="h-4 w-4 text-blue-400" />
-            <span className="text-xs sm:text-sm text-muted-foreground">Connect X for up to 800% boost</span>
-          </button>
-        )}
 
         {/* Total Balance Card */}
         <div 
@@ -370,6 +334,29 @@ const Mining = () => {
           }
           50% {
             transform: translateX(60px) translateY(-30px) scale(1.1);
+          }
+        }
+
+        @keyframes drift-5 {
+          0%, 100% {
+            transform: translateX(0) translateY(0);
+          }
+          33% {
+            transform: translateX(-40px) translateY(30px);
+          }
+          66% {
+            transform: translateX(30px) translateY(-20px);
+          }
+        }
+
+        @keyframes glow-pulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: translateX(-50%) scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: translateX(-50%) scale(1.05);
           }
         }
 
