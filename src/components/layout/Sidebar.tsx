@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, ListTodo, Users, Wallet, User, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, Twitter, User, Settings, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -7,7 +7,7 @@ const navItems = [
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
-  { icon: Wallet, label: "Wallet", path: "/wallet" },
+  { icon: Twitter, label: "X Profile", path: "/x-profile" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 

@@ -12,7 +12,7 @@ import Referrals from "./pages/Referrals";
 import Mining from "./pages/Mining";
 import Settings from "./pages/Settings";
 import Tasks from "./pages/Tasks";
-import WalletPage from "./pages/Wallet";
+import XProfilePage from "./pages/XProfile";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -45,7 +45,7 @@ const App = () => (
             <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
             <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
             <Route path="/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
-            <Route path="/wallet" element={<DashboardLayout><WalletPage /></DashboardLayout>} />
+            <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
             <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
             <Route path="/mining" element={<Mining />} />
             
