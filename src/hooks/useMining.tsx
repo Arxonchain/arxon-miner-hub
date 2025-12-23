@@ -162,7 +162,6 @@ export const useMining = () => {
         const pointsEarned = Math.floor(hoursElapsed * pointsPerHour);
         
         if (pointsEarned > lastPointsAwardedRef.current) {
-          const newPoints = pointsEarned - lastPointsAwardedRef.current;
           lastPointsAwardedRef.current = pointsEarned;
           setEarnedPoints(pointsEarned);
           
@@ -171,11 +170,6 @@ export const useMining = () => {
             .from('mining_sessions')
             .update({ arx_mined: pointsEarned })
             .eq('id', sessionId);
-          
-          toast({
-            title: `+${newPoints} ARX-P! ⚡`,
-            description: "Keep mining to earn more",
-          });
         }
 
         return newElapsed;
