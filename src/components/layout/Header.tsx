@@ -1,10 +1,11 @@
-import { Bell, ChevronDown, Wallet, Zap, LogIn } from "lucide-react";
+import { Bell, ChevronDown, Zap, LogIn, Twitter, Check } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
+import { useXProfile } from "@/hooks/useXProfile";
 import AuthDialog from "@/components/auth/AuthDialog";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { points } = usePoints();
+  const { xProfile } = useXProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   return (
@@ -39,13 +41,26 @@ const Header = () => {
             </div>
           )}
 
-          {/* Connect Wallet Button */}
+          {/* Connect X Button */}
           <button 
-            onClick={() => navigate('/wallet')}
-            className="btn-wallet text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 lg:px-6 py-1.5 sm:py-2 lg:py-2.5"
+            onClick={() => navigate('/x-profile')}
+            className={`btn-glow text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 lg:px-6 py-1.5 sm:py-2 lg:py-2.5 flex items-center gap-1.5 ${
+              xProfile 
+                ? 'bg-accent/20 border-accent text-accent' 
+                : 'bg-secondary/50 border-border text-foreground hover:border-accent/50'
+            } border rounded-lg transition-all duration-300`}
           >
-            <Wallet className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
-            <span className="hidden xs:inline sm:inline">Wallet</span>
+            {xProfile ? (
+              <>
+                <Check className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
+                <span className="hidden xs:inline sm:inline">X Connected</span>
+              </>
+            ) : (
+              <>
+                <Twitter className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
+                <span className="hidden xs:inline sm:inline">Connect X</span>
+              </>
+            )}
           </button>
 
           {/* Auth Button / User Menu */}
@@ -86,7 +101,7 @@ const Header = () => {
           ) : (
             <button 
               onClick={() => setShowAuthDialog(true)}
-              className="btn-mining text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2"
+              className="btn-glow btn-mining text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2"
             >
               <LogIn className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
               <span className="hidden sm:inline">Sign In</span>
