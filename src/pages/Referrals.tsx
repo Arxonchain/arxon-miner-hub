@@ -22,9 +22,28 @@ const Referrals = () => {
     }
   };
 
-  const shareReferralLink = () => {
+  const shareReferralLink = async () => {
     const link = getReferralLink();
-    if (link) {
+    if (!link) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join ARXON',
+          text: `Join me on ARXON and start mining! Use my referral code: ${referralCode}`,
+          url: link,
+        });
+      } catch (err) {
+        // User cancelled or share failed - fall back to clipboard
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(link);
+          toast({
+            title: "Link Copied!",
+            description: "Referral link copied to clipboard",
+          });
+        }
+      }
+    } else {
       navigator.clipboard.writeText(link);
       toast({
         title: "Link Copied!",
