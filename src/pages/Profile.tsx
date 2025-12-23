@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { User, Wallet, Zap, Clock, Calendar, Trophy, History, Edit2, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
@@ -19,7 +19,7 @@ interface MiningHistory {
 
 const Profile = () => {
   const { user, signOut } = useAuth();
-  const { points, rank, loading: pointsLoading } = usePoints();
+  const { points, rank, loading: pointsLoading, refreshPoints } = usePoints();
   const { primaryWallet } = useWallet();
   const [showAuth, setShowAuth] = useState(false);
   const [username, setUsername] = useState("");
@@ -28,14 +28,7 @@ const Profile = () => {
   const [miningHistory, setMiningHistory] = useState<MiningHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchMiningHistory();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
@@ -46,9 +39,9 @@ const Profile = () => {
     if (data?.username) {
       setUsername(data.username);
     }
-  };
+  }, [user]);
 
-  const fetchMiningHistory = async () => {
+  const fetchMiningHistory = useCallback(async () => {
     if (!user) return;
     
     const { data, error } = await supabase
@@ -62,7 +55,71 @@ const Profile = () => {
       setMiningHistory(data);
     }
     setHistoryLoading(false);
-  };
+  }, [user]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+      fetchMiningHistory();
+    }
+  }, [user, fetchProfile, fetchMiningHistory]);
+
+  // Real-time subscriptions for profile page
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscriptions for Profile page');
+
+    const channels = [
+      // Mining sessions real-time
+      supabase
+        .channel('profile-mining-history')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'mining_sessions',
+          filter: `user_id=eq.${user.id}`
+        }, () => {
+          console.log('Mining history updated');
+          fetchMiningHistory();
+        })
+        .subscribe(),
+
+      // User points real-time - refresh points when updated
+      supabase
+        .channel('profile-user-points')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'user_points',
+          filter: `user_id=eq.${user.id}`
+        }, () => {
+          console.log('User points updated on Profile');
+          refreshPoints();
+        })
+        .subscribe(),
+
+      // Daily checkins real-time
+      supabase
+        .channel('profile-checkins')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'daily_checkins',
+          filter: `user_id=eq.${user.id}`
+        }, () => {
+          console.log('Checkins updated');
+          refreshPoints();
+        })
+        .subscribe()
+    ];
+
+    return () => {
+      console.log('Cleaning up Profile subscriptions');
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, fetchMiningHistory, refreshPoints]);
 
   const saveUsername = async () => {
     if (!user || !username.trim()) return;
