@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
@@ -10,14 +11,49 @@ import EarningStatistics from "@/components/dashboard/EarningStatistics";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { points, loading: pointsLoading, rank } = usePoints();
+  const { points, loading: pointsLoading, rank, refreshPoints } = usePoints();
   const { isMining, elapsedTime, formatTime, earnedPoints } = useMining();
   const { canCheckin, performCheckin, currentStreak, loading: checkinLoading } = useCheckin();
   const [showAuth, setShowAuth] = useState(false);
+
+  // Real-time subscriptions for Dashboard
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscriptions for Dashboard');
+
+    const channel = supabase
+      .channel('dashboard-points')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_points',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Dashboard: Points updated in real-time', payload);
+        refreshPoints();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'daily_checkins',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Dashboard: Checkin updated in real-time', payload);
+        refreshPoints();
+      })
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up Dashboard subscriptions');
+      supabase.removeChannel(channel);
+    };
+  }, [user, refreshPoints]);
 
   const handleStartMining = () => {
     if (!user) {

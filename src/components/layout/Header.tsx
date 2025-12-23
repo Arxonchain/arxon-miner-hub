@@ -1,11 +1,12 @@
 import { Bell, ChevronDown, Wallet, Zap, LogIn } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import AuthDialog from "@/components/auth/AuthDialog";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,8 +18,32 @@ import {
 const Header = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { points } = usePoints();
+  const { points, refreshPoints } = usePoints();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+
+  // Real-time subscription for header points display
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for Header points');
+
+    const channel = supabase
+      .channel('header-points')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_points',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Header: Points updated', payload);
+        refreshPoints();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, refreshPoints]);
 
   return (
     <>
