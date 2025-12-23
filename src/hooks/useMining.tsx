@@ -5,11 +5,11 @@ import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
 
 const MAX_MINING_HOURS = 8;
-const POINTS_PER_HOUR = 10;
+const BASE_POINTS_PER_HOUR = 10;
 
 export const useMining = () => {
   const { user } = useAuth();
-  const { addPoints, triggerConfetti } = usePoints();
+  const { addPoints, triggerConfetti, points } = usePoints();
   const [isMining, setIsMining] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -17,6 +17,10 @@ export const useMining = () => {
   const [loading, setLoading] = useState(true);
   const lastPointsAwardedRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate effective points per hour with referral bonus
+  const referralBonus = points?.referral_bonus_percentage || 0;
+  const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + referralBonus / 100);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -153,9 +157,9 @@ export const useMining = () => {
           return prev;
         }
 
-        // Calculate points based on hours mined
+        // Calculate points based on hours mined with referral bonus
         const hoursElapsed = newElapsed / 3600;
-        const pointsEarned = Math.floor(hoursElapsed * POINTS_PER_HOUR);
+        const pointsEarned = Math.floor(hoursElapsed * pointsPerHour);
         
         if (pointsEarned > lastPointsAwardedRef.current) {
           const newPoints = pointsEarned - lastPointsAwardedRef.current;
@@ -244,6 +248,8 @@ export const useMining = () => {
     maxTimeSeconds,
     startMining,
     stopMining,
-    formatTime
+    formatTime,
+    referralBonus,
+    pointsPerHour
   };
 };

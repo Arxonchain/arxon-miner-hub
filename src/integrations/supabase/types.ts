@@ -333,6 +333,7 @@ export type Database = {
           id: string
           last_checkin_date: string | null
           mining_points: number
+          referral_bonus_percentage: number
           referral_points: number
           social_points: number
           task_points: number
@@ -346,6 +347,7 @@ export type Database = {
           id?: string
           last_checkin_date?: string | null
           mining_points?: number
+          referral_bonus_percentage?: number
           referral_points?: number
           social_points?: number
           task_points?: number
@@ -359,6 +361,7 @@ export type Database = {
           id?: string
           last_checkin_date?: string | null
           mining_points?: number
+          referral_bonus_percentage?: number
           referral_points?: number
           social_points?: number
           task_points?: number
