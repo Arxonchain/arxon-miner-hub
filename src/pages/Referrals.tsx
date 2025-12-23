@@ -75,7 +75,7 @@ const Referrals = () => {
                 {referralCode && (
                   <button 
                     onClick={copyReferralCode}
-                    className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
+                    className="btn-glow p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-all"
                     title="Copy code"
                   >
                     <Copy className="h-4 w-4 text-primary" />
@@ -85,7 +85,7 @@ const Referrals = () => {
             </div>
             <button 
               onClick={shareReferralLink} 
-              className="btn-claim flex items-center gap-2 w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2"
+              className="btn-glow btn-claim flex items-center gap-2 w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2"
               disabled={!referralCode}
             >
               Share Referral Link

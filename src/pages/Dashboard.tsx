@@ -70,7 +70,7 @@ const Dashboard = () => {
           <Button
             onClick={handleCheckin}
             disabled={!canCheckin || checkinLoading}
-            className={canCheckin ? 'btn-mining' : 'btn-claimed'}
+            className={canCheckin ? 'btn-glow btn-mining' : 'btn-claimed'}
           >
             {canCheckin ? (
               <>
@@ -124,7 +124,7 @@ const Dashboard = () => {
             </div>
             <button 
               onClick={() => navigate('/mining')}
-              className="btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5"
+              className="btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5"
             >
               <span className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-green-400 animate-pulse" />
               View Mining
@@ -138,7 +138,7 @@ const Dashboard = () => {
             </p>
             <button 
               onClick={handleStartMining}
-              className="btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5"
+              className="btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5"
             >
               <span className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-foreground" />
               Start Mining
