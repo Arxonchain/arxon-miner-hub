@@ -1,4 +1,4 @@
-import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw, Twitter } from "lucide-react";
+import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";

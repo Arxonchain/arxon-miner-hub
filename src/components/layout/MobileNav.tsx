@@ -1,18 +1,20 @@
-import { LayoutDashboard, Trophy, ListTodo, Users, Twitter, User, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Menu } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
+import XIcon from "@/components/icons/XIcon";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
-  { icon: Twitter, label: "X Profile", path: "/x-profile" },
   { icon: User, label: "Profile", path: "/profile" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
+
+const xProfileItem = { label: "X Profile", path: "/x-profile" };
 
 const MobileNav = () => {
   const [open, setOpen] = useState(false);
@@ -46,6 +48,16 @@ const MobileNav = () => {
                 <span className="font-medium">{item.label}</span>
               </RouterNavLink>
             ))}
+            <RouterNavLink
+              to={xProfileItem.path}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `nav-item ${isActive ? "nav-item-active" : ""}`
+              }
+            >
+              <XIcon className="h-5 w-5" />
+              <span className="font-medium">{xProfileItem.label}</span>
+            </RouterNavLink>
           </nav>
 
           {user && (

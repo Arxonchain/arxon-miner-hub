@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Twitter } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo } from "lucide-react";
+import XIcon from "@/components/icons/XIcon";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -212,7 +213,7 @@ const Dashboard = () => {
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
             <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 border border-blue-500/30 shrink-0">
-              <Twitter className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
+              <XIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground" />
             </div>
             <div className="text-center sm:text-left min-w-0">
               <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-blue-300 transition-colors truncate">X Profile</p>
