@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Wallet, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -152,71 +152,99 @@ const Dashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <button
           onClick={() => navigate('/tasks')}
-          className="glass-card p-4 text-left transition-all duration-200 group 
-                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
-                     active:scale-95 active:bg-primary/20
-                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                     cursor-pointer relative overflow-hidden"
+          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-blue-500/20 to-blue-600/10 
+                     border border-blue-500/30 rounded-xl
+                     shadow-md shadow-blue-500/10
+                     hover:from-blue-500/30 hover:to-blue-600/20 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20
+                     active:scale-95 active:from-blue-500/40
+                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-          <div className="relative z-10">
-            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Tasks</p>
-            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Complete & earn</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
+              <ListTodo className="h-4 w-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-blue-300 transition-colors">Tasks</p>
+              <p className="text-xs text-muted-foreground">Complete & earn</p>
+            </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
-                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400/50 
+                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all" />
         </button>
         <button
           onClick={() => navigate('/leaderboard')}
-          className="glass-card p-4 text-left transition-all duration-200 group 
-                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
-                     active:scale-95 active:bg-primary/20
-                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                     cursor-pointer relative overflow-hidden"
+          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-amber-500/20 to-orange-600/10 
+                     border border-amber-500/30 rounded-xl
+                     shadow-md shadow-amber-500/10
+                     hover:from-amber-500/30 hover:to-orange-600/20 hover:border-amber-400/50 hover:shadow-lg hover:shadow-amber-500/20
+                     active:scale-95 active:from-amber-500/40
+                     focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-          <div className="relative z-10">
-            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Leaderboard</p>
-            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Top 100 miners</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
+              <Trophy className="h-4 w-4 text-amber-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-amber-300 transition-colors">Leaderboard</p>
+              <p className="text-xs text-muted-foreground">Top 100 miners</p>
+            </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
-                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400/50 
+                                  group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
         </button>
         <button
           onClick={() => navigate('/wallet')}
-          className="glass-card p-4 text-left transition-all duration-200 group 
-                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
-                     active:scale-95 active:bg-primary/20
-                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                     cursor-pointer relative overflow-hidden"
+          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-emerald-500/20 to-green-600/10 
+                     border border-emerald-500/30 rounded-xl
+                     shadow-md shadow-emerald-500/10
+                     hover:from-emerald-500/30 hover:to-green-600/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/20
+                     active:scale-95 active:from-emerald-500/40
+                     focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-          <div className="relative z-10">
-            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Wallet</p>
-            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Connect Polkadot</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30">
+              <Wallet className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-emerald-300 transition-colors">Wallet</p>
+              <p className="text-xs text-muted-foreground">Connect Polkadot</p>
+            </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
-                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400/50 
+                                  group-hover:text-emerald-300 group-hover:translate-x-1 transition-all" />
         </button>
         <button
           onClick={() => navigate('/profile')}
-          className="glass-card p-4 text-left transition-all duration-200 group 
-                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
-                     active:scale-95 active:bg-primary/20
-                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
-                     cursor-pointer relative overflow-hidden"
+          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-purple-500/20 to-violet-600/10 
+                     border border-purple-500/30 rounded-xl
+                     shadow-md shadow-purple-500/10
+                     hover:from-purple-500/30 hover:to-violet-600/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20
+                     active:scale-95 active:from-purple-500/40
+                     focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-          <div className="relative z-10">
-            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Profile</p>
-            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">View stats</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
+              <User className="h-4 w-4 text-purple-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-purple-300 transition-colors">Profile</p>
+              <p className="text-xs text-muted-foreground">View stats</p>
+            </div>
           </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
-                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400/50 
+                                  group-hover:text-purple-300 group-hover:translate-x-1 transition-all" />
         </button>
       </div>
 
