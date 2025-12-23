@@ -1,18 +1,23 @@
 import { useState } from "react";
-import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins, RefreshCw } from "lucide-react";
+import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAdminStats } from "@/hooks/useAdminStats";
-import { formatDistanceToNow } from "date-fns";
+
+const mockMiners = [
+  { id: "1", wallet: "0x8f3a...c2e1", username: "CryptoMiner42", sessions: 156, totalMined: 45230, lastActive: "2 min ago", status: "active" },
+  { id: "2", wallet: "0x2b7c...9f4a", username: "BlockHunter", sessions: 89, totalMined: 28450, lastActive: "5 min ago", status: "active" },
+  { id: "3", wallet: "0xd1e5...7b2c", username: "ARXFan99", sessions: 234, totalMined: 67890, lastActive: "1 hour ago", status: "idle" },
+  { id: "4", wallet: "0x6a9f...e3d8", username: "MiningPro", sessions: 412, totalMined: 125600, lastActive: "3 hours ago", status: "offline" },
+  { id: "5", wallet: "0xc4b2...1f6e", username: "NodeRunner", sessions: 78, totalMined: 19850, lastActive: "30 min ago", status: "active" },
+];
 
 const AdminMiners = () => {
-  const { stats, miners, loading, refetch } = useAdminStats();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredMiners = miners.filter(
+  const filteredMiners = mockMiners.filter(
     (miner) =>
-      (miner.wallet?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
-      (miner.username?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
+      miner.wallet.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      miner.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getStatusBadge = (status: string) => {
@@ -28,14 +33,6 @@ const AdminMiners = () => {
     );
   };
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
-
-  const activeMinersCount = miners.filter(m => m.status === 'active').length;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -44,16 +41,10 @@ const AdminMiners = () => {
           <h1 className="text-2xl font-bold text-foreground">Miners</h1>
           <p className="text-muted-foreground">Manage and monitor all registered miners</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
+        <Button variant="outline" className="flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          Export Data
+        </Button>
       </div>
 
       {/* Stats */}
@@ -63,11 +54,7 @@ const AdminMiners = () => {
             <Activity className="h-6 w-6 text-green-500" />
           </div>
           <div>
-            {loading ? (
-              <div className="h-8 w-16 bg-muted/50 animate-pulse rounded" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{formatNumber(activeMinersCount)}</p>
-            )}
+            <p className="text-2xl font-bold text-foreground">2,145</p>
             <p className="text-sm text-muted-foreground">Active Now</p>
           </div>
         </div>
@@ -76,11 +63,7 @@ const AdminMiners = () => {
             <Clock className="h-6 w-6 text-primary" />
           </div>
           <div>
-            {loading ? (
-              <div className="h-8 w-16 bg-muted/50 animate-pulse rounded" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{formatNumber(stats.totalMiners)}</p>
-            )}
+            <p className="text-2xl font-bold text-foreground">24,582</p>
             <p className="text-sm text-muted-foreground">Total Miners</p>
           </div>
         </div>
@@ -89,11 +72,7 @@ const AdminMiners = () => {
             <Coins className="h-6 w-6 text-accent" />
           </div>
           <div>
-            {loading ? (
-              <div className="h-8 w-16 bg-muted/50 animate-pulse rounded" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{formatNumber(stats.totalArxMined)} ARX</p>
-            )}
+            <p className="text-2xl font-bold text-foreground">45.2M ARX</p>
             <p className="text-sm text-muted-foreground">Total Mined</p>
           </div>
         </div>
@@ -119,56 +98,36 @@ const AdminMiners = () => {
       {/* Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredMiners.length > 0 ? (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Total Mined</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Total Mined</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMiners.map((miner) => (
+                <tr key={miner.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                  <td className="py-4 px-4 text-sm font-mono text-primary">{miner.wallet}</td>
+                  <td className="py-4 px-4 text-sm text-foreground">{miner.username}</td>
+                  <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
+                  <td className="py-4 px-4 text-sm text-foreground">{miner.totalMined.toLocaleString()} ARX</td>
+                  <td className="py-4 px-4 text-sm text-muted-foreground">{miner.lastActive}</td>
+                  <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
+                  <td className="py-4 px-4">
+                    <Button variant="ghost" size="icon">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredMiners.map((miner) => (
-                  <tr key={miner.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                    <td className="py-4 px-4 text-sm font-mono text-primary">
-                      {miner.wallet || 'No wallet'}
-                    </td>
-                    <td className="py-4 px-4 text-sm text-foreground">
-                      {miner.username || 'Anonymous'}
-                    </td>
-                    <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
-                    <td className="py-4 px-4 text-sm text-foreground">
-                      {formatNumber(miner.totalMined)} ARX
-                    </td>
-                    <td className="py-4 px-4 text-sm text-muted-foreground">
-                      {miner.lastActive 
-                        ? formatDistanceToNow(new Date(miner.lastActive), { addSuffix: true })
-                        : 'Never'}
-                    </td>
-                    <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
-                    <td className="py-4 px-4">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchQuery ? 'No miners match your search' : 'No miners registered yet'}
-            </div>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
