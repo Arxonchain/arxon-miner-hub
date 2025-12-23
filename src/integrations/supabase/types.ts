@@ -74,6 +74,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_checkins: {
+        Row: {
+          checkin_date: string
+          created_at: string
+          id: string
+          points_awarded: number
+          streak_day: number
+          user_id: string
+        }
+        Insert: {
+          checkin_date?: string
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          streak_day?: number
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          streak_day?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       founder_allocations: {
         Row: {
           allocation_percentage: number
@@ -197,6 +224,120 @@ export type Database = {
         }
         Relationships: []
       }
+      social_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          points_awarded: number
+          post_url: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          points_awarded?: number
+          post_url: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          points_awarded?: number
+          post_url?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          external_url: string | null
+          id: string
+          is_active: boolean
+          max_completions: number | null
+          points_reward: number
+          task_type: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          max_completions?: number | null
+          points_reward?: number
+          task_type?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          max_completions?: number | null
+          points_reward?: number
+          task_type?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      user_points: {
+        Row: {
+          created_at: string
+          daily_streak: number
+          id: string
+          last_checkin_date: string | null
+          mining_points: number
+          referral_points: number
+          social_points: number
+          task_points: number
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_streak?: number
+          id?: string
+          last_checkin_date?: string | null
+          mining_points?: number
+          referral_points?: number
+          social_points?: number
+          task_points?: number
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_streak?: number
+          id?: string
+          last_checkin_date?: string | null
+          mining_points?: number
+          referral_points?: number
+          social_points?: number
+          task_points?: number
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -215,6 +356,74 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: number
+          proof_url: string | null
+          status: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          proof_url?: string | null
+          status?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          proof_url?: string | null
+          status?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_wallets: {
+        Row: {
+          connected_at: string
+          id: string
+          is_primary: boolean
+          user_id: string
+          wallet_address: string
+          wallet_type: string
+        }
+        Insert: {
+          connected_at?: string
+          id?: string
+          is_primary?: boolean
+          user_id: string
+          wallet_address: string
+          wallet_type?: string
+        }
+        Update: {
+          connected_at?: string
+          id?: string
+          is_primary?: boolean
+          user_id?: string
+          wallet_address?: string
+          wallet_type?: string
         }
         Relationships: []
       }
