@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Wallet, User } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -149,7 +149,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Links - Tab Style */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <button
           onClick={() => navigate('/tasks')}
           className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
@@ -221,30 +221,6 @@ const Dashboard = () => {
           </div>
           <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400/50 
                                   group-hover:text-emerald-300 group-hover:translate-x-1 transition-all" />
-        </button>
-        <button
-          onClick={() => navigate('/profile')}
-          className="relative overflow-hidden p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-purple-500/20 to-violet-600/10 
-                     border border-purple-500/30 rounded-xl
-                     shadow-md shadow-purple-500/10
-                     hover:from-purple-500/30 hover:to-violet-600/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20
-                     active:scale-95 active:from-purple-500/40
-                     focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
-              <User className="h-4 w-4 text-purple-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground group-hover:text-purple-300 transition-colors">Profile</p>
-              <p className="text-xs text-muted-foreground">View stats</p>
-            </div>
-          </div>
-          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400/50 
-                                  group-hover:text-purple-300 group-hover:translate-x-1 transition-all" />
         </button>
       </div>
 
