@@ -276,7 +276,7 @@ const Mining = () => {
           {isMining ? (
             <Button
               onClick={stopMining}
-              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30"
+              className="btn-glow w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30 active:scale-[0.98] active:shadow-[0_0_20px_hsl(var(--destructive)/0.5)]"
               size="lg"
             >
               <Square className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -286,7 +286,7 @@ const Mining = () => {
             <Button
               onClick={handleStartMining}
               disabled={loading}
-              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0"
+              className="btn-glow w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0 active:scale-[0.98] active:shadow-[0_0_30px_hsl(142_76%_36%/0.6)]"
               size="lg"
             >
               {isSessionComplete ? (
