@@ -1,20 +1,145 @@
 import { useState } from "react";
-import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
 
-const mockMiners = [
-  { id: "1", wallet: "0x8f3a...c2e1", username: "CryptoMiner42", sessions: 156, totalMined: 45230, lastActive: "2 min ago", status: "active" },
-  { id: "2", wallet: "0x2b7c...9f4a", username: "BlockHunter", sessions: 89, totalMined: 28450, lastActive: "5 min ago", status: "active" },
-  { id: "3", wallet: "0xd1e5...7b2c", username: "ARXFan99", sessions: 234, totalMined: 67890, lastActive: "1 hour ago", status: "idle" },
-  { id: "4", wallet: "0x6a9f...e3d8", username: "MiningPro", sessions: 412, totalMined: 125600, lastActive: "3 hours ago", status: "offline" },
-  { id: "5", wallet: "0xc4b2...1f6e", username: "NodeRunner", sessions: 78, totalMined: 19850, lastActive: "30 min ago", status: "active" },
-];
+interface MinerData {
+  user_id: string;
+  wallet: string;
+  username: string;
+  sessions: number;
+  totalMined: number;
+  lastActive: string;
+  status: "active" | "idle" | "offline";
+}
 
 const AdminMiners = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredMiners = mockMiners.filter(
+  const { data: miners = [], isLoading } = useQuery({
+    queryKey: ["admin-miners"],
+    queryFn: async () => {
+      // Fetch all mining sessions with aggregation
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("mining_sessions")
+        .select("user_id, arx_mined, is_active, started_at, ended_at");
+
+      if (sessionsError) throw sessionsError;
+
+      // Fetch all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, username");
+
+      if (profilesError) throw profilesError;
+
+      // Fetch all wallets
+      const { data: wallets, error: walletsError } = await supabase
+        .from("user_wallets")
+        .select("user_id, wallet_address, is_primary");
+
+      if (walletsError) throw walletsError;
+
+      // Aggregate data by user
+      const userMap = new Map<string, {
+        sessions: number;
+        totalMined: number;
+        lastActive: Date | null;
+        isActive: boolean;
+      }>();
+
+      sessions?.forEach((session) => {
+        const existing = userMap.get(session.user_id) || {
+          sessions: 0,
+          totalMined: 0,
+          lastActive: null,
+          isActive: false,
+        };
+
+        const sessionEnd = session.ended_at ? new Date(session.ended_at) : new Date(session.started_at);
+        
+        userMap.set(session.user_id, {
+          sessions: existing.sessions + 1,
+          totalMined: existing.totalMined + Number(session.arx_mined || 0),
+          lastActive: !existing.lastActive || sessionEnd > existing.lastActive ? sessionEnd : existing.lastActive,
+          isActive: existing.isActive || session.is_active,
+        });
+      });
+
+      // Build miner data
+      const minerData: MinerData[] = [];
+      const profileMap = new Map(profiles?.map((p) => [p.user_id, p.username]) || []);
+      const walletMap = new Map(
+        wallets?.filter((w) => w.is_primary).map((w) => [w.user_id, w.wallet_address]) || []
+      );
+
+      userMap.forEach((data, userId) => {
+        const now = new Date();
+        const lastActive = data.lastActive || now;
+        const minutesAgo = (now.getTime() - lastActive.getTime()) / 1000 / 60;
+
+        let status: "active" | "idle" | "offline" = "offline";
+        if (data.isActive) {
+          status = "active";
+        } else if (minutesAgo < 60) {
+          status = "idle";
+        }
+
+        const wallet = walletMap.get(userId) || "No wallet";
+        const shortWallet = wallet.length > 10 
+          ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}` 
+          : wallet;
+
+        minerData.push({
+          user_id: userId,
+          wallet: shortWallet,
+          username: profileMap.get(userId) || "Anonymous",
+          sessions: data.sessions,
+          totalMined: Math.round(data.totalMined),
+          lastActive: formatDistanceToNow(lastActive, { addSuffix: true }),
+          status,
+        });
+      });
+
+      // Sort by total mined descending
+      return minerData.sort((a, b) => b.totalMined - a.totalMined);
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-miners-stats"],
+    queryFn: async () => {
+      const { count: activeCount } = await supabase
+        .from("mining_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+
+      const { data: totalMinedData } = await supabase
+        .from("mining_sessions")
+        .select("arx_mined");
+
+      const totalMined = totalMinedData?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+
+      const { data: uniqueUsers } = await supabase
+        .from("mining_sessions")
+        .select("user_id");
+
+      const uniqueUserCount = new Set(uniqueUsers?.map((u) => u.user_id)).size;
+
+      return {
+        activeNow: activeCount || 0,
+        totalMiners: uniqueUserCount,
+        totalMined,
+      };
+    },
+    refetchInterval: 30000,
+  });
+
+  const filteredMiners = miners.filter(
     (miner) =>
       miner.wallet.toLowerCase().includes(searchQuery.toLowerCase()) ||
       miner.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -31,6 +156,12 @@ const AdminMiners = () => {
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString();
   };
 
   return (
@@ -54,7 +185,7 @@ const AdminMiners = () => {
             <Activity className="h-6 w-6 text-green-500" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-foreground">2,145</p>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.activeNow || 0)}</p>
             <p className="text-sm text-muted-foreground">Active Now</p>
           </div>
         </div>
@@ -63,7 +194,7 @@ const AdminMiners = () => {
             <Clock className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-foreground">24,582</p>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMiners || 0)}</p>
             <p className="text-sm text-muted-foreground">Total Miners</p>
           </div>
         </div>
@@ -72,7 +203,7 @@ const AdminMiners = () => {
             <Coins className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-foreground">45.2M ARX</p>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)} ARX</p>
             <p className="text-sm text-muted-foreground">Total Mined</p>
           </div>
         </div>
@@ -98,36 +229,50 @@ const AdminMiners = () => {
       {/* Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Total Mined</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMiners.map((miner) => (
-                <tr key={miner.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                  <td className="py-4 px-4 text-sm font-mono text-primary">{miner.wallet}</td>
-                  <td className="py-4 px-4 text-sm text-foreground">{miner.username}</td>
-                  <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
-                  <td className="py-4 px-4 text-sm text-foreground">{miner.totalMined.toLocaleString()} ARX</td>
-                  <td className="py-4 px-4 text-sm text-muted-foreground">{miner.lastActive}</td>
-                  <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
-                  <td className="py-4 px-4">
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </td>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Total Mined</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredMiners.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                      No miners found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMiners.map((miner) => (
+                    <tr key={miner.user_id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="py-4 px-4 text-sm font-mono text-primary">{miner.wallet}</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{miner.username}</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{miner.totalMined.toLocaleString()} ARX</td>
+                      <td className="py-4 px-4 text-sm text-muted-foreground">{miner.lastActive}</td>
+                      <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
+                      <td className="py-4 px-4">
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
