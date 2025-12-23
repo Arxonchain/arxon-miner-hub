@@ -129,57 +129,40 @@ const EarningStatistics = () => {
     fetchEarnings();
   }, [fetchEarnings]);
 
-  // Real-time subscriptions
+  // Single consolidated real-time subscription
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscriptions for earnings statistics');
-
-    const channels = [
-      supabase
-        .channel('earnings-mining')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'mining_sessions',
-          filter: `user_id=eq.${user.id}`
-        }, () => fetchEarnings())
-        .subscribe(),
-      
-      supabase
-        .channel('earnings-checkins')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'daily_checkins',
-          filter: `user_id=eq.${user.id}`
-        }, () => fetchEarnings())
-        .subscribe(),
-      
-      supabase
-        .channel('earnings-tasks')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'user_tasks',
-          filter: `user_id=eq.${user.id}`
-        }, () => fetchEarnings())
-        .subscribe(),
-      
-      supabase
-        .channel('earnings-social')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'social_submissions',
-          filter: `user_id=eq.${user.id}`
-        }, () => fetchEarnings())
-        .subscribe()
-    ];
+    const channel = supabase
+      .channel('earnings-all')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mining_sessions',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchEarnings())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'daily_checkins',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchEarnings())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_tasks',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchEarnings())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'social_submissions',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchEarnings())
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up earnings statistics subscriptions');
-      channels.forEach(channel => supabase.removeChannel(channel));
+      supabase.removeChannel(channel);
     };
   }, [user, fetchEarnings]);
 

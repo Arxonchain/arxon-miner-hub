@@ -19,7 +19,7 @@ interface MiningHistory {
 
 const Profile = () => {
   const { user, signOut } = useAuth();
-  const { points, rank, loading: pointsLoading, refreshPoints } = usePoints();
+  const { points, rank, loading: pointsLoading } = usePoints();
   const { primaryWallet } = useWallet();
   const [showAuth, setShowAuth] = useState(false);
   const [username, setUsername] = useState("");
@@ -65,61 +65,24 @@ const Profile = () => {
     }
   }, [user, fetchProfile, fetchMiningHistory]);
 
-  // Real-time subscriptions for profile page
+  // Real-time subscription for mining history only (points handled by usePoints hook)
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscriptions for Profile page');
-
-    const channels = [
-      // Mining sessions real-time
-      supabase
-        .channel('profile-mining-history')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'mining_sessions',
-          filter: `user_id=eq.${user.id}`
-        }, () => {
-          console.log('Mining history updated');
-          fetchMiningHistory();
-        })
-        .subscribe(),
-
-      // User points real-time - refresh points when updated
-      supabase
-        .channel('profile-user-points')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'user_points',
-          filter: `user_id=eq.${user.id}`
-        }, () => {
-          console.log('User points updated on Profile');
-          refreshPoints();
-        })
-        .subscribe(),
-
-      // Daily checkins real-time
-      supabase
-        .channel('profile-checkins')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'daily_checkins',
-          filter: `user_id=eq.${user.id}`
-        }, () => {
-          console.log('Checkins updated');
-          refreshPoints();
-        })
-        .subscribe()
-    ];
+    const channel = supabase
+      .channel('profile-mining')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mining_sessions',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchMiningHistory())
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up Profile subscriptions');
-      channels.forEach(channel => supabase.removeChannel(channel));
+      supabase.removeChannel(channel);
     };
-  }, [user, fetchMiningHistory, refreshPoints]);
+  }, [user, fetchMiningHistory]);
 
   const saveUsername = async () => {
     if (!user || !username.trim()) return;
