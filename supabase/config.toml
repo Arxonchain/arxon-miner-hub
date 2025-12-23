@@ -1,1 +1,4 @@
 project_id = "nltggocnysiewnbmqfrj"
+
+[functions.scan-x-profile]
+verify_jwt = false

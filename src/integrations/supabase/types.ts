@@ -451,6 +451,48 @@ export type Database = {
         }
         Relationships: []
       }
+      x_profiles: {
+        Row: {
+          average_engagement: number
+          boost_percentage: number
+          created_at: string
+          id: string
+          last_scanned_at: string | null
+          profile_url: string
+          qualified_posts_today: number
+          updated_at: string
+          user_id: string
+          username: string
+          viral_bonus: boolean
+        }
+        Insert: {
+          average_engagement?: number
+          boost_percentage?: number
+          created_at?: string
+          id?: string
+          last_scanned_at?: string | null
+          profile_url: string
+          qualified_posts_today?: number
+          updated_at?: string
+          user_id: string
+          username: string
+          viral_bonus?: boolean
+        }
+        Update: {
+          average_engagement?: number
+          boost_percentage?: number
+          created_at?: string
+          id?: string
+          last_scanned_at?: string | null
+          profile_url?: string
+          qualified_posts_today?: number
+          updated_at?: string
+          user_id?: string
+          username?: string
+          viral_bonus?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
