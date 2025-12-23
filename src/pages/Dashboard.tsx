@@ -148,35 +148,75 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Links */}
+      {/* Quick Links - Tab Style */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <button
           onClick={() => navigate('/tasks')}
-          className="glass-card p-4 text-left hover:bg-secondary/50 transition-colors group"
+          className="glass-card p-4 text-left transition-all duration-200 group 
+                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
+                     active:scale-95 active:bg-primary/20
+                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
+                     cursor-pointer relative overflow-hidden"
         >
-          <p className="font-medium text-foreground group-hover:text-primary transition-colors">Tasks</p>
-          <p className="text-xs text-muted-foreground">Complete & earn</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+          <div className="relative z-10">
+            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Tasks</p>
+            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Complete & earn</p>
+          </div>
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
+                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
         </button>
         <button
           onClick={() => navigate('/leaderboard')}
-          className="glass-card p-4 text-left hover:bg-secondary/50 transition-colors group"
+          className="glass-card p-4 text-left transition-all duration-200 group 
+                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
+                     active:scale-95 active:bg-primary/20
+                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
+                     cursor-pointer relative overflow-hidden"
         >
-          <p className="font-medium text-foreground group-hover:text-primary transition-colors">Leaderboard</p>
-          <p className="text-xs text-muted-foreground">Top 100 miners</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+          <div className="relative z-10">
+            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Leaderboard</p>
+            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Top 100 miners</p>
+          </div>
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
+                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
         </button>
         <button
           onClick={() => navigate('/wallet')}
-          className="glass-card p-4 text-left hover:bg-secondary/50 transition-colors group"
+          className="glass-card p-4 text-left transition-all duration-200 group 
+                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
+                     active:scale-95 active:bg-primary/20
+                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
+                     cursor-pointer relative overflow-hidden"
         >
-          <p className="font-medium text-foreground group-hover:text-primary transition-colors">Wallet</p>
-          <p className="text-xs text-muted-foreground">Connect Polkadot</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+          <div className="relative z-10">
+            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Wallet</p>
+            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">Connect Polkadot</p>
+          </div>
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
+                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
         </button>
         <button
           onClick={() => navigate('/profile')}
-          className="glass-card p-4 text-left hover:bg-secondary/50 transition-colors group"
+          className="glass-card p-4 text-left transition-all duration-200 group 
+                     hover:bg-primary/10 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10
+                     active:scale-95 active:bg-primary/20
+                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
+                     cursor-pointer relative overflow-hidden"
         >
-          <p className="font-medium text-foreground group-hover:text-primary transition-colors">Profile</p>
-          <p className="text-xs text-muted-foreground">View stats</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+          <div className="relative z-10">
+            <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Profile</p>
+            <p className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">View stats</p>
+          </div>
+          <ArrowRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 
+                                  group-hover:text-primary group-hover:translate-x-1 transition-all opacity-0 group-hover:opacity-100" />
         </button>
       </div>
 
