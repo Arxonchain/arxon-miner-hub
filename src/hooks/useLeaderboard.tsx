@@ -6,6 +6,7 @@ interface LeaderboardEntry {
   total_points: number;
   daily_streak: number;
   username?: string;
+  avatar_url?: string;
   rank: number;
 }
 
@@ -30,11 +31,11 @@ export const useLeaderboard = (limit: number = 100) => {
         return;
       }
 
-      // Fetch profiles for usernames
+      // Fetch profiles for usernames and avatars
       const userIds = pointsData.map(p => p.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, username')
+        .select('user_id, username, avatar_url')
         .in('user_id', userIds);
 
       // Combine data
@@ -43,6 +44,7 @@ export const useLeaderboard = (limit: number = 100) => {
         return {
           ...entry,
           username: profile?.username || `Miner${entry.user_id.slice(0, 4)}`,
+          avatar_url: profile?.avatar_url || undefined,
           rank: index + 1
         };
       });

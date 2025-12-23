@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import arxonLogo from "@/assets/arxon-logo-header.jpeg";
 import MobileNav from "./MobileNav";
 import XIcon from "@/components/icons/XIcon";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useXProfile } from "@/hooks/useXProfile";
+import { useProfile } from "@/hooks/useProfile";
 import AuthDialog from "@/components/auth/AuthDialog";
 import {
   DropdownMenu,
@@ -21,6 +23,7 @@ const Header = () => {
   const { user, signOut } = useAuth();
   const { points } = usePoints();
   const { xProfile } = useXProfile();
+  const { profile } = useProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   return (
@@ -77,11 +80,12 @@ const Header = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-1 lg:gap-2 cursor-pointer">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center overflow-hidden">
-                      <span className="text-[10px] sm:text-xs lg:text-sm font-medium text-primary-foreground">
-                        {user.email?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <Avatar className="w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 border border-border/50">
+                      <AvatarImage src={profile?.avatar_url || undefined} />
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-[10px] sm:text-xs lg:text-sm font-medium">
+                        {profile?.username?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
                     <ChevronDown className="hidden md:block h-3.5 w-3.5 lg:h-4 lg:w-4 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>

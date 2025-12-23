@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { User, Wallet, Save, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { User, Wallet, Save, Loader2, Upload, Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,10 @@ interface ProfileData {
 
 const ProfileSettings = () => {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
     username: "",
     avatar_url: "",
@@ -56,6 +58,88 @@ const ProfileSettings = () => {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please select an image smaller than 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "Please sign in to upload an avatar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile state
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+
+      toast({
+        title: "Avatar Uploaded",
+        description: "Your profile picture has been uploaded. Click Save to apply.",
+      });
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload avatar",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -123,24 +207,57 @@ const ProfileSettings = () => {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Avatar Section */}
-      <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-accent/30">
-          <AvatarImage src={profile.avatar_url} />
-          <AvatarFallback className="bg-accent/20 text-accent text-lg sm:text-xl">
-            {profile.username?.charAt(0)?.toUpperCase() || "U"}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <Label htmlFor="avatar_url" className="text-sm text-muted-foreground">
-            Avatar URL
-          </Label>
-          <Input
-            id="avatar_url"
-            placeholder="https://example.com/avatar.png"
-            value={profile.avatar_url}
-            onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-            className="mt-1 bg-secondary/50 border-border/50"
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="relative group">
+          <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-2 border-accent/30">
+            <AvatarImage src={profile.avatar_url} />
+            <AvatarFallback className="bg-accent/20 text-accent text-xl sm:text-2xl">
+              {profile.username?.charAt(0)?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            {uploading ? (
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            ) : (
+              <Camera className="h-6 w-6 text-white" />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
           />
+        </div>
+        <div className="flex-1 w-full text-center sm:text-left">
+          <h3 className="font-medium text-foreground mb-1">Profile Picture</h3>
+          <p className="text-xs text-muted-foreground mb-2">
+            Click on the avatar to upload a new picture (max 2MB)
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="text-xs"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="h-3 w-3 mr-1.5" />
+                Upload Image
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
