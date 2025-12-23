@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, ListTodo, Users, Wallet, User, Settings, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, Twitter, User, Settings, LogOut, Menu } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -9,7 +9,7 @@ const navItems = [
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
-  { icon: Wallet, label: "Wallet", path: "/wallet" },
+  { icon: Twitter, label: "X Profile", path: "/x-profile" },
   { icon: User, label: "Profile", path: "/profile" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

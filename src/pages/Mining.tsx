@@ -1,4 +1,4 @@
-import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw, Twitter, Link2, Loader2 } from "lucide-react";
+import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw, Twitter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";
@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useXProfile } from "@/hooks/useXProfile";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { useState } from "react";
 
@@ -25,10 +24,8 @@ const Mining = () => {
     stopMining, 
     formatTime 
   } = useMining();
-  const { xProfile, scanning, connectXProfile, refreshBoost, disconnectXProfile, getBoostedRate } = useXProfile();
+  const { xProfile, scanning, refreshBoost, getBoostedRate } = useXProfile();
   const [showAuth, setShowAuth] = useState(false);
-  const [xProfileInput, setXProfileInput] = useState('');
-  const [showXConnect, setShowXConnect] = useState(false);
 
   const baseRate = 10;
   const boostedRate = getBoostedRate(baseRate);
@@ -48,18 +45,6 @@ const Mining = () => {
       return;
     }
     startMining();
-  };
-
-  const handleConnectX = async () => {
-    if (!user) {
-      setShowAuth(true);
-      return;
-    }
-    const success = await connectXProfile(xProfileInput);
-    if (success) {
-      setXProfileInput('');
-      setShowXConnect(false);
-    }
   };
 
   const progressPercentage = isMining 
@@ -145,22 +130,14 @@ const Mining = () => {
                 <Twitter className="h-4 w-4 text-blue-400" />
                 <span className="text-xs sm:text-sm font-medium text-foreground">@{xProfile.username}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={refreshBoost}
-                  disabled={scanning}
-                  className="p-1 hover:bg-white/10 rounded transition-colors"
-                  title="Refresh boost"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${scanning ? 'animate-spin' : ''}`} />
-                </button>
-                <button
-                  onClick={disconnectXProfile}
-                  className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  Disconnect
-                </button>
-              </div>
+              <button
+                onClick={refreshBoost}
+                disabled={scanning}
+                className="p-1 hover:bg-white/10 rounded transition-colors"
+                title="Refresh boost"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${scanning ? 'animate-spin' : ''}`} />
+              </button>
             </div>
             
             <div className="mt-2 pt-2 border-t border-border/50">
@@ -180,40 +157,9 @@ const Mining = () => {
               </p>
             </div>
           </div>
-        ) : showXConnect ? (
-          <div className="glass-card p-3 sm:p-4 mb-4 w-full">
-            <div className="flex items-center gap-2 mb-3">
-              <Twitter className="h-4 w-4 text-blue-400" />
-              <span className="text-xs sm:text-sm font-medium">Connect X Profile for Boost</span>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="@username or x.com/username"
-                value={xProfileInput}
-                onChange={(e) => setXProfileInput(e.target.value)}
-                className="flex-1 text-sm"
-              />
-              <Button 
-                onClick={handleConnectX}
-                disabled={scanning || !xProfileInput}
-                size="sm"
-              >
-                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2">
-              Post with #ArxonMining, #Arxon, #Arxonchain or @Arxonarx to earn up to 800% boost!
-            </p>
-            <button 
-              onClick={() => setShowXConnect(false)}
-              className="text-[10px] text-muted-foreground hover:text-foreground mt-2"
-            >
-              Cancel
-            </button>
-          </div>
         ) : user && (
           <button
-            onClick={() => setShowXConnect(true)}
+            onClick={() => navigate('/x-profile')}
             className="glass-card p-3 mb-4 w-full flex items-center justify-center gap-2 hover:bg-white/5 transition-colors border-dashed"
           >
             <Twitter className="h-4 w-4 text-blue-400" />

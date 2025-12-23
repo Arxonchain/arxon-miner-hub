@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Wallet } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo, Twitter } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -199,28 +199,28 @@ const Dashboard = () => {
                                   group-hover:text-amber-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
         <button
-          onClick={() => navigate('/wallet')}
+          onClick={() => navigate('/x-profile')}
           className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-emerald-500/20 to-green-600/10 
-                     border border-emerald-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-emerald-500/10
-                     hover:from-emerald-500/30 hover:to-green-600/20 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/20
-                     active:scale-95 active:from-emerald-500/40
-                     focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-background"
+                     bg-gradient-to-br from-blue-500/20 to-sky-600/10 
+                     border border-blue-500/30 rounded-lg sm:rounded-xl
+                     shadow-md shadow-blue-500/10
+                     hover:from-blue-500/30 hover:to-sky-600/20 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20
+                     active:scale-95 active:from-blue-500/40
+                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-emerald-500/20 border border-emerald-500/30 shrink-0">
-              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400" />
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 border border-blue-500/30 shrink-0">
+              <Twitter className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
             </div>
             <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-emerald-300 transition-colors truncate">Wallet</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Connect Polkadot</p>
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-blue-300 transition-colors truncate">X Profile</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Boost mining rate</p>
             </div>
           </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-emerald-400/50 
-                                  group-hover:text-emerald-300 group-hover:translate-x-1 transition-all hidden sm:block" />
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-400/50 
+                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
       </div>
 
