@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, Clock, FileText, Users, Zap, TrendingUp, Flame } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
@@ -98,8 +99,16 @@ const Leaderboard = () => {
                 return (
                   <div key={yapper.id} className="glass-card p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm sm:text-base shrink-0">
-                        {getRankIcon(index)}
+                      <div className="relative shrink-0">
+                        <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-blue-500/30">
+                          <AvatarImage src={yapper.avatar_url} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm sm:text-base">
+                            {yapper.username?.charAt(0)?.toUpperCase() || "Y"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                          {getRankIcon(index)}
+                        </div>
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -144,8 +153,16 @@ const Leaderboard = () => {
               minerEntries.map((user, index) => (
                 <div key={user.user_id} className="glass-card p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm sm:text-base shrink-0">
-                      {getRankIcon(index)}
+                    <div className="relative shrink-0">
+                      <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-green-500/30">
+                        <AvatarImage src={user.avatar_url} />
+                        <AvatarFallback className="bg-gradient-to-br from-green-400 to-emerald-600 text-white font-bold text-sm sm:text-base">
+                          {user.username?.charAt(0)?.toUpperCase() || "M"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                        {getRankIcon(index)}
+                      </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

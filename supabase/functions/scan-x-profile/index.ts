@@ -56,10 +56,9 @@ function calculateBoost(qualifiedPosts: number, avgEngagement: number, hasViralP
   return boost
 }
 
-async function fetchUserTweets(username: string, bearerToken: string): Promise<Tweet[]> {
-  // First get user ID
+async function fetchUserData(username: string, bearerToken: string): Promise<{ id: string, profileImageUrl: string | null }> {
   const userResponse = await fetch(
-    `https://api.twitter.com/2/users/by/username/${username}`,
+    `https://api.twitter.com/2/users/by/username/${username}?user.fields=profile_image_url`,
     {
       headers: {
         'Authorization': `Bearer ${bearerToken}`,
@@ -78,8 +77,19 @@ async function fetchUserTweets(username: string, bearerToken: string): Promise<T
     throw new Error('User not found')
   }
 
-  const userId = userData.data.id
+  // Get the high-res version of profile image by replacing _normal with _400x400
+  let profileImageUrl = userData.data.profile_image_url || null
+  if (profileImageUrl) {
+    profileImageUrl = profileImageUrl.replace('_normal', '_400x400')
+  }
 
+  return {
+    id: userData.data.id,
+    profileImageUrl
+  }
+}
+
+async function fetchUserTweets(userId: string, bearerToken: string): Promise<Tweet[]> {
   // Get tweets from the last 24 hours
   const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   
@@ -142,8 +152,12 @@ Deno.serve(async (req) => {
 
     console.log(`Scanning tweets for @${username}`)
 
+    // Fetch user data including profile image
+    const userData = await fetchUserData(username, bearerToken)
+    console.log(`User ID: ${userData.id}, Profile Image: ${userData.profileImageUrl}`)
+
     // Fetch recent tweets
-    const tweets = await fetchUserTweets(username, bearerToken)
+    const tweets = await fetchUserTweets(userData.id, bearerToken)
     console.log(`Found ${tweets.length} tweets in last 24 hours`)
 
     // Filter qualified tweets
@@ -201,6 +215,28 @@ Deno.serve(async (req) => {
       throw new Error('Failed to save profile data')
     }
 
+    // Update user's profile avatar_url with X profile picture if they don't have one
+    if (userData.profileImageUrl) {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      // Only update if no avatar set or it's already an X profile image
+      if (!existingProfile?.avatar_url || existingProfile.avatar_url.includes('pbs.twimg.com')) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            avatar_url: userData.profileImageUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+        
+        console.log('Updated user profile with X avatar')
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -211,6 +247,7 @@ Deno.serve(async (req) => {
           avgEngagement,
           viralBonus: hasViralPost,
           lastScanned: new Date().toISOString(),
+          profileImageUrl: userData.profileImageUrl,
         },
       }),
       {
