@@ -2,12 +2,14 @@ import { ArrowRight } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import { toast } from "@/hooks/use-toast";
+import { useMining } from "@/hooks/useMining";
 
 const referralData = [
   { wallet: "Arx4kba..92d", joined: "Nov 10", status: "Active", totalMined: "1,420 ARX", reward: "78.2 ARX" },
 ];
 
 const Referrals = () => {
+  const { isMining } = useMining();
   const shareReferralLink = () => {
     navigator.clipboard.writeText("https://arxon.io/ref/ARX-12345");
     toast({
@@ -23,6 +25,7 @@ const Referrals = () => {
       <WelcomeCard
         title="Welcome to ARXON Referrals Section"
         description="Invite others to join ARXON and earn bonus rewards as they mine."
+        isActive={isMining}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6">

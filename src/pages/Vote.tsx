@@ -1,6 +1,9 @@
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
+import { useMining } from "@/hooks/useMining";
 
 const Vote = () => {
+  const { isMining } = useMining();
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-foreground">Vote</h1>
@@ -8,6 +11,7 @@ const Vote = () => {
       <WelcomeCard
         title="ARXON Governance"
         description="Participate in community decisions and vote on proposals to shape the future of ARXON."
+        isActive={isMining}
       />
 
       <div className="glass-card p-12 text-center">
