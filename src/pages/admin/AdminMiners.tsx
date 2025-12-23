@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins, Loader2 } from "lucide-react";
+import { Search, Filter, Download, MoreHorizontal, Activity, Clock, Coins, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -153,7 +153,7 @@ const AdminMiners = () => {
     };
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status === "active" ? "Mining" : status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
   };
@@ -170,12 +170,21 @@ const AdminMiners = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Miners</h1>
-          <p className="text-muted-foreground">Manage and monitor all registered miners</p>
+          <p className="text-muted-foreground">Manage and monitor all ARX-P miners</p>
         </div>
         <Button variant="outline" className="flex items-center gap-2">
           <Download className="h-4 w-4" />
           Export Data
         </Button>
+      </div>
+
+      {/* Mining Info */}
+      <div className="glass-card p-4 border-primary/30 bg-primary/5">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Mining Rate:</span> +10 ARX-P/hour | 
+          <span className="font-medium text-foreground ml-2">Max Session:</span> 8 hours (80 ARX-P max) | 
+          <span className="font-medium text-foreground ml-2">Conversion:</span> ARX-P → $ARX at TGE
+        </p>
       </div>
 
       {/* Stats */}
@@ -186,12 +195,12 @@ const AdminMiners = () => {
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.activeNow || 0)}</p>
-            <p className="text-sm text-muted-foreground">Active Now</p>
+            <p className="text-sm text-muted-foreground">Currently Mining</p>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Clock className="h-6 w-6 text-primary" />
+            <Users className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMiners || 0)}</p>
@@ -203,8 +212,8 @@ const AdminMiners = () => {
             <Coins className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)} ARX</p>
-            <p className="text-sm text-muted-foreground">Total Mined</p>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)}</p>
+            <p className="text-sm text-muted-foreground">Total ARX-P Mined</p>
           </div>
         </div>
       </div>
@@ -240,7 +249,7 @@ const AdminMiners = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Total Mined</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">ARX-P Mined</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
@@ -259,7 +268,7 @@ const AdminMiners = () => {
                       <td className="py-4 px-4 text-sm font-mono text-primary">{miner.wallet}</td>
                       <td className="py-4 px-4 text-sm text-foreground">{miner.username}</td>
                       <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{miner.totalMined.toLocaleString()} ARX</td>
+                      <td className="py-4 px-4 text-sm text-accent font-medium">{miner.totalMined.toLocaleString()} ARX-P</td>
                       <td className="py-4 px-4 text-sm text-muted-foreground">{miner.lastActive}</td>
                       <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
                       <td className="py-4 px-4">

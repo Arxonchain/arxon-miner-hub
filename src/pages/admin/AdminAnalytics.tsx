@@ -19,9 +19,8 @@ const AdminAnalytics = () => {
 
       if (error) throw error;
 
-      // Create a map of dates to unique user counts
       const days = eachDayOfInterval({ start: startDate, end: endDate });
-      const dailyData = days.map((day) => {
+      return days.map((day) => {
         const dayStart = startOfDay(day);
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
         
@@ -37,13 +36,11 @@ const AdminAnalytics = () => {
           miners: uniqueUsers.size,
         };
       });
-
-      return dailyData;
     },
     refetchInterval: 60000,
   });
 
-  // Fetch ARX mined per day (last 7 days)
+  // Fetch ARX-P mined per day (last 7 days)
   const { data: arxMinedData = [], isLoading: loadingArx } = useQuery({
     queryKey: ["admin-daily-arx"],
     queryFn: async () => {
@@ -58,7 +55,7 @@ const AdminAnalytics = () => {
       if (error) throw error;
 
       const days = eachDayOfInterval({ start: startDate, end: endDate });
-      const dailyData = days.map((day) => {
+      return days.map((day) => {
         const dayStart = startOfDay(day);
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
         
@@ -72,8 +69,6 @@ const AdminAnalytics = () => {
           arx: Math.round(arxTotal),
         };
       });
-
-      return dailyData;
     },
     refetchInterval: 60000,
   });
@@ -93,7 +88,7 @@ const AdminAnalytics = () => {
       if (error) throw error;
 
       const days = eachDayOfInterval({ start: startDate, end: endDate });
-      const dailyData = days.map((day) => {
+      return days.map((day) => {
         const dayStart = startOfDay(day);
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
         
@@ -107,58 +102,41 @@ const AdminAnalytics = () => {
           referrals: count,
         };
       });
-
-      return dailyData;
     },
     refetchInterval: 60000,
   });
 
-  // Fetch user activity distribution
-  const { data: activityData = [], isLoading: loadingActivity } = useQuery({
-    queryKey: ["admin-activity-distribution"],
+  // Fetch ARX-P source distribution
+  const { data: pointsSourceData = [], isLoading: loadingPoints } = useQuery({
+    queryKey: ["admin-points-distribution"],
     queryFn: async () => {
-      const { data: sessions, error } = await supabase
-        .from("mining_sessions")
-        .select("user_id, is_active, ended_at, started_at");
+      const { data: points, error } = await supabase
+        .from("user_points")
+        .select("mining_points, task_points, social_points, referral_points");
 
       if (error) throw error;
 
-      const now = new Date();
-      const activeUsers = new Set<string>();
-      const idleUsers = new Set<string>();
-      const offlineUsers = new Set<string>();
+      const totals = {
+        mining: points?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0,
+        tasks: points?.reduce((sum, p) => sum + Number(p.task_points || 0), 0) || 0,
+        social: points?.reduce((sum, p) => sum + Number(p.social_points || 0), 0) || 0,
+        referrals: points?.reduce((sum, p) => sum + Number(p.referral_points || 0), 0) || 0,
+      };
 
-      sessions?.forEach((session) => {
-        const lastActivity = session.ended_at ? new Date(session.ended_at) : new Date(session.started_at);
-        const minutesAgo = (now.getTime() - lastActivity.getTime()) / 1000 / 60;
-
-        if (session.is_active) {
-          activeUsers.add(session.user_id);
-          idleUsers.delete(session.user_id);
-          offlineUsers.delete(session.user_id);
-        } else if (!activeUsers.has(session.user_id)) {
-          if (minutesAgo < 60) {
-            idleUsers.add(session.user_id);
-            offlineUsers.delete(session.user_id);
-          } else if (!idleUsers.has(session.user_id)) {
-            offlineUsers.add(session.user_id);
-          }
-        }
-      });
-
-      const total = activeUsers.size + idleUsers.size + offlineUsers.size;
+      const total = totals.mining + totals.tasks + totals.social + totals.referrals;
       if (total === 0) return [];
 
       return [
-        { name: "Active", value: Math.round((activeUsers.size / total) * 100), color: "hsl(142, 71%, 45%)" },
-        { name: "Idle", value: Math.round((idleUsers.size / total) * 100), color: "hsl(38, 92%, 50%)" },
-        { name: "Offline", value: Math.round((offlineUsers.size / total) * 100), color: "hsl(var(--muted-foreground))" },
+        { name: "Mining", value: Math.round((totals.mining / total) * 100), color: "hsl(var(--primary))" },
+        { name: "Tasks", value: Math.round((totals.tasks / total) * 100), color: "hsl(142, 71%, 45%)" },
+        { name: "Social", value: Math.round((totals.social / total) * 100), color: "hsl(38, 92%, 50%)" },
+        { name: "Referrals", value: Math.round((totals.referrals / total) * 100), color: "hsl(280, 70%, 50%)" },
       ];
     },
     refetchInterval: 60000,
   });
 
-  const isLoading = loadingMiners || loadingArx || loadingReferrals || loadingActivity;
+  const isLoading = loadingMiners || loadingArx || loadingReferrals || loadingPoints;
 
   if (isLoading) {
     return (
@@ -168,12 +146,40 @@ const AdminAnalytics = () => {
     );
   }
 
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+    return num.toString();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-        <p className="text-muted-foreground">Network performance and user insights</p>
+        <p className="text-muted-foreground">ARX-P mining performance and user engagement metrics</p>
+      </div>
+
+      {/* Key Metrics Banner */}
+      <div className="glass-card p-4 border-primary/30 bg-primary/5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <p className="text-2xl font-bold text-foreground">+10</p>
+            <p className="text-xs text-muted-foreground">ARX-P/hour rate</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground">8h</p>
+            <p className="text-xs text-muted-foreground">Max session</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground">80</p>
+            <p className="text-xs text-muted-foreground">Max ARX-P/session</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-accent">$ARX</p>
+            <p className="text-xs text-muted-foreground">Token at TGE</p>
+          </div>
+        </div>
       </div>
 
       {/* Charts Grid */}
@@ -182,12 +188,12 @@ const AdminAnalytics = () => {
         <div className="glass-card p-6 space-y-4">
           <div>
             <h3 className="font-semibold text-foreground">Daily Active Miners</h3>
-            <p className="text-sm text-muted-foreground">Last 7 days</p>
+            <p className="text-sm text-muted-foreground">Unique miners per day (last 7 days)</p>
           </div>
           <div className="h-64">
-            {dailyMinersData.length === 0 ? (
+            {dailyMinersData.every(d => d.miners === 0) ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                No mining data yet
+                No mining activity yet
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -216,6 +222,7 @@ const AdminAnalytics = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
+                    formatter={(value: number) => [`${value} miners`, 'Active']}
                   />
                   <Area
                     type="monotone"
@@ -230,14 +237,14 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* ARX Mined per Day */}
+        {/* ARX-P Mined per Day */}
         <div className="glass-card p-6 space-y-4">
           <div>
-            <h3 className="font-semibold text-foreground">ARX Mined per Day</h3>
-            <p className="text-sm text-muted-foreground">Last 7 days</p>
+            <h3 className="font-semibold text-foreground">ARX-P Mined per Day</h3>
+            <p className="text-sm text-muted-foreground">Points earned from mining (last 7 days)</p>
           </div>
           <div className="h-64">
-            {arxMinedData.length === 0 ? (
+            {arxMinedData.every(d => d.arx === 0) ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
                 No mining data yet
               </div>
@@ -254,7 +261,7 @@ const AdminAnalytics = () => {
                     axisLine={false} 
                     tickLine={false}
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    tickFormatter={(value) => value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` : value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value.toString()}
+                    tickFormatter={formatNumber}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -262,7 +269,7 @@ const AdminAnalytics = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
-                    formatter={(value: number) => [`${value.toLocaleString()} ARX`, 'Mined']}
+                    formatter={(value: number) => [`${value.toLocaleString()} ARX-P`, 'Mined']}
                   />
                   <Bar 
                     dataKey="arx" 
@@ -279,10 +286,10 @@ const AdminAnalytics = () => {
         <div className="glass-card p-6 space-y-4">
           <div>
             <h3 className="font-semibold text-foreground">Referral Growth</h3>
-            <p className="text-sm text-muted-foreground">New referrals per day</p>
+            <p className="text-sm text-muted-foreground">New referral signups per day</p>
           </div>
           <div className="h-64">
-            {referralGrowthData.length === 0 ? (
+            {referralGrowthData.every(d => d.referrals === 0) ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
                 No referral data yet
               </div>
@@ -313,6 +320,7 @@ const AdminAnalytics = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
+                    formatter={(value: number) => [`${value} referrals`, 'New']}
                   />
                   <Area
                     type="monotone"
@@ -327,20 +335,20 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* User Activity Distribution */}
+        {/* ARX-P Source Distribution */}
         <div className="glass-card p-6 space-y-4">
           <div>
-            <h3 className="font-semibold text-foreground">User Activity Distribution</h3>
-            <p className="text-sm text-muted-foreground">Current miner status breakdown</p>
+            <h3 className="font-semibold text-foreground">ARX-P Source Distribution</h3>
+            <p className="text-sm text-muted-foreground">How users are earning points</p>
           </div>
           <div className="h-64 flex items-center justify-center">
-            {activityData.length === 0 ? (
-              <div className="text-muted-foreground">No user data yet</div>
+            {pointsSourceData.length === 0 ? (
+              <div className="text-muted-foreground">No points data yet</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={activityData}
+                    data={pointsSourceData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -348,7 +356,7 @@ const AdminAnalytics = () => {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {activityData.map((entry, index) => (
+                    {pointsSourceData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>

@@ -57,11 +57,12 @@ const AdminDashboard = () => {
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
 
-      // Total ARX mined
-      const { data: miningData } = await supabase
-        .from("mining_sessions")
-        .select("arx_mined");
-      const totalArxMined = miningData?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+      // Total ARX-P mined (from user_points)
+      const { data: pointsData } = await supabase
+        .from("user_points")
+        .select("mining_points, total_points");
+      const totalMiningPoints = pointsData?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0;
+      const totalPoints = pointsData?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
 
       // Mining settings (claim status)
       const { data: settings } = await supabase
@@ -70,19 +71,19 @@ const AdminDashboard = () => {
         .limit(1)
         .maybeSingle();
 
-      // Total user points for additional context
-      const { data: pointsData } = await supabase
-        .from("user_points")
-        .select("total_points");
-      const totalPoints = pointsData?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
+      // Total referrals
+      const { count: totalReferrals } = await supabase
+        .from("referrals")
+        .select("*", { count: "exact", head: true });
 
       return {
         totalMiners,
         activeSessions: activeSessions || 0,
-        totalArxMined,
+        totalMiningPoints,
+        totalPoints,
         claimingEnabled: settings?.claiming_enabled || false,
         blockReward: settings?.block_reward || 1000,
-        totalPoints,
+        totalReferrals: totalReferrals || 0,
       };
     },
     refetchInterval: 15000,
@@ -123,13 +124,13 @@ const AdminDashboard = () => {
     refetchInterval: 60000,
   });
 
-  // Fetch recent mining sessions as "blocks"
-  const { data: recentBlocks = [], isLoading: loadingBlocks } = useQuery({
+  // Fetch recent mining sessions
+  const { data: recentSessions = [], isLoading: loadingBlocks } = useQuery({
     queryKey: ["admin-recent-sessions"],
     queryFn: async () => {
       const { data: sessions, error } = await supabase
         .from("mining_sessions")
-        .select("id, user_id, arx_mined, started_at")
+        .select("id, user_id, arx_mined, started_at, is_active")
         .order("started_at", { ascending: false })
         .limit(10);
 
@@ -153,40 +154,49 @@ const AdminDashboard = () => {
 
       const walletMap = new Map(wallets?.map((w) => [w.user_id, w.wallet_address]) || []);
 
-      return sessions?.map((session, index) => {
+      return sessions?.map((session) => {
         const wallet = walletMap.get(session.user_id) || "No wallet";
         const shortWallet = wallet.length > 12 
           ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}` 
           : wallet;
         
         return {
-          id: `#${(900000 - index).toString()}`,
+          id: session.id.slice(0, 8),
           miner: shortWallet,
           username: profileMap.get(session.user_id) || "Anonymous",
-          reward: `${Math.round(Number(session.arx_mined || 0)).toLocaleString()} ARX`,
+          earned: `${Math.round(Number(session.arx_mined || 0)).toLocaleString()} ARX-P`,
           time: formatDistanceToNow(new Date(session.started_at), { addSuffix: true }),
+          status: session.is_active ? "active" : "completed",
         };
       }) || [];
     },
     refetchInterval: 15000,
   });
 
-  // ARX per recent session data for chart
-  const { data: arxPerBlockData = [] } = useQuery({
-    queryKey: ["admin-arx-per-block"],
+  // Points distribution for chart
+  const { data: pointsDistribution = [] } = useQuery({
+    queryKey: ["admin-points-distribution"],
     queryFn: async () => {
-      const { data: sessions, error } = await supabase
-        .from("mining_sessions")
-        .select("arx_mined")
-        .order("started_at", { ascending: false })
-        .limit(6);
+      const { data: points, error } = await supabase
+        .from("user_points")
+        .select("mining_points, task_points, social_points, referral_points")
+        .limit(100);
 
       if (error) throw error;
 
-      return sessions?.reverse().map((s, i) => ({
-        block: `${i + 1}`,
-        arx: Math.round(Number(s.arx_mined || 0)),
-      })) || [];
+      const totals = {
+        mining: points?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0,
+        tasks: points?.reduce((sum, p) => sum + Number(p.task_points || 0), 0) || 0,
+        social: points?.reduce((sum, p) => sum + Number(p.social_points || 0), 0) || 0,
+        referrals: points?.reduce((sum, p) => sum + Number(p.referral_points || 0), 0) || 0,
+      };
+
+      return [
+        { name: "Mining", points: totals.mining },
+        { name: "Tasks", points: totals.tasks },
+        { name: "Social", points: totals.social },
+        { name: "Referrals", points: totals.referrals },
+      ];
     },
     refetchInterval: 30000,
   });
@@ -197,14 +207,12 @@ const AdminDashboard = () => {
     return num.toLocaleString();
   };
 
-  const isLoading = loadingStats || loadingHourly || loadingBlocks;
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard Overview</h1>
-        <p className="text-muted-foreground">Monitor network health and miner activity</p>
+        <h1 className="text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
+        <p className="text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
       </div>
 
       {/* Stats Grid */}
@@ -213,6 +221,7 @@ const AdminDashboard = () => {
           icon={Users} 
           label="Total Miners" 
           value={formatNumber(stats?.totalMiners || 0)} 
+          subtext="Unique users"
           loading={loadingStats}
         />
         <StatCard 
@@ -220,36 +229,53 @@ const AdminDashboard = () => {
           label="Active Sessions" 
           value={formatNumber(stats?.activeSessions || 0)} 
           trend={stats?.activeSessions ? "up" : "neutral"}
+          subtext="Currently mining"
           loading={loadingStats}
         />
         <StatCard 
           icon={Coins} 
-          label="Total ARX Mined" 
-          value={formatNumber(stats?.totalArxMined || 0)} 
-          subtext="All time"
+          label="Mining ARX-P" 
+          value={formatNumber(stats?.totalMiningPoints || 0)} 
+          subtext="From mining only"
           loading={loadingStats}
         />
         <StatCard 
           icon={Coins} 
-          label="Block Reward" 
-          value={`${stats?.blockReward || 1000} ARX`} 
-          subtext="Per session"
+          label="Total ARX-P" 
+          value={formatNumber(stats?.totalPoints || 0)} 
+          subtext="All sources"
           loading={loadingStats}
         />
         <StatCard 
           icon={CheckCircle} 
-          label="Claim Status" 
+          label="$ARX Claiming" 
           value={stats?.claimingEnabled ? "Enabled" : "Disabled"} 
-          subtext="Admin controlled"
+          subtext="Token conversion"
           loading={loadingStats}
         />
         <StatCard 
           icon={Server} 
-          label="Total Points" 
-          value={formatNumber(stats?.totalPoints || 0)} 
-          subtext="All users"
+          label="Referrals" 
+          value={formatNumber(stats?.totalReferrals || 0)} 
+          subtext="Total signups"
           loading={loadingStats}
         />
+      </div>
+
+      {/* Mining Info Banner */}
+      <div className="glass-card p-4 border-primary/30 bg-primary/5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-foreground">Mining Rate: +10 ARX-P/hour</p>
+            <p className="text-sm text-muted-foreground">Max session: 8 hours | ARX-P converts to $ARX tokens at TGE</p>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="text-center">
+              <p className="font-bold text-primary">{stats?.blockReward || 1000}</p>
+              <p className="text-muted-foreground text-xs">Block Reward</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Charts Row */}
@@ -258,16 +284,16 @@ const AdminDashboard = () => {
         <div className="glass-card p-6 space-y-4">
           <div>
             <h3 className="font-semibold text-foreground">24h Active Miners</h3>
-            <p className="text-sm text-muted-foreground">Miner activity over the last 24 hours</p>
+            <p className="text-sm text-muted-foreground">Hourly mining activity</p>
           </div>
           <div className="h-64">
             {loadingHourly ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : hourlyData.length === 0 ? (
+            ) : hourlyData.every(d => d.miners === 0) ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                No activity data yet
+                No mining activity in the last 24h
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -297,6 +323,7 @@ const AdminDashboard = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
+                    formatter={(value: number) => [`${value} miners`, 'Active']}
                   />
                   <Area
                     type="monotone"
@@ -311,28 +338,28 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* ARX per Block */}
+        {/* ARX-P Distribution */}
         <div className="glass-card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-foreground">ARX Mined per Session</h3>
-              <p className="text-sm text-muted-foreground">Last 6 sessions</p>
+              <h3 className="font-semibold text-foreground">ARX-P Distribution</h3>
+              <p className="text-sm text-muted-foreground">Points by source</p>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Recent</span>
+              <span className="text-muted-foreground">All time</span>
             </div>
           </div>
           <div className="h-64">
-            {arxPerBlockData.length === 0 ? (
+            {pointsDistribution.every(d => d.points === 0) ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                No session data yet
+                No points data yet
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={arxPerBlockData}>
+                <BarChart data={pointsDistribution}>
                   <XAxis 
-                    dataKey="block" 
+                    dataKey="name" 
                     axisLine={false} 
                     tickLine={false}
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
@@ -341,6 +368,7 @@ const AdminDashboard = () => {
                     axisLine={false} 
                     tickLine={false}
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(value) => formatNumber(value)}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -348,10 +376,10 @@ const AdminDashboard = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
-                    formatter={(value: number) => [`${value.toLocaleString()} ARX`, 'Mined']}
+                    formatter={(value: number) => [`${value.toLocaleString()} ARX-P`, 'Points']}
                   />
                   <Bar 
-                    dataKey="arx" 
+                    dataKey="points" 
                     fill="hsl(var(--primary))" 
                     radius={[4, 4, 0, 0]}
                   />
@@ -366,14 +394,14 @@ const AdminDashboard = () => {
       <div className="glass-card p-6 space-y-4">
         <div>
           <h3 className="font-semibold text-foreground">Recent Mining Sessions</h3>
-          <p className="text-sm text-muted-foreground">Latest mining activity on the network</p>
+          <p className="text-sm text-muted-foreground">Latest ARX-P mining activity</p>
         </div>
         <div className="overflow-x-auto">
           {loadingBlocks ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : recentBlocks.length === 0 ? (
+          ) : recentSessions.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               No mining sessions yet
             </div>
@@ -381,21 +409,31 @@ const AdminDashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Session</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Miner</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Session ID</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Username</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Reward</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Time</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">ARX-P Earned</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Started</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {recentBlocks.map((block, index) => (
+                {recentSessions.map((session, index) => (
                   <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 text-sm font-mono text-primary">{block.id}</td>
-                    <td className="py-3 px-4 text-sm font-mono text-foreground">{block.miner}</td>
-                    <td className="py-3 px-4 text-sm text-foreground">{block.username}</td>
-                    <td className="py-3 px-4 text-sm text-foreground">{block.reward}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{block.time}</td>
+                    <td className="py-3 px-4 text-sm font-mono text-primary">{session.id}</td>
+                    <td className="py-3 px-4 text-sm font-mono text-foreground">{session.miner}</td>
+                    <td className="py-3 px-4 text-sm text-foreground">{session.username}</td>
+                    <td className="py-3 px-4 text-sm text-accent font-medium">{session.earned}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground">{session.time}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        session.status === "active" 
+                          ? "bg-green-500/10 text-green-500" 
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {session.status === "active" ? "Mining" : "Completed"}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

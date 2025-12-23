@@ -92,8 +92,8 @@ const AdminClaims = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Claim Manager</h1>
-          <p className="text-muted-foreground">Manage token claims and merkle proofs</p>
+          <h1 className="text-2xl font-bold text-foreground">$ARX Claim Manager</h1>
+          <p className="text-muted-foreground">Manage ARX-P to $ARX token claims and merkle proofs</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex items-center gap-2" onClick={() => refetch()}>
@@ -107,19 +107,27 @@ const AdminClaims = () => {
         </div>
       </div>
 
+      {/* Claim Info Banner */}
+      <div className="glass-card p-4 border-accent/30 bg-accent/5">
+        <p className="text-sm">
+          <span className="font-medium text-foreground">Token Conversion:</span> ARX-P points convert to $ARX tokens at TGE. 
+          <span className="text-muted-foreground ml-2">Users must have verified merkle proofs to claim their $ARX allocation.</span>
+        </p>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalEligible || 0)}</p>
-          <p className="text-sm text-muted-foreground">Total Eligible</p>
+          <p className="text-sm text-muted-foreground">Total $ARX Eligible</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-green-500">{formatNumber(stats?.totalClaimed || 0)}</p>
-          <p className="text-sm text-muted-foreground">Total Claimed</p>
+          <p className="text-sm text-muted-foreground">$ARX Claimed</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-yellow-500">{formatNumber(stats?.unclaimed || 0)}</p>
-          <p className="text-sm text-muted-foreground">Unclaimed</p>
+          <p className="text-sm text-muted-foreground">$ARX Unclaimed</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-primary">{stats?.claimRate || 0}%</p>
@@ -156,8 +164,8 @@ const AdminClaims = () => {
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Eligible</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Claimed</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">$ARX Eligible</th>
+                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">$ARX Claimed</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Proof Status</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
@@ -174,8 +182,8 @@ const AdminClaims = () => {
                   filteredClaims.map((claim) => (
                     <tr key={claim.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                       <td className="py-4 px-4 text-sm font-mono text-primary">{claim.wallet}</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{claim.eligible.toLocaleString()} ARX</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{claim.claimed.toLocaleString()} ARX</td>
+                      <td className="py-4 px-4 text-sm text-foreground">{claim.eligible.toLocaleString()} $ARX</td>
+                      <td className="py-4 px-4 text-sm text-accent font-medium">{claim.claimed.toLocaleString()} $ARX</td>
                       <td className="py-4 px-4">{getProofBadge(claim.proofStatus)}</td>
                       <td className="py-4 px-4 text-sm text-muted-foreground">{claim.lastActive}</td>
                       <td className="py-4 px-4">
