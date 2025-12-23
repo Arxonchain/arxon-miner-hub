@@ -48,7 +48,7 @@ const Dashboard = () => {
       </div>
 
       <WelcomeCard
-        title="Welcome to ARXON Points Mining! 🚀"
+        title="Welcome to ARXON Points Mining!"
         description="Mine ARX-P points now, convert to $ARX tokens later. Check in daily, complete tasks, and climb the leaderboard!"
         isActive={isMining}
       />
