@@ -62,22 +62,22 @@ const Tasks = () => {
     switch (status) {
       case 'completed':
         return (
-          <span className="flex items-center gap-1 text-green-400 text-sm">
-            <CheckCircle2 className="h-4 w-4" />
+          <span className="flex items-center gap-1 text-green-400 text-[10px] sm:text-xs">
+            <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
             Completed
           </span>
         );
       case 'pending':
         return (
-          <span className="flex items-center gap-1 text-yellow-400 text-sm">
-            <Clock className="h-4 w-4" />
+          <span className="flex items-center gap-1 text-yellow-400 text-[10px] sm:text-xs">
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
             Pending
           </span>
         );
       case 'rejected':
         return (
-          <span className="flex items-center gap-1 text-destructive text-sm">
-            <XCircle className="h-4 w-4" />
+          <span className="flex items-center gap-1 text-destructive text-[10px] sm:text-xs">
+            <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
             Rejected
           </span>
         );
@@ -87,49 +87,50 @@ const Tasks = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Tasks</h1>
-        <p className="text-muted-foreground mt-1">Complete tasks to earn bonus ARX-P points</p>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Tasks</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Complete tasks to earn bonus ARX-P points</p>
       </div>
 
       {/* Social Yapping Section */}
-      <div className="glass-card p-4 sm:p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Twitter className="h-5 w-5 text-blue-400" />
-              <h2 className="text-lg font-semibold text-foreground">Social Yapping</h2>
+      <div className="glass-card p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+              <Twitter className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 shrink-0" />
+              <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-foreground">Social Yapping</h2>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Post about Arxon on X with #ArxonMining and @Arxonarx to earn {SOCIAL_POST_POINTS} ARX-P per approved post
             </p>
           </div>
           <Button 
             onClick={() => user ? setShowPostDialog(true) : setShowAuth(true)}
-            className="btn-mining shrink-0"
+            className="btn-mining w-full sm:w-auto shrink-0 text-xs sm:text-sm"
+            size="sm"
           >
-            <Send className="h-4 w-4 mr-2" />
+            <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             Submit Post
           </Button>
         </div>
 
         {/* Recent Submissions */}
         {submissions.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-sm font-medium text-foreground mb-3">Your Submissions</p>
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border">
+            <p className="text-xs sm:text-sm font-medium text-foreground mb-2 sm:mb-3">Your Submissions</p>
             <div className="space-y-2">
               {submissions.slice(0, 3).map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 bg-secondary/50 rounded-lg">
                   <a 
                     href={sub.post_url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-sm text-accent hover:underline truncate max-w-[200px] sm:max-w-xs"
+                    className="text-xs sm:text-sm text-accent hover:underline truncate max-w-full"
                   >
                     {sub.post_url}
                   </a>
-                  {getStatusBadge(sub.status)}
+                  <div className="shrink-0">{getStatusBadge(sub.status)}</div>
                 </div>
               ))}
             </div>
@@ -138,13 +139,13 @@ const Tasks = () => {
       </div>
 
       {/* Task List */}
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-3">
         {loading ? (
-          <div className="glass-card p-8 text-center">
-            <div className="animate-spin h-8 w-8 border-2 border-accent border-t-transparent rounded-full mx-auto" />
+          <div className="glass-card p-6 sm:p-8 text-center">
+            <div className="animate-spin h-6 w-6 sm:h-8 sm:w-8 border-2 border-accent border-t-transparent rounded-full mx-auto" />
           </div>
         ) : tasks.length === 0 ? (
-          <div className="glass-card p-8 text-center text-muted-foreground">
+          <div className="glass-card p-6 sm:p-8 text-center text-muted-foreground text-sm">
             No tasks available right now. Check back later!
           </div>
         ) : (
@@ -156,22 +157,22 @@ const Tasks = () => {
             return (
               <div 
                 key={task.id} 
-                className={`glass-card p-4 sm:p-5 transition-all ${
+                className={`glass-card p-3 sm:p-4 md:p-5 transition-all ${
                   isCompleted ? 'opacity-60' : 'hover:bg-secondary/30'
                 }`}
               >
-                <div className="flex items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-secondary shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-secondary shrink-0">
                       {getTaskIcon(task.task_type)}
                     </div>
-                    <div>
-                      <h3 className="font-medium text-foreground">{task.title}</h3>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm sm:text-base text-foreground">{task.title}</h3>
                       {task.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2">{task.description}</p>
                       )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="flex items-center gap-1 text-accent text-sm font-medium">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 sm:mt-2">
+                        <span className="flex items-center gap-1 text-accent text-xs sm:text-sm font-medium">
                           <Zap className="h-3 w-3" />
                           +{task.points_reward} ARX-P
                         </span>
@@ -180,21 +181,21 @@ const Tasks = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                     {task.external_url && !isCompleted && (
                       <a
                         href={task.external_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                        className="p-1.5 sm:p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
                       >
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                       </a>
                     )}
                     <Button
                       onClick={() => handleClaimTask(task.id, task.external_url)}
                       disabled={isCompleted || isPending}
-                      className={isCompleted || isPending ? 'btn-claimed' : 'btn-claim'}
+                      className={`text-xs sm:text-sm ${isCompleted || isPending ? 'btn-claimed' : 'btn-claim'}`}
                       size="sm"
                     >
                       {isCompleted ? 'Claimed' : isPending ? 'Pending' : 'Claim'}
