@@ -10,7 +10,7 @@ import { format } from "date-fns";
 const Referrals = () => {
   const { isMining } = useMining();
   const { user } = useAuth();
-  const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals();
+  const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals(user);
 
   const copyReferralCode = () => {
     if (referralCode) {
