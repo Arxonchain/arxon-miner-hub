@@ -3,12 +3,14 @@ import { ChevronDown, Clock, FileText, Users, Twitter, Zap, TrendingUp, Flame } 
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
+import { useMining } from "@/hooks/useMining";
 
 const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
   const [timeFilter, setTimeFilter] = useState<"all" | "month" | "week">("all");
   const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard();
   const { yappers, loading: yappersLoading } = useYapperLeaderboard();
+  const { isMining } = useMining();
 
   const getBadge = (boost: number) => {
     if (boost >= 800) return { label: "🔥 Viral King", color: "bg-orange-500/20 text-orange-400" };
@@ -32,7 +34,7 @@ const Leaderboard = () => {
       <WelcomeCard 
         title="Welcome to ARXON Creator Leaderboard" 
         description="Compete for glory and prizes! Top content creators win amazing rewards." 
-        isActive={false} 
+        isActive={isMining} 
       />
 
       <div className="glass-card p-3 sm:p-4 flex items-center gap-2 border-solid">
