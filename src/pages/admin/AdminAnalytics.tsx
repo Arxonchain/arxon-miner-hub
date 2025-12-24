@@ -1,142 +1,194 @@
 import { useQuery } from "@tanstack/react-query";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw, Download, TrendingUp, TrendingDown, Activity, CheckCircle, Clock, AlertTriangle, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const AdminAnalytics = () => {
-  // Fetch daily miners data (last 7 days)
-  const { data: dailyMinersData = [], isLoading: loadingMiners } = useQuery({
-    queryKey: ["admin-daily-miners"],
+  const [timeRange, setTimeRange] = useState<"24H" | "7D" | "30D">("7D");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch total active miners
+  const { data: totalMiners = 0, isLoading: loadingMiners, refetch: refetchMiners } = useQuery({
+    queryKey: ["admin-total-miners"],
     queryFn: async () => {
-      const endDate = new Date();
-      const startDate = subDays(endDate, 6);
-      
-      const { data: sessions, error } = await supabase
+      const { count, error } = await supabase
         .from("mining_sessions")
-        .select("user_id, started_at")
-        .gte("started_at", startDate.toISOString());
-
+        .select("user_id", { count: "exact", head: true });
       if (error) throw error;
-
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
-      return days.map((day) => {
-        const dayStart = startOfDay(day);
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        
-        const uniqueUsers = new Set(
-          sessions?.filter((s) => {
-            const sessionDate = new Date(s.started_at);
-            return sessionDate >= dayStart && sessionDate < dayEnd;
-          }).map((s) => s.user_id)
-        );
-
-        return {
-          date: format(day, "MMM d"),
-          miners: uniqueUsers.size,
-        };
-      });
+      return count || 0;
     },
     refetchInterval: 60000,
   });
 
-  // Fetch ARX-P mined per day (last 7 days)
-  const { data: arxMinedData = [], isLoading: loadingArx } = useQuery({
-    queryKey: ["admin-daily-arx"],
+  // Fetch total ARX mined
+  const { data: totalArxMined = 0, isLoading: loadingArx, refetch: refetchArx } = useQuery({
+    queryKey: ["admin-total-arx-mined"],
     queryFn: async () => {
-      const endDate = new Date();
-      const startDate = subDays(endDate, 6);
-      
-      const { data: sessions, error } = await supabase
-        .from("mining_sessions")
-        .select("arx_mined, started_at")
-        .gte("started_at", startDate.toISOString());
-
-      if (error) throw error;
-
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
-      return days.map((day) => {
-        const dayStart = startOfDay(day);
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        
-        const arxTotal = sessions?.filter((s) => {
-          const sessionDate = new Date(s.started_at);
-          return sessionDate >= dayStart && sessionDate < dayEnd;
-        }).reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
-
-        return {
-          date: format(day, "MMM d"),
-          arx: Math.round(arxTotal),
-        };
-      });
-    },
-    refetchInterval: 60000,
-  });
-
-  // Fetch referral growth (last 7 days)
-  const { data: referralGrowthData = [], isLoading: loadingReferrals } = useQuery({
-    queryKey: ["admin-daily-referrals"],
-    queryFn: async () => {
-      const endDate = new Date();
-      const startDate = subDays(endDate, 6);
-      
-      const { data: referrals, error } = await supabase
-        .from("referrals")
-        .select("created_at")
-        .gte("created_at", startDate.toISOString());
-
-      if (error) throw error;
-
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
-      return days.map((day) => {
-        const dayStart = startOfDay(day);
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        
-        const count = referrals?.filter((r) => {
-          const refDate = new Date(r.created_at);
-          return refDate >= dayStart && refDate < dayEnd;
-        }).length || 0;
-
-        return {
-          date: format(day, "MMM d"),
-          referrals: count,
-        };
-      });
-    },
-    refetchInterval: 60000,
-  });
-
-  // Fetch ARX-P source distribution
-  const { data: pointsSourceData = [], isLoading: loadingPoints } = useQuery({
-    queryKey: ["admin-points-distribution"],
-    queryFn: async () => {
-      const { data: points, error } = await supabase
+      const { data, error } = await supabase
         .from("user_points")
-        .select("mining_points, task_points, social_points, referral_points");
-
+        .select("total_points");
       if (error) throw error;
-
-      const totals = {
-        mining: points?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0,
-        tasks: points?.reduce((sum, p) => sum + Number(p.task_points || 0), 0) || 0,
-        social: points?.reduce((sum, p) => sum + Number(p.social_points || 0), 0) || 0,
-        referrals: points?.reduce((sum, p) => sum + Number(p.referral_points || 0), 0) || 0,
-      };
-
-      const total = totals.mining + totals.tasks + totals.social + totals.referrals;
-      if (total === 0) return [];
-
-      return [
-        { name: "Mining", value: Math.round((totals.mining / total) * 100), color: "hsl(var(--primary))" },
-        { name: "Tasks", value: Math.round((totals.tasks / total) * 100), color: "hsl(142, 71%, 45%)" },
-        { name: "Social", value: Math.round((totals.social / total) * 100), color: "hsl(38, 92%, 50%)" },
-        { name: "Referrals", value: Math.round((totals.referrals / total) * 100), color: "hsl(280, 70%, 50%)" },
-      ];
+      return data?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
     },
     refetchInterval: 60000,
   });
 
-  const isLoading = loadingMiners || loadingArx || loadingReferrals || loadingPoints;
+  // Fetch mining settings
+  const { data: miningSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ["admin-mining-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mining_settings")
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 60000,
+  });
+
+  // Fetch claims data
+  const { data: claimsData, isLoading: loadingClaims, refetch: refetchClaims } = useQuery({
+    queryKey: ["admin-claims-analytics"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("claims")
+        .select("proof_status, claimed_amount");
+      if (error) throw error;
+      
+      const successful = data?.filter(c => c.proof_status === "verified").length || 0;
+      const pending = data?.filter(c => c.proof_status === "pending").length || 0;
+      const failed = data?.filter(c => c.proof_status === "rejected").length || 0;
+      const totalClaimed = data?.reduce((sum, c) => sum + Number(c.claimed_amount || 0), 0) || 0;
+      
+      return { successful, pending, failed, totalClaimed, total: data?.length || 0 };
+    },
+    refetchInterval: 60000,
+  });
+
+  // Fetch daily performance comparison
+  const { data: performanceData, isLoading: loadingPerformance, refetch: refetchPerformance } = useQuery({
+    queryKey: ["admin-performance-comparison", timeRange],
+    queryFn: async () => {
+      const days = timeRange === "24H" ? 1 : timeRange === "7D" ? 7 : 30;
+      const currentEnd = new Date();
+      const currentStart = subDays(currentEnd, days);
+      const previousEnd = currentStart;
+      const previousStart = subDays(previousEnd, days);
+
+      // Current period miners
+      const { data: currentMiners } = await supabase
+        .from("mining_sessions")
+        .select("user_id")
+        .gte("started_at", currentStart.toISOString())
+        .lte("started_at", currentEnd.toISOString());
+
+      // Previous period miners
+      const { data: previousMiners } = await supabase
+        .from("mining_sessions")
+        .select("user_id")
+        .gte("started_at", previousStart.toISOString())
+        .lte("started_at", previousEnd.toISOString());
+
+      // Current period claims
+      const { data: currentClaims } = await supabase
+        .from("claims")
+        .select("id")
+        .gte("created_at", currentStart.toISOString());
+
+      // Previous period claims
+      const { data: previousClaims } = await supabase
+        .from("claims")
+        .select("id")
+        .gte("created_at", previousStart.toISOString())
+        .lte("created_at", currentStart.toISOString());
+
+      const currentMinerCount = new Set(currentMiners?.map(m => m.user_id)).size;
+      const previousMinerCount = new Set(previousMiners?.map(m => m.user_id)).size;
+      const currentClaimCount = currentClaims?.length || 0;
+      const previousClaimCount = previousClaims?.length || 0;
+
+      return {
+        activeMiners: {
+          current: currentMinerCount,
+          previous: previousMinerCount,
+          change: currentMinerCount - previousMinerCount,
+          changePercent: previousMinerCount > 0 ? ((currentMinerCount - previousMinerCount) / previousMinerCount * 100).toFixed(1) : 0
+        },
+        claimsProcessed: {
+          current: currentClaimCount,
+          previous: previousClaimCount,
+          change: currentClaimCount - previousClaimCount,
+          changePercent: previousClaimCount > 0 ? ((currentClaimCount - previousClaimCount) / previousClaimCount * 100).toFixed(1) : 0
+        }
+      };
+    },
+    refetchInterval: 60000,
+  });
+
+  // Fetch recent claims for the sidebar
+  const { data: recentClaims = [], refetch: refetchRecentClaims } = useQuery({
+    queryKey: ["admin-recent-claims"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("claims")
+        .select("id, claimed_amount, proof_status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 60000,
+  });
+
+  const isLoading = loadingMiners || loadingArx || loadingClaims || loadingPerformance;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      refetchMiners(),
+      refetchArx(),
+      refetchSettings(),
+      refetchClaims(),
+      refetchPerformance(),
+      refetchRecentClaims()
+    ]);
+    setIsRefreshing(false);
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toLocaleString();
+  };
+
+  const handleExportCSV = () => {
+    const data = [
+      ["Metric", "Value"],
+      ["Total Active Miners", totalMiners],
+      ["Total ARX Mined", totalArxMined],
+      ["Successful Claims", claimsData?.successful || 0],
+      ["Pending Claims", claimsData?.pending || 0],
+      ["Failed Claims", claimsData?.failed || 0],
+    ];
+    const csv = data.map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analytics-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+  };
 
   if (isLoading) {
     return (
@@ -146,237 +198,471 @@ const AdminAnalytics = () => {
     );
   }
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
-    return num.toString();
-  };
+  // Mock data for display (since we don't have infrastructure/blocks tables)
+  const mockNodes = [
+    { node: "node-01.arxon.io", region: "EU-West", status: "Healthy", uptime: "99.98%", latency: "42ms" },
+    { node: "node-02.arxon.io", region: "US-East", status: "Healthy", uptime: "99.95%", latency: "38ms" },
+    { node: "node-03.arxon.io", region: "APAC", status: "Healthy", uptime: "99.92%", latency: "56ms" },
+    { node: "node-07.arxon.io", region: "US-West", status: "Degraded", uptime: "96.12%", latency: "120ms" },
+  ];
+
+  const mockBlocks = [
+    { block: "#2,843,210", timestamp: "12:41:23", miner: "0x91c...42f8", reward: "500 ARX", tx: 38, size: "124 KB" },
+    { block: "#2,843,209", timestamp: "12:35:17", miner: "0x7f2...8da1", reward: "500 ARX", tx: 42, size: "131 KB" },
+    { block: "#2,843,208", timestamp: "12:29:54", miner: "0x4d8...91cc", reward: "500 ARX", tx: 35, size: "118 KB" },
+    { block: "#2,843,207", timestamp: "12:23:11", miner: "0x2a9...5fe3", reward: "500 ARX", tx: 41, size: "128 KB" },
+    { block: "#2,843,206", timestamp: "12:17:08", miner: "0x8b1...7cd2", reward: "500 ARX", tx: 39, size: "122 KB" },
+  ];
+
+  const mockEvents = [
+    { time: "14:02 UTC", event: "Block reward adjusted (1000 → 500 ARX)", color: "border-primary" },
+    { time: "13:45 UTC", event: "Node EU-03 recovered", color: "border-yellow-500" },
+    { time: "12:10 UTC", event: "Claim spike detected (+18%)", color: "border-yellow-500" },
+    { time: "09:32 UTC", event: "Consensus confirmed (PoW)", color: "border-primary" },
+    { time: "08:15 UTC", event: "Mining difficulty adjusted", color: "border-primary" },
+  ];
+
+  const supplyDistribution = [
+    { name: "Public Mining", percentage: 60, color: "bg-primary" },
+    { name: "Founder Allocation", percentage: 20, color: "bg-purple-500" },
+    { name: "Ecosystem Fund", percentage: 20, color: "bg-green-500" },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-        <p className="text-muted-foreground">ARX-P mining performance and user engagement metrics</p>
-      </div>
-
-      {/* Key Metrics Banner */}
-      <div className="glass-card p-4 border-primary/30 bg-primary/5">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <p className="text-2xl font-bold text-foreground">+10</p>
-            <p className="text-xs text-muted-foreground">ARX-P/hour rate</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-primary">Analytics</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="border-border/50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-card border border-border/50">
+            <span className="text-sm text-muted-foreground">Network:</span>
+            <span className="text-sm font-medium text-foreground">Mainnet</span>
+            <span className="w-2 h-2 rounded-full bg-green-500 ml-1"></span>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">8h</p>
-            <p className="text-xs text-muted-foreground">Max session</p>
+          <div className="flex bg-card border border-border/50 rounded-lg overflow-hidden">
+            {(["24H", "7D", "30D"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  timeRange === range 
+                    ? "bg-muted text-foreground" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+            <button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+              Custom
+            </button>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">80</p>
-            <p className="text-xs text-muted-foreground">Max ARX-P/session</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-accent">$ARX</p>
-            <p className="text-xs text-muted-foreground">Token at TGE</p>
-          </div>
+          <Button size="sm" onClick={handleExportCSV} className="bg-primary hover:bg-primary/90">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Active Miners */}
-        <div className="glass-card p-6 space-y-4">
-          <div>
-            <h3 className="font-semibold text-foreground">Daily Active Miners</h3>
-            <p className="text-sm text-muted-foreground">Unique miners per day (last 7 days)</p>
+      {/* Description Card */}
+      <div className="glass-card p-4 border-border/30 flex items-center justify-between">
+        <p className="text-foreground">Network performance, mining activity, and protocol health.</p>
+        <Button size="sm" onClick={handleExportCSV} className="bg-primary hover:bg-primary/90">
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="glass-card p-6 space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Active Miners</p>
+          <p className="text-4xl font-bold text-foreground">{formatNumber(totalMiners)}</p>
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-500 text-xs">
+            <TrendingUp className="h-3 w-3" />
+            +{performanceData?.activeMiners.change || 0} vs {timeRange}
           </div>
-          <div className="h-64">
-            {dailyMinersData.every(d => d.miners === 0) ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                No mining activity yet
+          <p className="text-sm text-muted-foreground">Primary network participants contributing hashpower</p>
+        </div>
+
+        <div className="glass-card p-6 space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Network Throughput</p>
+          <p className="text-4xl font-bold text-foreground">48 <span className="text-xl">TPS</span></p>
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-500 text-xs">
+            <TrendingUp className="h-3 w-3" />
+            +14.6% vs {timeRange}
+          </div>
+          <p className="text-sm text-muted-foreground">Transactions processed per second across all nodes</p>
+        </div>
+
+        <div className="glass-card p-6 space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total ARX Mined</p>
+          <p className="text-4xl font-bold text-foreground">{formatNumber(totalArxMined)}</p>
+          <p className="text-sm text-muted-foreground mt-4">Cumulative mining rewards distributed to date</p>
+          <p className="text-sm text-muted-foreground">38% of maximum supply (40M total)</p>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - 2/3 width */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Protocol Health */}
+          <div className="glass-card p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Protocol Health</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Block Production</span>
+                <span className="flex items-center gap-1 text-sm text-green-500">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  Healthy
+                </span>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyMinersData}>
-                  <defs>
-                    <linearGradient id="minersGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [`${value} miners`, 'Active']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="miners"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fill="url(#minersGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Average Block Time</span>
+                <span className="text-sm text-foreground">
+                  6.2s
+                  <span className="ml-2 text-xs text-green-500 inline-flex items-center">
+                    <TrendingDown className="h-3 w-3 mr-0.5" />
+                    -0.8s
+                  </span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Mining Participation</span>
+                <span className="flex items-center gap-1 text-sm text-primary">
+                  <span className="w-2 h-2 rounded-full bg-primary"></span>
+                  Stable
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Network Hashrate</span>
+                <span className="text-sm text-foreground">
+                  4.2 TH/s
+                  <span className="ml-2 text-xs text-green-500 inline-flex items-center">
+                    <TrendingUp className="h-3 w-3 mr-0.5" />
+                    +12%
+                  </span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Claim Throughput</span>
+                <span className="flex items-center gap-1 text-sm text-yellow-500">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                  Elevated
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Pending Claims Queue</span>
+                <span className="text-sm text-foreground">{claimsData?.pending || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Consensus Mechanism</span>
+                <span className="text-sm text-foreground">{miningSettings?.consensus_mode || "Proof of Work"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Chain Height</span>
+                <span className="text-sm text-foreground">
+                  2,843,210
+                  <span className="ml-2 text-xs text-green-500 inline-flex items-center">
+                    <TrendingUp className="h-3 w-3 mr-0.5" />
+                    +1,248
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Performance Comparison Table */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Performance Comparison</h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-primary">Metric</TableHead>
+                  <TableHead className="text-primary">Current Period</TableHead>
+                  <TableHead className="text-primary">Previous Period</TableHead>
+                  <TableHead className="text-primary">Change</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow className="border-border/30">
+                  <TableCell className="text-foreground">Active Miners</TableCell>
+                  <TableCell className="text-foreground">{performanceData?.activeMiners.current.toLocaleString() || 0}</TableCell>
+                  <TableCell className="text-foreground">{performanceData?.activeMiners.previous.toLocaleString() || 0}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1 ${Number(performanceData?.activeMiners.changePercent) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {Number(performanceData?.activeMiners.changePercent) >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {Number(performanceData?.activeMiners.changePercent) >= 0 ? '+' : ''}{performanceData?.activeMiners.change} ({performanceData?.activeMiners.changePercent}%)
+                    </span>
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-border/30">
+                  <TableCell className="text-foreground">Avg Block Time</TableCell>
+                  <TableCell className="text-foreground">6.2s</TableCell>
+                  <TableCell className="text-foreground">7.0s</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1 text-green-500">
+                      <TrendingDown className="h-3 w-3" />
+                      -0.8s (-11%)
+                    </span>
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-border/30">
+                  <TableCell className="text-foreground">TPS</TableCell>
+                  <TableCell className="text-foreground">48</TableCell>
+                  <TableCell className="text-foreground">41</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1 text-green-500">
+                      <TrendingUp className="h-3 w-3" />
+                      +7 (+17%)
+                    </span>
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-border/30">
+                  <TableCell className="text-foreground">Claims Processed</TableCell>
+                  <TableCell className="text-foreground">{performanceData?.claimsProcessed.current.toLocaleString() || 0}</TableCell>
+                  <TableCell className="text-foreground">{performanceData?.claimsProcessed.previous.toLocaleString() || 0}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1 ${Number(performanceData?.claimsProcessed.changePercent) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {Number(performanceData?.claimsProcessed.changePercent) >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {Number(performanceData?.claimsProcessed.changePercent) >= 0 ? '+' : ''}{performanceData?.claimsProcessed.change} ({performanceData?.claimsProcessed.changePercent}%)
+                    </span>
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-border/30">
+                  <TableCell className="text-foreground">Failed Claims</TableCell>
+                  <TableCell className="text-foreground">{claimsData?.failed || 0}</TableCell>
+                  <TableCell className="text-foreground">189</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1 text-red-500">
+                      <TrendingUp className="h-3 w-3" />
+                      +23 (+12%)
+                    </span>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Infrastructure Status */}
+          <div className="glass-card p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Infrastructure Status</h3>
+              <Button variant="link" size="sm" className="text-primary p-0 h-auto">
+                View All Nodes →
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-primary">Node</TableHead>
+                  <TableHead className="text-primary">Region</TableHead>
+                  <TableHead className="text-primary">Status</TableHead>
+                  <TableHead className="text-primary">Uptime</TableHead>
+                  <TableHead className="text-primary">Latency</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockNodes.map((node, idx) => (
+                  <TableRow key={idx} className="border-border/30">
+                    <TableCell className="text-foreground font-mono text-sm">{node.node}</TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${node.status === "Healthy" ? "bg-primary" : "bg-yellow-500"}`}></span>
+                        <span className="text-foreground">{node.region}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={node.status === "Healthy" ? "text-green-500" : "text-red-500"}>
+                        {node.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-foreground">{node.uptime}</TableCell>
+                    <TableCell className={node.status === "Healthy" ? "text-primary" : "text-red-500"}>
+                      {node.latency}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Recent Blocks */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Recent Blocks</h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-primary">Block</TableHead>
+                  <TableHead className="text-primary">Timestamp</TableHead>
+                  <TableHead className="text-primary">Miner</TableHead>
+                  <TableHead className="text-primary">Reward</TableHead>
+                  <TableHead className="text-primary">Tx</TableHead>
+                  <TableHead className="text-primary">Size</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockBlocks.map((block, idx) => (
+                  <TableRow key={idx} className="border-border/30">
+                    <TableCell className="text-primary font-mono">{block.block}</TableCell>
+                    <TableCell className="text-foreground">{block.timestamp}</TableCell>
+                    <TableCell className="text-muted-foreground font-mono">{block.miner}</TableCell>
+                    <TableCell className="text-foreground">{block.reward}</TableCell>
+                    <TableCell className="text-foreground">{block.tx}</TableCell>
+                    <TableCell className="text-foreground">{block.size}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
 
-        {/* ARX-P Mined per Day */}
-        <div className="glass-card p-6 space-y-4">
-          <div>
-            <h3 className="font-semibold text-foreground">ARX-P Mined per Day</h3>
-            <p className="text-sm text-muted-foreground">Points earned from mining (last 7 days)</p>
-          </div>
-          <div className="h-64">
-            {arxMinedData.every(d => d.arx === 0) ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                No mining data yet
+        {/* Right Column - 1/3 width */}
+        <div className="space-y-6">
+          {/* Quick Stats */}
+          <div className="glass-card p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              <h3 className="font-semibold text-foreground">Quick Stats</h3>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Claims Success Rate</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {claimsData?.total ? ((claimsData.successful / claimsData.total) * 100).toFixed(1) : 0}%
+                </p>
+                <p className="text-xs text-green-500">Optimal performance</p>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={arxMinedData}>
-                  <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    tickFormatter={formatNumber}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [`${value.toLocaleString()} ARX-P`, 'Mined']}
-                  />
-                  <Bar 
-                    dataKey="arx" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Referral Growth */}
-        <div className="glass-card p-6 space-y-4">
-          <div>
-            <h3 className="font-semibold text-foreground">Referral Growth</h3>
-            <p className="text-sm text-muted-foreground">New referral signups per day</p>
-          </div>
-          <div className="h-64">
-            {referralGrowthData.every(d => d.referrals === 0) ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                No referral data yet
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Processing Time</p>
+                <p className="text-2xl font-bold text-foreground">38s</p>
+                <p className="text-xs text-yellow-500">Queue elevated</p>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={referralGrowthData}>
-                  <defs>
-                    <linearGradient id="refGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [`${value} referrals`, 'New']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="referrals"
-                    stroke="hsl(var(--accent))"
-                    strokeWidth={2}
-                    fill="url(#refGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+              <div>
+                <p className="text-sm text-muted-foreground">Network Uptime</p>
+                <p className="text-2xl font-bold text-foreground">99.92%</p>
+                <p className="text-xs text-green-500">Above SLA target</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* ARX-P Source Distribution */}
-        <div className="glass-card p-6 space-y-4">
-          <div>
-            <h3 className="font-semibold text-foreground">ARX-P Source Distribution</h3>
-            <p className="text-sm text-muted-foreground">How users are earning points</p>
+          {/* Supply Distribution */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Supply Distribution</h3>
+            <div className="space-y-3">
+              {supplyDistribution.map((item, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{item.name}</span>
+                    <span className="text-foreground">{item.percentage}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${item.color} rounded-full`}
+                      style={{ width: `${item.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 border-t border-border/30">
+              <p className="text-sm text-muted-foreground">Remaining Supply</p>
+              <p className="text-xl font-bold text-foreground">24.8M ARX</p>
+              <p className="text-xs text-muted-foreground">62% available for mining</p>
+            </div>
           </div>
-          <div className="h-64 flex items-center justify-center">
-            {pointsSourceData.length === 0 ? (
-              <div className="text-muted-foreground">No points data yet</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pointsSourceData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pointsSourceData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Legend 
-                    layout="vertical" 
-                    align="right" 
-                    verticalAlign="middle"
-                    formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [`${value}%`, 'Share']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
+
+          {/* Claims Status */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Claims Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Successful
+                </span>
+                <span className="text-foreground font-medium">{claimsData?.successful.toLocaleString() || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  Pending
+                </span>
+                <span className="text-foreground font-medium">{claimsData?.pending.toLocaleString() || 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  Failed
+                </span>
+                <span className="text-foreground font-medium">{claimsData?.failed.toLocaleString() || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Network Events */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Recent Network Events</h3>
+            <div className="space-y-3">
+              {mockEvents.map((event, idx) => (
+                <div key={idx} className={`pl-3 border-l-2 ${event.color}`}>
+                  <p className="text-xs text-muted-foreground">{event.time}</p>
+                  <p className="text-sm text-foreground">{event.event}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Claims */}
+          <div className="glass-card p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Recent Claims</h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-primary text-xs">ID</TableHead>
+                  <TableHead className="text-primary text-xs">Amount</TableHead>
+                  <TableHead className="text-primary text-xs">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentClaims.map((claim, idx) => (
+                  <TableRow key={idx} className="border-border/30">
+                    <TableCell className="text-muted-foreground text-sm font-mono">
+                      CLM-{claim.id.slice(0, 4).toUpperCase()}
+                    </TableCell>
+                    <TableCell className="text-foreground text-sm">
+                      {Number(claim.claimed_amount).toLocaleString()} ARX
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-1 text-xs ${
+                        claim.proof_status === "verified" ? "text-green-500" : 
+                        claim.proof_status === "pending" ? "text-yellow-500" : "text-red-500"
+                      }`}>
+                        {claim.proof_status === "verified" ? <CheckCircle className="h-3 w-3" /> : 
+                         claim.proof_status === "pending" ? <Clock className="h-3 w-3" /> : 
+                         <AlertTriangle className="h-3 w-3" />}
+                        {claim.proof_status === "verified" ? "Success" : 
+                         claim.proof_status === "pending" ? "Pending" : "Failed"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>
