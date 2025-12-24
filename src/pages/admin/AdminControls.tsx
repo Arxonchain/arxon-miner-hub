@@ -57,17 +57,39 @@ const AdminControls = () => {
         consensusMode: "consensus_mode",
       };
 
+      // First get the settings row ID
+      const { data: existingSettings } = await supabase
+        .from("mining_settings")
+        .select("id")
+        .limit(1)
+        .single();
+
+      if (!existingSettings) {
+        throw new Error("No settings found");
+      }
+
       const { error } = await supabase
         .from("mining_settings")
-        .update({ [columnMap[key]]: value, updated_at: new Date().toISOString() })
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Update all rows
+        .update({ 
+          [columnMap[key]]: value, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", existingSettings.id);
 
       if (error) throw error;
 
       setSettings((prev) => ({ ...prev, [key]: value }));
+      
+      const friendlyNames: Record<string, string> = {
+        publicMiningEnabled: "Public Mining",
+        claimingEnabled: "$ARX Token Claiming",
+        blockReward: "Block Reward",
+        consensusMode: "Consensus Mode",
+      };
+      
       toast({
         title: "Setting Updated",
-        description: `${key} has been updated successfully.`,
+        description: `${friendlyNames[key] || key} has been ${typeof value === 'boolean' ? (value ? 'enabled' : 'disabled') : `set to ${value}`}.`,
       });
     } catch (error: any) {
       toast({
