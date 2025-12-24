@@ -89,7 +89,7 @@ async function fetchUserData(username: string, bearerToken: string): Promise<{ i
   }
 }
 
-async function fetchUserTweets(userId: string, bearerToken: string): Promise<Tweet[]> {
+async function fetchUserTweets(userId: string, bearerToken: string): Promise<{ tweets: Tweet[], rateLimited: boolean }> {
   // Get tweets from the last 24 hours
   const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   
@@ -105,11 +105,18 @@ async function fetchUserTweets(userId: string, bearerToken: string): Promise<Twe
   if (!tweetsResponse.ok) {
     const errorText = await tweetsResponse.text()
     console.error('Failed to fetch tweets:', errorText)
+    
+    // Check if it's a rate limit error (429) or usage cap exceeded
+    if (tweetsResponse.status === 429 || errorText.includes('UsageCapExceeded')) {
+      console.log('Twitter API rate limited - proceeding with default values')
+      return { tweets: [], rateLimited: true }
+    }
+    
     throw new Error(`Failed to fetch tweets: ${tweetsResponse.status}`)
   }
 
   const tweetsData: TwitterResponse = await tweetsResponse.json()
-  return tweetsData.data || []
+  return { tweets: tweetsData.data || [], rateLimited: false }
 }
 
 Deno.serve(async (req) => {
@@ -156,9 +163,9 @@ Deno.serve(async (req) => {
     const userData = await fetchUserData(username, bearerToken)
     console.log(`User ID: ${userData.id}, Profile Image: ${userData.profileImageUrl}`)
 
-    // Fetch recent tweets
-    const tweets = await fetchUserTweets(userData.id, bearerToken)
-    console.log(`Found ${tweets.length} tweets in last 24 hours`)
+    // Fetch recent tweets (handles rate limits gracefully)
+    const { tweets, rateLimited } = await fetchUserTweets(userData.id, bearerToken)
+    console.log(`Found ${tweets.length} tweets in last 24 hours${rateLimited ? ' (rate limited)' : ''}`)
 
     // Filter qualified tweets
     const qualifiedTweets = tweets.filter(tweet => isQualifiedTweet(tweet.text))
@@ -248,6 +255,10 @@ Deno.serve(async (req) => {
           viralBonus: hasViralPost,
           lastScanned: new Date().toISOString(),
           profileImageUrl: userData.profileImageUrl,
+          rateLimited,
+          message: rateLimited 
+            ? 'Profile connected! Tweet scanning temporarily unavailable due to API limits. Boost will update when limits reset.'
+            : undefined,
         },
       }),
       {
