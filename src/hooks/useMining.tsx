@@ -7,6 +7,13 @@ import { toast } from '@/hooks/use-toast';
 const MAX_MINING_HOURS = 8;
 const BASE_POINTS_PER_HOUR = 10;
 
+interface MiningSettings {
+  publicMiningEnabled: boolean;
+  claimingEnabled: boolean;
+  blockReward: number;
+  consensusMode: string;
+}
+
 export const useMining = () => {
   const { user } = useAuth();
   const { addPoints, triggerConfetti, points } = usePoints();
@@ -15,6 +22,12 @@ export const useMining = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [miningSettings, setMiningSettings] = useState<MiningSettings>({
+    publicMiningEnabled: true,
+    claimingEnabled: false,
+    blockReward: 1000,
+    consensusMode: 'PoW'
+  });
   const lastPointsAwardedRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -24,6 +37,40 @@ export const useMining = () => {
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
+
+  // Fetch mining settings
+  const fetchMiningSettings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mining_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setMiningSettings({
+          publicMiningEnabled: data.public_mining_enabled,
+          claimingEnabled: data.claiming_enabled,
+          blockReward: data.block_reward,
+          consensusMode: data.consensus_mode
+        });
+
+        // If mining is disabled and user is currently mining, stop their session
+        if (!data.public_mining_enabled && isMining && sessionId) {
+          toast({
+            title: "Mining Disabled",
+            description: "Public mining has been disabled by admin. Your session has ended.",
+            variant: "destructive"
+          });
+          await endSession(sessionId, earnedPoints);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching mining settings:', error);
+    }
+  }, [isMining, sessionId, earnedPoints]);
 
   const checkActiveSession = useCallback(async () => {
     if (!user) {
@@ -68,6 +115,16 @@ export const useMining = () => {
       toast({
         title: "Login Required",
         description: "Please sign in to start mining",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if mining is enabled
+    if (!miningSettings.publicMiningEnabled) {
+      toast({
+        title: "Mining Disabled",
+        description: "Public mining is currently disabled",
         variant: "destructive"
       });
       return;
@@ -185,8 +242,9 @@ export const useMining = () => {
 
   // Initial fetch
   useEffect(() => {
+    fetchMiningSettings();
     checkActiveSession();
-  }, [checkActiveSession]);
+  }, [checkActiveSession, fetchMiningSettings]);
 
   // Real-time subscription for mining sessions
   useEffect(() => {
@@ -226,6 +284,49 @@ export const useMining = () => {
     };
   }, [user, sessionId]);
 
+  // Real-time subscription for mining settings (admin controls)
+  useEffect(() => {
+    console.log('Setting up real-time subscription for mining_settings');
+    
+    const channel = supabase
+      .channel('mining-settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'mining_settings'
+        },
+        async (payload) => {
+          console.log('Real-time mining settings update:', payload);
+          const newSettings = payload.new as any;
+          
+          setMiningSettings({
+            publicMiningEnabled: newSettings.public_mining_enabled,
+            claimingEnabled: newSettings.claiming_enabled,
+            blockReward: newSettings.block_reward,
+            consensusMode: newSettings.consensus_mode
+          });
+
+          // If mining was just disabled and user is mining, stop their session
+          if (!newSettings.public_mining_enabled && isMining && sessionId) {
+            toast({
+              title: "Mining Disabled",
+              description: "Public mining has been disabled by admin. Your session has ended.",
+              variant: "destructive"
+            });
+            await endSession(sessionId, earnedPoints);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up mining_settings subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [isMining, sessionId, earnedPoints]);
+
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -244,6 +345,7 @@ export const useMining = () => {
     stopMining,
     formatTime,
     referralBonus,
-    pointsPerHour
+    pointsPerHour,
+    miningSettings
   };
 };

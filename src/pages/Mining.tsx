@@ -22,10 +22,13 @@ const Mining = () => {
     maxTimeSeconds,
     startMining, 
     stopMining, 
-    formatTime 
+    formatTime,
+    miningSettings
   } = useMining();
   const { xProfile, scanning, refreshBoost, getBoostedRate } = useXProfile();
   const [showAuth, setShowAuth] = useState(false);
+
+  const miningDisabled = !miningSettings.publicMiningEnabled;
 
   const baseRate = 10;
   const boostedRate = getBoostedRate(baseRate);
@@ -237,7 +240,12 @@ const Mining = () => {
 
         {/* Start/Stop Button */}
         <div className="w-full mb-4 sm:mb-6">
-          {isMining ? (
+          {miningDisabled ? (
+            <div className="glass-card p-4 text-center border-destructive/30 bg-destructive/5">
+              <p className="text-sm text-destructive font-medium mb-1">Mining Temporarily Disabled</p>
+              <p className="text-xs text-muted-foreground">Public mining is currently paused by the admin. Check back later.</p>
+            </div>
+          ) : isMining ? (
             <Button
               onClick={stopMining}
               className="btn-glow w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30 active:scale-[0.98] active:shadow-[0_0_20px_hsl(var(--destructive)/0.5)]"
