@@ -252,7 +252,7 @@ const AdminAnalytics = () => {
 
 
   const mockEvents = [
-    { time: "14:02 UTC", event: "Block reward adjusted (1000 → 500 ARX)", color: "border-primary" },
+    { time: "14:02 UTC", event: "Block reward adjusted (1000 → 500 ARX-P)", color: "border-primary" },
     { time: "13:45 UTC", event: "Node EU-03 recovered", color: "border-yellow-500" },
     { time: "12:10 UTC", event: "Claim spike detected (+18%)", color: "border-yellow-500" },
     { time: "09:32 UTC", event: "Consensus confirmed (PoW)", color: "border-primary" },
@@ -578,7 +578,7 @@ const AdminAnalytics = () => {
                           {session.username}
                         </TableCell>
                         <TableCell className="text-foreground font-medium">
-                          {session.arx_mined.toLocaleString()} ARX
+                          {session.arx_mined.toLocaleString()} ARX-P
                         </TableCell>
                         <TableCell className="text-foreground">
                           {durationMins > 0 ? `${durationMins}m ${durationSecs}s` : `${durationSecs}s`}
@@ -642,7 +642,7 @@ const AdminAnalytics = () => {
             </div>
             <div className="pt-2 border-t border-border/30">
               <p className="text-sm text-muted-foreground">Remaining Supply</p>
-              <p className="text-xl font-bold text-foreground">24.8M ARX</p>
+              <p className="text-xl font-bold text-foreground">24.8M ARX-P</p>
               <p className="text-xs text-muted-foreground">62% available for mining</p>
             </div>
           </div>
@@ -706,7 +706,7 @@ const AdminAnalytics = () => {
                       CLM-{claim.id.slice(0, 4).toUpperCase()}
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
-                      {Number(claim.claimed_amount).toLocaleString()} ARX
+                      {Number(claim.claimed_amount).toLocaleString()} ARX-P
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center gap-1 text-xs ${
