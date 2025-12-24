@@ -151,6 +151,49 @@ const AdminAnalytics = () => {
     refetchInterval: 60000,
   });
 
+  // Fetch recent mining sessions (points mined)
+  const { data: recentPointsMined = [], refetch: refetchRecentPoints } = useQuery({
+    queryKey: ["admin-recent-points-mined"],
+    queryFn: async () => {
+      // Fetch completed mining sessions
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("mining_sessions")
+        .select("id, user_id, arx_mined, ended_at, started_at")
+        .eq("is_active", false)
+        .not("ended_at", "is", null)
+        .order("ended_at", { ascending: false })
+        .limit(10);
+      
+      if (sessionsError) throw sessionsError;
+      if (!sessions || sessions.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(sessions.map(s => s.user_id))];
+      
+      // Fetch profiles for these users
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, username")
+        .in("user_id", userIds);
+      
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to username
+      const usernameMap = new Map(profiles?.map(p => [p.user_id, p.username]) || []);
+
+      // Combine data
+      return sessions.map(session => ({
+        id: session.id,
+        user_id: session.user_id,
+        username: usernameMap.get(session.user_id) || `User-${session.user_id.slice(0, 6)}`,
+        arx_mined: Number(session.arx_mined),
+        claimed_at: session.ended_at,
+        started_at: session.started_at,
+      }));
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const isLoading = loadingMiners || loadingArx || loadingClaims || loadingPerformance;
 
   const handleRefresh = async () => {
@@ -161,7 +204,8 @@ const AdminAnalytics = () => {
       refetchSettings(),
       refetchClaims(),
       refetchPerformance(),
-      refetchRecentClaims()
+      refetchRecentClaims(),
+      refetchRecentPoints()
     ]);
     setIsRefreshing(false);
   };
@@ -206,13 +250,6 @@ const AdminAnalytics = () => {
     { node: "node-07.arxon.io", region: "US-West", status: "Degraded", uptime: "96.12%", latency: "120ms" },
   ];
 
-  const mockBlocks = [
-    { block: "#2,843,210", timestamp: "12:41:23", miner: "0x91c...42f8", reward: "500 ARX", tx: 38, size: "124 KB" },
-    { block: "#2,843,209", timestamp: "12:35:17", miner: "0x7f2...8da1", reward: "500 ARX", tx: 42, size: "131 KB" },
-    { block: "#2,843,208", timestamp: "12:29:54", miner: "0x4d8...91cc", reward: "500 ARX", tx: 35, size: "118 KB" },
-    { block: "#2,843,207", timestamp: "12:23:11", miner: "0x2a9...5fe3", reward: "500 ARX", tx: 41, size: "128 KB" },
-    { block: "#2,843,206", timestamp: "12:17:08", miner: "0x8b1...7cd2", reward: "500 ARX", tx: 39, size: "122 KB" },
-  ];
 
   const mockEvents = [
     { time: "14:02 UTC", event: "Block reward adjusted (1000 → 500 ARX)", color: "border-primary" },
@@ -501,31 +538,55 @@ const AdminAnalytics = () => {
             </Table>
           </div>
 
-          {/* Recent Blocks */}
+          {/* Recent Points Mined */}
           <div className="glass-card p-6 space-y-4">
-            <h3 className="font-semibold text-foreground">Recent Blocks</h3>
+            <h3 className="font-semibold text-foreground">Recent Points Mined</h3>
             <Table>
               <TableHeader>
                 <TableRow className="border-border/30 hover:bg-transparent">
-                  <TableHead className="text-primary">Block</TableHead>
-                  <TableHead className="text-primary">Timestamp</TableHead>
+                  <TableHead className="text-primary">Session ID</TableHead>
+                  <TableHead className="text-primary">Claimed At</TableHead>
                   <TableHead className="text-primary">Miner</TableHead>
-                  <TableHead className="text-primary">Reward</TableHead>
-                  <TableHead className="text-primary">Tx</TableHead>
-                  <TableHead className="text-primary">Size</TableHead>
+                  <TableHead className="text-primary">Points Claimed</TableHead>
+                  <TableHead className="text-primary">Duration</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockBlocks.map((block, idx) => (
-                  <TableRow key={idx} className="border-border/30">
-                    <TableCell className="text-primary font-mono">{block.block}</TableCell>
-                    <TableCell className="text-foreground">{block.timestamp}</TableCell>
-                    <TableCell className="text-muted-foreground font-mono">{block.miner}</TableCell>
-                    <TableCell className="text-foreground">{block.reward}</TableCell>
-                    <TableCell className="text-foreground">{block.tx}</TableCell>
-                    <TableCell className="text-foreground">{block.size}</TableCell>
+                {recentPointsMined.length === 0 ? (
+                  <TableRow className="border-border/30">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No mining sessions recorded yet
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  recentPointsMined.map((session) => {
+                    const claimedAt = session.claimed_at ? new Date(session.claimed_at) : null;
+                    const startedAt = session.started_at ? new Date(session.started_at) : null;
+                    const durationMs = claimedAt && startedAt ? claimedAt.getTime() - startedAt.getTime() : 0;
+                    const durationMins = Math.floor(durationMs / 60000);
+                    const durationSecs = Math.floor((durationMs % 60000) / 1000);
+                    
+                    return (
+                      <TableRow key={session.id} className="border-border/30">
+                        <TableCell className="text-primary font-mono">
+                          #{session.id.slice(0, 8).toUpperCase()}
+                        </TableCell>
+                        <TableCell className="text-foreground">
+                          {claimedAt ? format(claimedAt, "MMM dd, HH:mm:ss") : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {session.username}
+                        </TableCell>
+                        <TableCell className="text-foreground font-medium">
+                          {session.arx_mined.toLocaleString()} ARX
+                        </TableCell>
+                        <TableCell className="text-foreground">
+                          {durationMins > 0 ? `${durationMins}m ${durationSecs}s` : `${durationSecs}s`}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
