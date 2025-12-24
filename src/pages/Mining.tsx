@@ -16,6 +16,7 @@ const Mining = () => {
   const { 
     isMining, 
     loading, 
+    settingsLoading,
     elapsedTime, 
     remainingTime, 
     earnedPoints, 
@@ -240,7 +241,15 @@ const Mining = () => {
 
         {/* Start/Stop Button */}
         <div className="w-full mb-4 sm:mb-6">
-          {miningDisabled ? (
+          {settingsLoading ? (
+            <Button
+              disabled
+              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold"
+              size="lg"
+            >
+              Checking mining status...
+            </Button>
+          ) : miningDisabled ? (
             <div className="glass-card p-4 text-center border-destructive/30 bg-destructive/5">
               <p className="text-sm text-destructive font-medium mb-1">Mining Temporarily Disabled</p>
               <p className="text-xs text-muted-foreground">Public mining is currently paused by the admin. Check back later.</p>

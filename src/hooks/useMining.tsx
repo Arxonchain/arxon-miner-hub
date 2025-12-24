@@ -22,6 +22,7 @@ export const useMining = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [miningSettings, setMiningSettings] = useState<MiningSettings>({
     publicMiningEnabled: true,
     claimingEnabled: false,
@@ -40,6 +41,8 @@ export const useMining = () => {
 
   // Fetch mining settings
   const fetchMiningSettings = useCallback(async () => {
+    setSettingsLoading(true);
+
     try {
       const { data, error } = await supabase
         .from('mining_settings')
@@ -69,6 +72,8 @@ export const useMining = () => {
       }
     } catch (error) {
       console.error('Error fetching mining settings:', error);
+    } finally {
+      setSettingsLoading(false);
     }
   }, [isMining, sessionId, earnedPoints]);
 
@@ -120,11 +125,29 @@ export const useMining = () => {
       return;
     }
 
-    // Check if mining is enabled
-    if (!miningSettings.publicMiningEnabled) {
+    // Always re-check backend setting right before starting (prevents race conditions)
+    try {
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from('mining_settings')
+        .select('public_mining_enabled')
+        .limit(1)
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      if (!settingsRow?.public_mining_enabled) {
+        toast({
+          title: "Mining Disabled",
+          description: "Public mining is currently disabled",
+          variant: "destructive"
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking mining settings:', error);
       toast({
-        title: "Mining Disabled",
-        description: "Public mining is currently disabled",
+        title: "Error",
+        description: "Could not verify mining status",
         variant: "destructive"
       });
       return;
@@ -242,8 +265,10 @@ export const useMining = () => {
 
   // Initial fetch
   useEffect(() => {
-    fetchMiningSettings();
-    checkActiveSession();
+    (async () => {
+      await fetchMiningSettings();
+      await checkActiveSession();
+    })();
   }, [checkActiveSession, fetchMiningSettings]);
 
   // Real-time subscription for mining sessions
@@ -301,6 +326,7 @@ export const useMining = () => {
           console.log('Real-time mining settings update:', payload);
           const newSettings = payload.new as any;
           
+          setSettingsLoading(false);
           setMiningSettings({
             publicMiningEnabled: newSettings.public_mining_enabled,
             claimingEnabled: newSettings.claiming_enabled,
@@ -337,6 +363,7 @@ export const useMining = () => {
   return {
     isMining,
     loading,
+    settingsLoading,
     elapsedTime,
     remainingTime,
     earnedPoints,
