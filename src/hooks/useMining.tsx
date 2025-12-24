@@ -309,6 +309,23 @@ export const useMining = () => {
     };
   }, [user, sessionId]);
 
+  // Use refs to track current values for the realtime callback
+  const isMiningRef = useRef(isMining);
+  const sessionIdRef = useRef(sessionId);
+  const earnedPointsRef = useRef(earnedPoints);
+  
+  useEffect(() => {
+    isMiningRef.current = isMining;
+  }, [isMining]);
+  
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  
+  useEffect(() => {
+    earnedPointsRef.current = earnedPoints;
+  }, [earnedPoints]);
+
   // Real-time subscription for mining settings (admin controls)
   useEffect(() => {
     console.log('Setting up real-time subscription for mining_settings');
@@ -335,13 +352,13 @@ export const useMining = () => {
           });
 
           // If mining was just disabled and user is mining, stop their session
-          if (!newSettings.public_mining_enabled && isMining && sessionId) {
+          if (!newSettings.public_mining_enabled && isMiningRef.current && sessionIdRef.current) {
             toast({
               title: "Mining Disabled",
               description: "Public mining has been disabled by admin. Your session has ended.",
               variant: "destructive"
             });
-            await endSession(sessionId, earnedPoints);
+            await endSession(sessionIdRef.current, earnedPointsRef.current);
           }
         }
       )
@@ -351,7 +368,7 @@ export const useMining = () => {
       console.log('Cleaning up mining_settings subscription');
       supabase.removeChannel(channel);
     };
-  }, [isMining, sessionId, earnedPoints]);
+  }, []); // Empty dependency array - subscription set up once
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
