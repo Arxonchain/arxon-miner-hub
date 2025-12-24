@@ -110,9 +110,12 @@ export const useXProfile = () => {
         throw new Error(response.data.error || 'Failed to scan profile');
       }
 
+      const message = response.data.data.message || `@${username} connected with ${response.data.data.boostPercentage}% boost`;
+      
       toast({
-        title: 'X Profile Connected!',
-        description: `@${username} connected with ${response.data.data.boostPercentage}% boost`,
+        title: response.data.data.rateLimited ? 'X Profile Connected' : 'X Profile Connected!',
+        description: message,
+        variant: response.data.data.rateLimited ? 'default' : 'default',
       });
 
       await fetchXProfile();
@@ -151,9 +154,11 @@ export const useXProfile = () => {
         throw new Error(response.data.error || 'Failed to refresh boost');
       }
 
+      const message = response.data.data.message || `Your current boost is ${response.data.data.boostPercentage}%`;
+      
       toast({
-        title: 'Boost Refreshed!',
-        description: `Your current boost is ${response.data.data.boostPercentage}%`,
+        title: response.data.data.rateLimited ? 'Boost Check Complete' : 'Boost Refreshed!',
+        description: message,
       });
 
       await fetchXProfile();
