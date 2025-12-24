@@ -78,6 +78,26 @@ const AdminControls = () => {
 
       if (error) throw error;
 
+      // If disabling public mining, stop all active mining sessions
+      if (key === "publicMiningEnabled" && value === false) {
+        const { error: stopError } = await supabase
+          .from("mining_sessions")
+          .update({ 
+            is_active: false, 
+            ended_at: new Date().toISOString() 
+          })
+          .eq("is_active", true);
+
+        if (stopError) {
+          console.error("Error stopping active sessions:", stopError);
+        } else {
+          toast({
+            title: "All Mining Sessions Stopped",
+            description: "All active mining sessions have been terminated.",
+          });
+        }
+      }
+
       setSettings((prev) => ({ ...prev, [key]: value }));
       
       const friendlyNames: Record<string, string> = {
