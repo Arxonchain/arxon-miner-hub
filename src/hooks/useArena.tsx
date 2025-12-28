@@ -57,14 +57,49 @@ export interface ArenaBoost {
   expires_at: string;
 }
 
+export interface LeaderboardEntry {
+  user_id: string;
+  username: string | null;
+  avatar_url: string | null;
+  total_power_staked: number;
+  total_wins: number;
+  total_battles: number;
+  biggest_stake: number;
+}
+
+export interface BattleHistoryEntry extends ArenaBattle {
+  user_participated?: boolean;
+  user_voted_side?: 'a' | 'b' | null;
+  user_won?: boolean;
+  user_stake?: number;
+}
+
+export interface ArenaAnalyticsData {
+  totalBattles: number;
+  totalPowerStaked: number;
+  totalParticipants: number;
+  averageStakePerVoter: number;
+  largestSingleStake: number;
+  mostActiveVoter: { username: string; votes: number } | null;
+  userStats?: {
+    totalBattlesParticipated: number;
+    totalWins: number;
+    totalPowerStaked: number;
+    winRate: number;
+  };
+}
+
 export const useArena = () => {
   const { user } = useAuth();
-  const { points, addPoints } = usePoints();
+  const { points } = usePoints();
   const [activeBattle, setActiveBattle] = useState<ArenaBattle | null>(null);
   const [userVote, setUserVote] = useState<ArenaVote | null>(null);
   const [participants, setParticipants] = useState<ArenaParticipant[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
   const [arenaBoosts, setArenaBoosts] = useState<ArenaBoost[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [battleHistory, setBattleHistory] = useState<BattleHistoryEntry[]>([]);
+  const [analytics, setAnalytics] = useState<ArenaAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
 
@@ -110,16 +145,9 @@ export const useArena = () => {
 
   const fetchParticipants = useCallback(async (battleId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('arena_votes')
-        .select(`
-          user_id,
-          power_spent,
-          created_at,
-          profiles!inner(username, avatar_url)
-        `)
-        .eq('battle_id', battleId)
-        .order('power_spent', { ascending: false });
+      const { data, error } = await supabase.rpc('get_arena_participation', { 
+        p_battle_id: battleId 
+      });
 
       if (error) throw error;
 
@@ -127,8 +155,8 @@ export const useArena = () => {
         user_id: item.user_id,
         power_spent: item.power_spent,
         created_at: item.created_at,
-        username: item.profiles?.username,
-        avatar_url: item.profiles?.avatar_url,
+        username: item.username,
+        avatar_url: item.avatar_url,
       }));
 
       setParticipants(formatted);
@@ -174,6 +202,178 @@ export const useArena = () => {
     } catch (error) {
       console.error('Error fetching arena boosts:', error);
       return [];
+    }
+  }, [user]);
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      // Get all votes with user profiles
+      const { data: votes, error } = await supabase
+        .from('arena_votes')
+        .select(`
+          user_id,
+          power_spent,
+          battle_id,
+          profiles!inner(username, avatar_url)
+        `);
+
+      if (error) throw error;
+
+      // Get battle winners
+      const { data: battles } = await supabase
+        .from('arena_battles')
+        .select('id, winner_side')
+        .not('winner_side', 'is', null);
+
+      const winnerMap = new Map(battles?.map(b => [b.id, b.winner_side]) || []);
+
+      // Aggregate by user
+      const userMap = new Map<string, LeaderboardEntry>();
+
+      votes?.forEach((vote: any) => {
+        const existing = userMap.get(vote.user_id) || {
+          user_id: vote.user_id,
+          username: vote.profiles?.username,
+          avatar_url: vote.profiles?.avatar_url,
+          total_power_staked: 0,
+          total_wins: 0,
+          total_battles: 0,
+          biggest_stake: 0,
+        };
+
+        existing.total_power_staked += vote.power_spent;
+        existing.total_battles += 1;
+        existing.biggest_stake = Math.max(existing.biggest_stake, vote.power_spent);
+
+        // Check if user won this battle (we'd need side info but votes are private)
+        // For now, we'll track participation
+        userMap.set(vote.user_id, existing);
+      });
+
+      const leaderboardData = Array.from(userMap.values());
+      setLeaderboard(leaderboardData);
+      return leaderboardData;
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      return [];
+    }
+  }, []);
+
+  const fetchBattleHistory = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('arena_battles')
+        .select('*')
+        .eq('is_active', false)
+        .order('ends_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      // If user is logged in, get their participation
+      let userVotes: any[] = [];
+      if (user) {
+        const { data: votes } = await supabase
+          .from('arena_votes')
+          .select('battle_id, side, power_spent')
+          .eq('user_id', user.id);
+        userVotes = votes || [];
+      }
+
+      const historyWithParticipation = (data || []).map((battle: any) => {
+        const userVote = userVotes.find(v => v.battle_id === battle.id);
+        return {
+          ...battle,
+          user_participated: !!userVote,
+          user_voted_side: userVote?.side || null,
+          user_won: userVote ? userVote.side === battle.winner_side : false,
+          user_stake: userVote?.power_spent || 0,
+        };
+      });
+
+      setBattleHistory(historyWithParticipation);
+      return historyWithParticipation;
+    } catch (error) {
+      console.error('Error fetching battle history:', error);
+      return [];
+    }
+  }, [user]);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      // Get all battles
+      const { data: battles } = await supabase
+        .from('arena_battles')
+        .select('id');
+
+      // Get all votes
+      const { data: votes } = await supabase
+        .from('arena_votes')
+        .select('user_id, power_spent, battle_id, side');
+
+      // Get unique participants
+      const uniqueUsers = new Set(votes?.map(v => v.user_id) || []);
+      const totalPowerStaked = votes?.reduce((sum, v) => sum + v.power_spent, 0) || 0;
+      const largestStake = Math.max(...(votes?.map(v => v.power_spent) || [0]));
+
+      // Find most active voter
+      const votesByUser = new Map<string, number>();
+      votes?.forEach(v => {
+        votesByUser.set(v.user_id, (votesByUser.get(v.user_id) || 0) + 1);
+      });
+
+      let mostActiveVoter = null;
+      let maxVotes = 0;
+      votesByUser.forEach((count, userId) => {
+        if (count > maxVotes) {
+          maxVotes = count;
+        }
+      });
+
+      // User stats if logged in
+      let userStats = undefined;
+      if (user && votes) {
+        const userVotes = votes.filter(v => v.user_id === user.id);
+        const userBattles = new Set(userVotes.map(v => v.battle_id));
+        
+        // Get user wins from battle history
+        const { data: userBattleResults } = await supabase
+          .from('arena_battles')
+          .select('id, winner_side')
+          .in('id', Array.from(userBattles));
+
+        const userVoteMap = new Map(userVotes.map(v => [v.battle_id, v]));
+        let wins = 0;
+        userBattleResults?.forEach(battle => {
+          const vote = userVoteMap.get(battle.id);
+          if (vote && battle.winner_side && vote.side === battle.winner_side) {
+            wins++;
+          }
+        });
+
+        userStats = {
+          totalBattlesParticipated: userBattles.size,
+          totalWins: wins,
+          totalPowerStaked: userVotes.reduce((sum, v) => sum + v.power_spent, 0),
+          winRate: userBattles.size > 0 ? (wins / userBattles.size) * 100 : 0,
+        };
+      }
+
+      const analyticsData: ArenaAnalyticsData = {
+        totalBattles: battles?.length || 0,
+        totalPowerStaked,
+        totalParticipants: uniqueUsers.size,
+        averageStakePerVoter: uniqueUsers.size > 0 ? Math.round(totalPowerStaked / uniqueUsers.size) : 0,
+        largestSingleStake: largestStake,
+        mostActiveVoter: maxVotes > 0 ? { username: 'Top Voter', votes: maxVotes } : null,
+        userStats,
+      };
+
+      setAnalytics(analyticsData);
+      return analyticsData;
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      return null;
     }
   }, [user]);
 
@@ -229,13 +429,15 @@ export const useArena = () => {
         throw voteError;
       }
 
-      toast.success('Vote cast successfully!');
+      toast.success('Points staked successfully!');
       
       // Refresh data
       await Promise.all([
         fetchActiveBattle(),
         fetchUserVote(battleId),
         fetchParticipants(battleId),
+        fetchLeaderboard(),
+        fetchAnalytics(),
       ]);
 
       return true;
@@ -257,23 +459,21 @@ export const useArena = () => {
       setLoading(true);
       const battle = await fetchActiveBattle();
       
-      if (battle) {
-        await Promise.all([
-          fetchUserVote(battle.id),
-          fetchParticipants(battle.id),
-        ]);
-      }
-
       await Promise.all([
+        battle ? fetchUserVote(battle.id) : Promise.resolve(),
+        battle ? fetchParticipants(battle.id) : Promise.resolve(),
         fetchUserBadges(),
         fetchArenaBoosts(),
+        fetchLeaderboard(),
+        fetchBattleHistory(),
+        fetchAnalytics(),
       ]);
 
       setLoading(false);
     };
 
     init();
-  }, [user, fetchActiveBattle, fetchUserVote, fetchParticipants, fetchUserBadges, fetchArenaBoosts]);
+  }, [user, fetchActiveBattle, fetchUserVote, fetchParticipants, fetchUserBadges, fetchArenaBoosts, fetchLeaderboard, fetchBattleHistory, fetchAnalytics]);
 
   // Real-time subscription for battle updates
   useEffect(() => {
@@ -295,12 +495,25 @@ export const useArena = () => {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'arena_votes',
+          filter: `battle_id=eq.${activeBattle.id}`,
+        },
+        () => {
+          // Refresh participants when new vote comes in
+          fetchParticipants(activeBattle.id);
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeBattle?.id]);
+  }, [activeBattle?.id, fetchParticipants]);
 
   return {
     activeBattle,
@@ -308,11 +521,16 @@ export const useArena = () => {
     participants,
     userBadges,
     arenaBoosts,
+    leaderboard,
+    battleHistory,
+    analytics,
     loading,
     voting,
     castVote,
     getTotalArenaBoost,
     refreshBattle: fetchActiveBattle,
     refreshParticipants: () => activeBattle && fetchParticipants(activeBattle.id),
+    refreshLeaderboard: fetchLeaderboard,
+    refreshAnalytics: fetchAnalytics,
   };
 };

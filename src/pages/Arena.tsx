@@ -1,50 +1,51 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Swords, ArrowLeft, Shield, Twitter } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Swords } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
 import { usePoints } from '@/hooks/usePoints';
-import { useXProfile } from '@/hooks/useXProfile';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import BattleCard from '@/components/arena/BattleCard';
 import VoteModal from '@/components/arena/VoteModal';
-import ParticipantLeaderboard from '@/components/arena/ParticipantLeaderboard';
+import VoteExplorer from '@/components/arena/VoteExplorer';
+import ArenaLeaderboard from '@/components/arena/ArenaLeaderboard';
+import BattleHistory from '@/components/arena/BattleHistory';
+import ArenaAnalytics from '@/components/arena/ArenaAnalytics';
 import UserBadges from '@/components/arena/UserBadges';
-import ArenaStats from '@/components/arena/ArenaStats';
+import ArenaHeader from '@/components/arena/ArenaHeader';
+import ArenaNavigation from '@/components/arena/ArenaNavigation';
 import AuthDialog from '@/components/auth/AuthDialog';
-import { Button } from '@/components/ui/button';
+
+type ArenaTab = 'battle' | 'explorer' | 'leaderboard' | 'history' | 'analytics';
 
 const Arena = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { points } = usePoints();
-  const { xProfile } = useXProfile();
   const {
     activeBattle,
     userVote,
     participants,
     userBadges,
     arenaBoosts,
+    leaderboard,
+    battleHistory,
+    analytics,
     loading,
     voting,
     castVote,
+    getTotalArenaBoost,
   } = useArena();
 
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [activeTab, setActiveTab] = useState<ArenaTab>('battle');
 
-  const hasXAccount = !!xProfile?.username;
-  const xBoost = xProfile?.boost_percentage || 0;
+  const totalArenaBoost = getTotalArenaBoost();
 
   const handleSelectSide = (side: 'a' | 'b') => {
     if (!user) {
       setShowAuth(true);
-      return;
-    }
-    if (!hasXAccount) {
-      navigate('/profile');
       return;
     }
     setSelectedSide(side);
@@ -67,126 +68,130 @@ const Arena = () => {
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         >
-          <Swords className="w-12 h-12 text-[#00D4FF]" />
+          <Swords className="w-12 h-12 text-primary" />
         </motion.div>
       </div>
     );
   }
+
+  const totalPowerStaked = activeBattle 
+    ? activeBattle.side_a_power + activeBattle.side_b_power 
+    : 0;
 
   return (
     <div className="min-h-screen bg-[#0A1F44] relative overflow-hidden">
       <AnimatedBackground />
 
       {/* Header */}
-      <header className="relative z-10 border-b border-[#00D4FF]/20 bg-[#0A1F44]/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/')}
-                className="text-[#A0A0FF] hover:text-white"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="flex items-center gap-3">
+      <ArenaHeader 
+        totalPoints={points?.total_points || 0}
+        activeBoost={totalArenaBoost}
+      />
+
+      <main className="relative z-10 container mx-auto px-4 py-6 space-y-6">
+        {/* Navigation */}
+        <ArenaNavigation 
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          participantCount={participants.length}
+        />
+
+        {/* Tab Content */}
+        {activeTab === 'battle' && (
+          <div className="space-y-6">
+            {activeBattle ? (
+              <>
+                <BattleCard
+                  battle={activeBattle}
+                  onSelectSide={handleSelectSide}
+                  selectedSide={selectedSide}
+                  hasVoted={!!userVote}
+                  userVotedSide={userVote?.side}
+                  userVotedAmount={userVote?.power_spent}
+                />
+
+                {/* User Vote Status */}
+                {userVote && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card p-4 border border-green-500/30 bg-green-500/10"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Swords className="w-4 h-4 text-green-500" />
+                        </div>
+                        <div>
+                          <span className="text-foreground font-medium">Your stake is locked</span>
+                          <p className="text-xs text-muted-foreground">Results revealed when battle ends</p>
+                        </div>
+                      </div>
+                      <div className="text-primary font-bold">
+                        {userVote.power_spent.toLocaleString()} ARX-P
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Badges Section */}
+                {userBadges.length > 0 && (
+                  <UserBadges badges={userBadges} />
+                )}
+              </>
+            ) : (
+              <div className="glass-card p-12 text-center border border-primary/20">
                 <motion.div
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00D4FF] to-[#FF00FF] flex items-center justify-center"
                   animate={{
-                    boxShadow: [
-                      '0 0 20px rgba(0, 212, 255, 0.3)',
-                      '0 0 40px rgba(255, 0, 255, 0.3)',
-                      '0 0 20px rgba(0, 212, 255, 0.3)',
-                    ],
+                    scale: [1, 1.1, 1],
+                    opacity: [0.5, 1, 0.5],
                   }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <Swords className="w-5 h-5 text-white" />
+                  <Swords className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 </motion.div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">Arxon Arena</h1>
-                  <p className="text-xs text-[#A0A0FF]">Battle for Power</p>
-                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">No Active Battle</h2>
+                <p className="text-muted-foreground">
+                  The Arena is preparing for the next battle. Check back soon!
+                </p>
               </div>
-            </div>
-
-            {!hasXAccount && user && (
-              <Button
-                onClick={() => navigate('/profile')}
-                className="bg-[#1DA1F2] hover:bg-[#1DA1F2]/80 text-white"
-              >
-                <Twitter className="w-4 h-4 mr-2" />
-                Connect X Account
-              </Button>
             )}
           </div>
-        </div>
-      </header>
+        )}
 
-      <main className="relative z-10 container mx-auto px-4 py-8 space-y-8">
-        {/* Stats Bar */}
-        <ArenaStats
-          totalPoints={points?.total_points || 0}
-          miningRate={10}
-          arenaBoosts={arenaBoosts}
-          xBoost={xBoost}
-        />
+        {activeTab === 'explorer' && (
+          <VoteExplorer
+            participants={participants}
+            totalVoters={participants.length}
+            totalPowerStaked={totalPowerStaked}
+            currentUserId={user?.id}
+          />
+        )}
 
-        {/* Main Battle Area */}
-        {activeBattle ? (
-          <>
-            <BattleCard
-              battle={activeBattle}
-              onSelectSide={handleSelectSide}
-              selectedSide={selectedSide}
-              hasVoted={!!userVote}
-              userVotedSide={userVote?.side}
-              userVotedAmount={userVote?.power_spent}
-            />
+        {activeTab === 'leaderboard' && (
+          <ArenaLeaderboard
+            entries={leaderboard}
+            currentUserId={user?.id}
+          />
+        )}
 
-            {/* User Vote Status */}
-            {userVote && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card p-4 border border-[#00D4FF]/30 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <Shield className="w-5 h-5 text-[#00D4FF]" />
-                  <span className="text-white">Your vote is locked</span>
-                </div>
-                <div className="text-[#00D4FF] font-bold">
-                  {userVote.power_spent.toLocaleString()} ARX-P committed
-                </div>
-              </motion.div>
-            )}
+        {activeTab === 'history' && (
+          <BattleHistory
+            battles={battleHistory}
+            currentUserId={user?.id}
+          />
+        )}
 
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <ParticipantLeaderboard
-                participants={participants}
-                currentUserId={user?.id}
-              />
-              <UserBadges badges={userBadges} />
-            </div>
-          </>
-        ) : (
-          <div className="glass-card p-12 text-center border border-[#00D4FF]/20">
-            <motion.div
-              animate={{
-                scale: [1, 1.1, 1],
-                opacity: [0.5, 1, 0.5],
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Swords className="w-16 h-16 mx-auto mb-4 text-[#A0A0FF]" />
-            </motion.div>
-            <h2 className="text-2xl font-bold text-white mb-2">No Active Battle</h2>
-            <p className="text-[#A0A0FF]">
-              The Arena is preparing for the next battle. Check back soon!
-            </p>
-          </div>
+        {activeTab === 'analytics' && analytics && (
+          <ArenaAnalytics
+            totalBattles={analytics.totalBattles}
+            totalPowerStaked={analytics.totalPowerStaked}
+            totalParticipants={analytics.totalParticipants}
+            averageStakePerVoter={analytics.averageStakePerVoter}
+            largestSingleStake={analytics.largestSingleStake}
+            mostActiveVoter={analytics.mostActiveVoter}
+            userStats={analytics.userStats}
+          />
         )}
       </main>
 
