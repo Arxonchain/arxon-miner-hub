@@ -2,3 +2,6 @@ project_id = "nltggocnysiewnbmqfrj"
 
 [functions.scan-x-profile]
 verify_jwt = false
+
+[functions.resolve-arena-battle]
+verify_jwt = false
