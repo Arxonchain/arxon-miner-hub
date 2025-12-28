@@ -41,6 +41,142 @@ export type Database = {
         }
         Relationships: []
       }
+      arena_battles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_at: string
+          id: string
+          is_active: boolean
+          side_a_color: string
+          side_a_image: string | null
+          side_a_name: string
+          side_a_power: number
+          side_b_color: string
+          side_b_image: string | null
+          side_b_name: string
+          side_b_power: number
+          starts_at: string
+          title: string
+          winner_boost_percentage: number
+          winner_side: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          is_active?: boolean
+          side_a_color?: string
+          side_a_image?: string | null
+          side_a_name: string
+          side_a_power?: number
+          side_b_color?: string
+          side_b_image?: string | null
+          side_b_name: string
+          side_b_power?: number
+          starts_at?: string
+          title: string
+          winner_boost_percentage?: number
+          winner_side?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          is_active?: boolean
+          side_a_color?: string
+          side_a_image?: string | null
+          side_a_name?: string
+          side_a_power?: number
+          side_b_color?: string
+          side_b_image?: string | null
+          side_b_name?: string
+          side_b_power?: number
+          starts_at?: string
+          title?: string
+          winner_boost_percentage?: number
+          winner_side?: string | null
+        }
+        Relationships: []
+      }
+      arena_boosts: {
+        Row: {
+          battle_id: string
+          boost_percentage: number
+          created_at: string
+          expires_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          battle_id: string
+          boost_percentage: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          battle_id?: string
+          boost_percentage?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_boosts_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_votes: {
+        Row: {
+          battle_id: string
+          created_at: string
+          id: string
+          locked_until: string
+          power_spent: number
+          side: string
+          user_id: string
+        }
+        Insert: {
+          battle_id: string
+          created_at?: string
+          id?: string
+          locked_until?: string
+          power_spent: number
+          side: string
+          user_id: string
+        }
+        Update: {
+          battle_id?: string
+          created_at?: string
+          id?: string
+          locked_until?: string
+          power_spent?: number
+          side?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_votes_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claims: {
         Row: {
           claimed_amount: number
@@ -326,6 +462,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_badges: {
+        Row: {
+          badge_name: string
+          badge_type: string
+          battle_id: string | null
+          description: string | null
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_name: string
+          badge_type: string
+          battle_id?: string | null
+          description?: string | null
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_name?: string
+          badge_type?: string
+          battle_id?: string | null
+          description?: string | null
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_points: {
         Row: {
           created_at: string
@@ -528,7 +702,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      arena_participation: {
+        Row: {
+          avatar_url: string | null
+          battle_id: string | null
+          created_at: string | null
+          power_spent: number | null
+          user_id: string | null
+          username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_votes_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       generate_referral_code: { Args: never; Returns: string }
