@@ -702,28 +702,21 @@ export type Database = {
       }
     }
     Views: {
-      arena_participation: {
-        Row: {
-          avatar_url: string | null
-          battle_id: string | null
-          created_at: string | null
-          power_spent: number | null
-          user_id: string | null
-          username: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "arena_votes_battle_id_fkey"
-            columns: ["battle_id"]
-            isOneToOne: false
-            referencedRelation: "arena_battles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       generate_referral_code: { Args: never; Returns: string }
+      get_arena_participation: {
+        Args: { p_battle_id: string }
+        Returns: {
+          avatar_url: string
+          battle_id: string
+          created_at: string
+          power_spent: number
+          user_id: string
+          username: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
