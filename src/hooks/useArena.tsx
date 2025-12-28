@@ -179,7 +179,7 @@ export const useArena = () => {
 
   const castVote = async (battleId: string, side: 'a' | 'b', powerAmount: number) => {
     if (!user) {
-      toast.error('Please connect your wallet to vote');
+      toast.error('Please sign in to vote');
       return false;
     }
 
