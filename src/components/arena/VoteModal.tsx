@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Lock, AlertTriangle } from 'lucide-react';
+import { X, Zap, Lock, AlertTriangle, TrendingUp, Shield, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ArenaBattle } from '@/hooks/useArena';
@@ -31,6 +31,21 @@ const VoteModal = ({
 
   const sideName = selectedSide === 'a' ? battle.side_a_name : battle.side_b_name;
   const sideColor = selectedSide === 'a' ? battle.side_a_color : battle.side_b_color;
+  const sidePower = selectedSide === 'a' ? battle.side_a_power : battle.side_b_power;
+  const oppositePower = selectedSide === 'a' ? battle.side_b_power : battle.side_a_power;
+  
+  // Calculate potential return multiplier based on current odds
+  const totalPower = battle.side_a_power + battle.side_b_power + voteAmount;
+  const newSidePower = sidePower + voteAmount;
+  const winChance = totalPower > 0 ? (newSidePower / totalPower) * 100 : 50;
+  
+  // Staking tiers for quick selection
+  const stakingTiers = [
+    { label: '10%', value: Math.floor(availablePoints * 0.1) },
+    { label: '25%', value: Math.floor(availablePoints * 0.25) },
+    { label: '50%', value: Math.floor(availablePoints * 0.5) },
+    { label: 'MAX', value: maxVote },
+  ].filter(tier => tier.value >= minVote);
 
   useEffect(() => {
     if (isOpen) {
@@ -95,9 +110,12 @@ const VoteModal = ({
               >
                 <Zap className="w-12 h-12" style={{ color: sideColor }} />
               </motion.div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">Vote Cast!</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-2">Points Staked!</h3>
               <p className="text-muted-foreground">
-                {voteAmount.toLocaleString()} ARX-P locked for {sideName}
+                {voteAmount.toLocaleString()} ARX-P staked for {sideName}
+              </p>
+              <p className="text-sm text-accent mt-2">
+                Win to get {battle.winner_boost_percentage}% mining boost for 7 days!
               </p>
             </motion.div>
           ) : (
@@ -113,26 +131,61 @@ const VoteModal = ({
                 >
                   {selectedSide === 'a' ? '⚡' : '🔥'}
                 </div>
-                <h3 className="text-xl font-bold text-foreground">Vote for {sideName}</h3>
+                <h3 className="text-xl font-bold text-foreground">Stake for {sideName}</h3>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Choose how much power to commit
+                  Choose how many ARX-P to stake
                 </p>
               </div>
 
-              {/* Available Points */}
-              <div className="bg-background/50 rounded-lg p-4 mb-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Available ARX-P</span>
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-background/50 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
+                    <Zap className="w-3 h-3" />
+                    <span>Available</span>
+                  </div>
                   <span className="text-foreground font-bold">
-                    {availablePoints.toLocaleString()}
+                    {availablePoints.toLocaleString()} ARX-P
+                  </span>
+                </div>
+                <div className="bg-background/50 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
+                    <Target className="w-3 h-3" />
+                    <span>Win Chance</span>
+                  </div>
+                  <span className="text-foreground font-bold" style={{ color: sideColor }}>
+                    {winChance.toFixed(1)}%
                   </span>
                 </div>
               </div>
 
+              {/* Quick Stake Tiers */}
+              {stakingTiers.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-muted-foreground text-xs mb-2">Quick stake:</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {stakingTiers.map((tier) => (
+                      <button
+                        key={tier.label}
+                        onClick={() => setVoteAmount(tier.value)}
+                        className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          voteAmount === tier.value
+                            ? 'text-black'
+                            : 'bg-background/50 text-muted-foreground hover:bg-background/70'
+                        }`}
+                        style={voteAmount === tier.value ? { backgroundColor: sideColor } : {}}
+                      >
+                        {tier.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Vote Amount Slider */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
-                  <span className="text-muted-foreground">Vote Amount</span>
+                  <span className="text-muted-foreground">Stake Amount</span>
                   <div className="flex items-center gap-1" style={{ color: sideColor }}>
                     <Zap className="w-4 h-4" />
                     <span className="font-bold text-lg">{voteAmount.toLocaleString()}</span>
@@ -151,7 +204,7 @@ const VoteModal = ({
                 ) : (
                   <div className="flex items-center gap-2 text-destructive text-sm">
                     <AlertTriangle className="w-4 h-4" />
-                    <span>Minimum 100 ARX-P required to vote</span>
+                    <span>Minimum 100 ARX-P required to stake</span>
                   </div>
                 )}
 
@@ -161,13 +214,24 @@ const VoteModal = ({
                 </div>
               </div>
 
+              {/* Reward Info */}
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30 mb-4">
+                <TrendingUp className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-foreground font-medium">Win Reward</p>
+                  <p className="text-muted-foreground">
+                    +{battle.winner_boost_percentage}% mining rate boost for 7 days
+                  </p>
+                </div>
+              </div>
+
               {/* Lock Warning */}
               <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/10 border border-accent/30 mb-6">
-                <Lock className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                <Shield className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <p className="text-foreground font-medium">24-Hour Lock</p>
+                  <p className="text-foreground font-medium">Staking Rules</p>
                   <p className="text-muted-foreground">
-                    Your vote is private and locked for 24 hours. Choose wisely!
+                    Points are locked until battle ends. Staked points are non-refundable.
                   </p>
                 </div>
               </div>
@@ -185,7 +249,7 @@ const VoteModal = ({
                 <Button
                   onClick={handleConfirm}
                   disabled={isVoting || maxVote < minVote}
-                  className="flex-1"
+                  className="flex-1 text-white"
                   style={{
                     background: `linear-gradient(135deg, ${sideColor}, ${sideColor}CC)`,
                   }}
@@ -198,7 +262,10 @@ const VoteModal = ({
                       <Zap className="w-5 h-5" />
                     </motion.div>
                   ) : (
-                    'Cast Vote'
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Stake {voteAmount.toLocaleString()} ARX-P
+                    </>
                   )}
                 </Button>
               </div>

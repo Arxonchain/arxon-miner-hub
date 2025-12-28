@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Swords, ArrowLeft, Shield, Wallet } from 'lucide-react';
+import { Swords, ArrowLeft, Shield, Twitter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
 import { usePoints } from '@/hooks/usePoints';
 import { useXProfile } from '@/hooks/useXProfile';
-import { useWallet } from '@/hooks/useWallet';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import BattleCard from '@/components/arena/BattleCard';
 import VoteModal from '@/components/arena/VoteModal';
@@ -21,7 +20,6 @@ const Arena = () => {
   const { user } = useAuth();
   const { points } = usePoints();
   const { xProfile } = useXProfile();
-  const { wallets } = useWallet();
   const {
     activeBattle,
     userVote,
@@ -37,7 +35,7 @@ const Arena = () => {
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
 
-  const hasWallet = wallets && wallets.length > 0;
+  const hasXAccount = !!xProfile?.username;
   const xBoost = xProfile?.boost_percentage || 0;
 
   const handleSelectSide = (side: 'a' | 'b') => {
@@ -45,7 +43,7 @@ const Arena = () => {
       setShowAuth(true);
       return;
     }
-    if (!hasWallet) {
+    if (!hasXAccount) {
       navigate('/profile');
       return;
     }
@@ -113,13 +111,13 @@ const Arena = () => {
               </div>
             </div>
 
-            {!hasWallet && user && (
+            {!hasXAccount && user && (
               <Button
                 onClick={() => navigate('/profile')}
-                className="bg-[#00D4FF] hover:bg-[#00D4FF]/80 text-black"
+                className="bg-[#1DA1F2] hover:bg-[#1DA1F2]/80 text-white"
               >
-                <Wallet className="w-4 h-4 mr-2" />
-                Connect Wallet
+                <Twitter className="w-4 h-4 mr-2" />
+                Connect X Account
               </Button>
             )}
           </div>
@@ -143,6 +141,8 @@ const Arena = () => {
               onSelectSide={handleSelectSide}
               selectedSide={selectedSide}
               hasVoted={!!userVote}
+              userVotedSide={userVote?.side}
+              userVotedAmount={userVote?.power_spent}
             />
 
             {/* User Vote Status */}

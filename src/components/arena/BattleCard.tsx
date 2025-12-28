@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Zap, Clock, Trophy } from 'lucide-react';
+import { Swords, Zap, Clock, Trophy, Vote } from 'lucide-react';
 import { ArenaBattle } from '@/hooks/useArena';
+import { Button } from '@/components/ui/button';
 
 interface BattleCardProps {
   battle: ArenaBattle;
   onSelectSide: (side: 'a' | 'b') => void;
   selectedSide: 'a' | 'b' | null;
   hasVoted: boolean;
+  userVotedSide?: 'a' | 'b' | null;
+  userVotedAmount?: number;
 }
 
-const BattleCard = ({ battle, onSelectSide, selectedSide, hasVoted }: BattleCardProps) => {
+const BattleCard = ({ battle, onSelectSide, selectedSide, hasVoted, userVotedSide, userVotedAmount }: BattleCardProps) => {
   const [timeLeft, setTimeLeft] = useState('');
   const totalPower = battle.side_a_power + battle.side_b_power;
   const sideAPercent = totalPower > 0 ? (battle.side_a_power / totalPower) * 100 : 50;
@@ -96,42 +99,60 @@ const BattleCard = ({ battle, onSelectSide, selectedSide, hasVoted }: BattleCard
         {/* Battle Arena */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-center">
           {/* Side A */}
-          <motion.button
-            onClick={() => !hasVoted && onSelectSide('a')}
-            disabled={hasVoted}
-            className={`relative p-6 rounded-xl border-2 transition-all ${
-              selectedSide === 'a' 
-                ? 'border-[#00D4FF] bg-[#00D4FF]/10 shadow-[0_0_30px_rgba(0,212,255,0.3)]'
-                : 'border-border/50 hover:border-[#00D4FF]/50 hover:bg-[#00D4FF]/5'
-            } ${hasVoted ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
-            whileHover={!hasVoted ? { scale: 1.02 } : {}}
-            whileTap={!hasVoted ? { scale: 0.98 } : {}}
-          >
-            {/* Glow effect */}
-            <div 
-              className="absolute inset-0 rounded-xl opacity-20"
-              style={{ 
-                background: `radial-gradient(circle at center, ${battle.side_a_color}, transparent 70%)` 
-              }}
-            />
-            
-            <div className="relative z-10 text-center">
+          <div className="relative">
+            <motion.div
+              className={`relative p-6 rounded-xl border-2 transition-all ${
+                userVotedSide === 'a'
+                  ? 'border-[#00D4FF] bg-[#00D4FF]/10 shadow-[0_0_30px_rgba(0,212,255,0.3)]'
+                  : 'border-border/50'
+              }`}
+            >
+              {/* Glow effect */}
               <div 
-                className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"
+                className="absolute inset-0 rounded-xl opacity-20"
                 style={{ 
-                  background: `linear-gradient(135deg, ${battle.side_a_color}20, ${battle.side_a_color}40)`,
-                  boxShadow: `0 0 30px ${battle.side_a_color}40`
+                  background: `radial-gradient(circle at center, ${battle.side_a_color}, transparent 70%)` 
                 }}
-              >
-                ⚡
+              />
+              
+              <div className="relative z-10 text-center">
+                <div 
+                  className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${battle.side_a_color}20, ${battle.side_a_color}40)`,
+                    boxShadow: `0 0 30px ${battle.side_a_color}40`
+                  }}
+                >
+                  ⚡
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">{battle.side_a_name}</h3>
+                <div className="flex items-center justify-center gap-1 text-lg font-mono mb-4" style={{ color: battle.side_a_color }}>
+                  <Zap className="w-4 h-4" />
+                  <span>{battle.side_a_power.toLocaleString()} ARX-P</span>
+                </div>
+
+                {/* Vote Button for Side A */}
+                {hasVoted ? (
+                  userVotedSide === 'a' ? (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00D4FF]/20 border border-[#00D4FF]/50">
+                      <Vote className="w-4 h-4 text-[#00D4FF]" />
+                      <span className="text-[#00D4FF] font-medium">{userVotedAmount?.toLocaleString()} staked</span>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">Vote locked</div>
+                  )
+                ) : (
+                  <Button
+                    onClick={() => onSelectSide('a')}
+                    className="w-full bg-gradient-to-r from-[#00D4FF] to-[#00D4FF]/80 hover:from-[#00D4FF]/90 hover:to-[#00D4FF]/70 text-black font-bold"
+                  >
+                    <Vote className="w-4 h-4 mr-2" />
+                    Stake & Vote
+                  </Button>
+                )}
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">{battle.side_a_name}</h3>
-              <div className="flex items-center justify-center gap-1 text-lg font-mono" style={{ color: battle.side_a_color }}>
-                <Zap className="w-4 h-4" />
-                <span>{battle.side_a_power.toLocaleString()}</span>
-              </div>
-            </div>
-          </motion.button>
+            </motion.div>
+          </div>
 
           {/* VS Divider */}
           <div className="flex flex-col items-center justify-center py-4">
@@ -172,42 +193,60 @@ const BattleCard = ({ battle, onSelectSide, selectedSide, hasVoted }: BattleCard
           </div>
 
           {/* Side B */}
-          <motion.button
-            onClick={() => !hasVoted && onSelectSide('b')}
-            disabled={hasVoted}
-            className={`relative p-6 rounded-xl border-2 transition-all ${
-              selectedSide === 'b' 
-                ? 'border-[#FF00FF] bg-[#FF00FF]/10 shadow-[0_0_30px_rgba(255,0,255,0.3)]'
-                : 'border-border/50 hover:border-[#FF00FF]/50 hover:bg-[#FF00FF]/5'
-            } ${hasVoted ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
-            whileHover={!hasVoted ? { scale: 1.02 } : {}}
-            whileTap={!hasVoted ? { scale: 0.98 } : {}}
-          >
-            {/* Glow effect */}
-            <div 
-              className="absolute inset-0 rounded-xl opacity-20"
-              style={{ 
-                background: `radial-gradient(circle at center, ${battle.side_b_color}, transparent 70%)` 
-              }}
-            />
-            
-            <div className="relative z-10 text-center">
+          <div className="relative">
+            <motion.div
+              className={`relative p-6 rounded-xl border-2 transition-all ${
+                userVotedSide === 'b'
+                  ? 'border-[#FF00FF] bg-[#FF00FF]/10 shadow-[0_0_30px_rgba(255,0,255,0.3)]'
+                  : 'border-border/50'
+              }`}
+            >
+              {/* Glow effect */}
               <div 
-                className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"
+                className="absolute inset-0 rounded-xl opacity-20"
                 style={{ 
-                  background: `linear-gradient(135deg, ${battle.side_b_color}20, ${battle.side_b_color}40)`,
-                  boxShadow: `0 0 30px ${battle.side_b_color}40`
+                  background: `radial-gradient(circle at center, ${battle.side_b_color}, transparent 70%)` 
                 }}
-              >
-                🔥
+              />
+              
+              <div className="relative z-10 text-center">
+                <div 
+                  className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${battle.side_b_color}20, ${battle.side_b_color}40)`,
+                    boxShadow: `0 0 30px ${battle.side_b_color}40`
+                  }}
+                >
+                  🔥
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">{battle.side_b_name}</h3>
+                <div className="flex items-center justify-center gap-1 text-lg font-mono mb-4" style={{ color: battle.side_b_color }}>
+                  <Zap className="w-4 h-4" />
+                  <span>{battle.side_b_power.toLocaleString()} ARX-P</span>
+                </div>
+
+                {/* Vote Button for Side B */}
+                {hasVoted ? (
+                  userVotedSide === 'b' ? (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FF00FF]/20 border border-[#FF00FF]/50">
+                      <Vote className="w-4 h-4 text-[#FF00FF]" />
+                      <span className="text-[#FF00FF] font-medium">{userVotedAmount?.toLocaleString()} staked</span>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">Vote locked</div>
+                  )
+                ) : (
+                  <Button
+                    onClick={() => onSelectSide('b')}
+                    className="w-full bg-gradient-to-r from-[#FF00FF] to-[#FF00FF]/80 hover:from-[#FF00FF]/90 hover:to-[#FF00FF]/70 text-white font-bold"
+                  >
+                    <Vote className="w-4 h-4 mr-2" />
+                    Stake & Vote
+                  </Button>
+                )}
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">{battle.side_b_name}</h3>
-              <div className="flex items-center justify-center gap-1 text-lg font-mono" style={{ color: battle.side_b_color }}>
-                <Zap className="w-4 h-4" />
-                <span>{battle.side_b_power.toLocaleString()}</span>
-              </div>
-            </div>
-          </motion.button>
+            </motion.div>
+          </div>
         </div>
 
         {/* Winner Boost Info */}
