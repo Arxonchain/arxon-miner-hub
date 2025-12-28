@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import Tasks from "./pages/Tasks";
 import XProfilePage from "./pages/XProfile";
 import Profile from "./pages/Profile";
+import Arena from "./pages/Arena";
 import NotFound from "./pages/NotFound";
 
 // Admin imports
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
             <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
             <Route path="/mining" element={<Mining />} />
+            <Route path="/arena" element={<Arena />} />
             
             {/* Admin routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
