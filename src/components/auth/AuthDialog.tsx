@@ -9,9 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ReCAPTCHA from "react-google-recaptcha";
 
-// Note: Replace with your actual reCAPTCHA site key from https://www.google.com/recaptcha/admin
-// For testing, you can use the test key: 6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
-const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+const RECAPTCHA_SITE_KEY = "6LfypzosAAAAABp_534W20pZyWRCzsRFD0CN62fd";
 
 interface AuthDialogProps {
   open: boolean;
