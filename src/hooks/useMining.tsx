@@ -31,6 +31,8 @@ export const useMining = () => {
   });
   const lastPointsAwardedRef = useRef(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
+  const sessionStartTimeRef = useRef<number | null>(null);
 
   // Calculate effective points per hour with referral bonus
   const referralBonus = points?.referral_bonus_percentage || 0;
@@ -41,8 +43,6 @@ export const useMining = () => {
 
   // Fetch mining settings
   const fetchMiningSettings = useCallback(async () => {
-    setSettingsLoading(true);
-
     try {
       const { data, error } = await supabase
         .from('mining_settings')
@@ -59,23 +59,13 @@ export const useMining = () => {
           blockReward: data.block_reward,
           consensusMode: data.consensus_mode
         });
-
-        // If mining is disabled and user is currently mining, stop their session
-        if (!data.public_mining_enabled && isMining && sessionId) {
-          toast({
-            title: "Mining Disabled",
-            description: "Public mining has been disabled by admin. Your session has ended.",
-            variant: "destructive"
-          });
-          await endSession(sessionId, earnedPoints);
-        }
       }
     } catch (error) {
       console.error('Error fetching mining settings:', error);
     } finally {
       setSettingsLoading(false);
     }
-  }, [isMining, sessionId, earnedPoints]);
+  }, []);
 
   const checkActiveSession = useCallback(async () => {
     if (!user) {
@@ -101,19 +91,22 @@ export const useMining = () => {
           // Session expired, end it
           await endSession(data.id, data.arx_mined);
         } else {
+          // Resume session - calculate elapsed from server start time
           setSessionId(data.id);
           setIsMining(true);
           setElapsedTime(elapsed);
           setEarnedPoints(Number(data.arx_mined));
           lastPointsAwardedRef.current = Number(data.arx_mined);
+          sessionStartTimeRef.current = startTime;
         }
       }
     } catch (error) {
       console.error('Error checking active session:', error);
     } finally {
       setLoading(false);
+      initialLoadRef.current = false;
     }
-  }, [user]);
+  }, [user, maxTimeSeconds]);
 
   const startMining = async () => {
     if (!user) {
@@ -125,7 +118,7 @@ export const useMining = () => {
       return;
     }
 
-    // Always re-check backend setting right before starting (prevents race conditions)
+    // Always re-check backend setting right before starting
     try {
       const { data: settingsRow, error: settingsError } = await supabase
         .from('mining_settings')
@@ -166,11 +159,13 @@ export const useMining = () => {
 
       if (error) throw error;
 
+      const startTime = new Date(data.started_at).getTime();
       setSessionId(data.id);
       setIsMining(true);
       setElapsedTime(0);
       setEarnedPoints(0);
       lastPointsAwardedRef.current = 0;
+      sessionStartTimeRef.current = startTime;
 
       toast({
         title: "Mining Started! ⛏️",
@@ -208,6 +203,7 @@ export const useMining = () => {
       setElapsedTime(0);
       setEarnedPoints(0);
       lastPointsAwardedRef.current = 0;
+      sessionStartTimeRef.current = null;
 
       toast({
         title: "Mining Session Complete! 🎉",
@@ -223,37 +219,37 @@ export const useMining = () => {
     await endSession(sessionId, earnedPoints);
   };
 
-  // Timer and points calculation
+  // Timer and points calculation - use server start time for accuracy
   useEffect(() => {
-    if (!isMining || !sessionId) return;
+    if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
     intervalRef.current = setInterval(async () => {
-      setElapsedTime(prev => {
-        const newElapsed = prev + 1;
-        
-        // Check if max time reached
-        if (newElapsed >= maxTimeSeconds) {
-          endSession(sessionId, earnedPoints);
-          return prev;
-        }
+      // Calculate elapsed based on actual start time from server
+      const startTime = sessionStartTimeRef.current!;
+      const newElapsed = Math.floor((Date.now() - startTime) / 1000);
+      
+      // Check if max time reached
+      if (newElapsed >= maxTimeSeconds) {
+        endSession(sessionId, earnedPoints);
+        return;
+      }
 
-        // Calculate points based on hours mined with referral bonus
-        const hoursElapsed = newElapsed / 3600;
-        const pointsEarned = Math.floor(hoursElapsed * pointsPerHour);
-        
-        if (pointsEarned > lastPointsAwardedRef.current) {
-          lastPointsAwardedRef.current = pointsEarned;
-          setEarnedPoints(pointsEarned);
-          
-          // Update session in database
-          supabase
-            .from('mining_sessions')
-            .update({ arx_mined: pointsEarned })
-            .eq('id', sessionId);
-        }
+      setElapsedTime(newElapsed);
 
-        return newElapsed;
-      });
+      // Calculate points based on hours mined with referral bonus
+      const hoursElapsed = newElapsed / 3600;
+      const pointsEarned = Math.floor(hoursElapsed * pointsPerHour);
+      
+      if (pointsEarned > lastPointsAwardedRef.current) {
+        lastPointsAwardedRef.current = pointsEarned;
+        setEarnedPoints(pointsEarned);
+        
+        // Update session in database periodically (every point change)
+        supabase
+          .from('mining_sessions')
+          .update({ arx_mined: pointsEarned })
+          .eq('id', sessionId);
+      }
     }, 1000);
 
     return () => {
@@ -261,7 +257,7 @@ export const useMining = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isMining, sessionId, earnedPoints]);
+  }, [isMining, sessionId, maxTimeSeconds, pointsPerHour]);
 
   // Initial fetch
   useEffect(() => {
@@ -296,8 +292,8 @@ export const useMining = () => {
               // Session was ended (possibly from another tab)
               setIsMining(false);
               setSessionId(null);
+              sessionStartTimeRef.current = null;
             }
-            setEarnedPoints(Number(session.arx_mined));
           }
         }
       )
@@ -343,7 +339,6 @@ export const useMining = () => {
           console.log('Real-time mining settings update:', payload);
           const newSettings = payload.new as any;
           
-          setSettingsLoading(false);
           setMiningSettings({
             publicMiningEnabled: newSettings.public_mining_enabled,
             claimingEnabled: newSettings.claiming_enabled,
@@ -368,7 +363,7 @@ export const useMining = () => {
       console.log('Cleaning up mining_settings subscription');
       supabase.removeChannel(channel);
     };
-  }, []); // Empty dependency array - subscription set up once
+  }, []);
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);

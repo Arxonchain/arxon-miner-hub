@@ -7,7 +7,7 @@ import { usePoints } from "@/hooks/usePoints";
 import { useXProfile } from "@/hooks/useXProfile";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/auth/AuthDialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const Mining = () => {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ const Mining = () => {
     formatTime,
     miningSettings
   } = useMining();
-  const { xProfile, scanning, refreshBoost, getBoostedRate } = useXProfile();
+  const { xProfile, getBoostedRate } = useXProfile();
   const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = !miningSettings.publicMiningEnabled;
@@ -51,11 +51,16 @@ const Mining = () => {
     startMining();
   };
 
-  const progressPercentage = isMining 
-    ? Math.min((elapsedTime / maxTimeSeconds) * 100, 100) 
-    : 0;
+  // Memoize progress to prevent unnecessary recalculations
+  const progressPercentage = useMemo(() => {
+    return isMining ? Math.min((elapsedTime / maxTimeSeconds) * 100, 100) : 0;
+  }, [isMining, elapsedTime, maxTimeSeconds]);
 
   const isSessionComplete = elapsedTime >= maxTimeSeconds && !isMining;
+
+  // Memoize formatted times
+  const formattedRemainingTime = useMemo(() => formatTime(remainingTime), [remainingTime, formatTime]);
+  const formattedElapsedTime = useMemo(() => formatTime(elapsedTime), [elapsedTime, formatTime]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center px-4">
@@ -63,11 +68,10 @@ const Mining = () => {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Main center glow */}
         <div 
-          className="absolute w-[350px] md:w-[700px] h-[350px] md:h-[700px] rounded-full"
+          className="absolute w-[350px] md:w-[700px] h-[350px] md:h-[700px] rounded-full glow-orb-main"
           style={{
             background: 'radial-gradient(circle, hsl(217 91% 60% / 0.7) 0%, hsl(240 70% 50% / 0.3) 40%, transparent 70%)',
             filter: 'blur(60px)',
-            animation: 'glow-pulse 4s ease-in-out infinite, drift-1 20s ease-in-out infinite',
             top: '15%',
             left: '50%',
             transform: 'translateX(-50%)',
@@ -76,11 +80,10 @@ const Mining = () => {
         
         {/* Right side glow */}
         <div 
-          className="absolute w-[250px] md:w-[500px] h-[250px] md:h-[500px] rounded-full"
+          className="absolute w-[250px] md:w-[500px] h-[250px] md:h-[500px] rounded-full glow-orb-right"
           style={{
             background: 'radial-gradient(circle, hsl(217 91% 60% / 0.6) 0%, hsl(200 80% 50% / 0.2) 50%, transparent 70%)',
             filter: 'blur(80px)',
-            animation: 'glow-pulse 5s ease-in-out infinite 1s, drift-2 18s ease-in-out infinite',
             bottom: '5%',
             right: '-5%',
           }}
@@ -88,37 +91,12 @@ const Mining = () => {
         
         {/* Left side glow */}
         <div 
-          className="absolute w-[300px] md:w-[550px] h-[300px] md:h-[550px] rounded-full"
+          className="absolute w-[300px] md:w-[550px] h-[300px] md:h-[550px] rounded-full glow-orb-left"
           style={{
             background: 'radial-gradient(circle, hsl(220 85% 55% / 0.5) 0%, hsl(240 60% 45% / 0.2) 50%, transparent 70%)',
             filter: 'blur(100px)',
-            animation: 'glow-pulse 6s ease-in-out infinite 2s, drift-3 22s ease-in-out infinite',
             top: '20%',
             left: '-15%',
-          }}
-        />
-
-        {/* Bottom center glow */}
-        <div 
-          className="absolute w-[200px] md:w-[400px] h-[200px] md:h-[400px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(210 90% 55% / 0.5) 0%, hsl(230 70% 50% / 0.15) 50%, transparent 70%)',
-            filter: 'blur(70px)',
-            animation: 'glow-pulse 4.5s ease-in-out infinite 0.5s, drift-4 15s ease-in-out infinite',
-            bottom: '15%',
-            left: '40%',
-          }}
-        />
-
-        {/* Accent white/cyan glow for depth */}
-        <div 
-          className="absolute w-[150px] md:w-[300px] h-[150px] md:h-[300px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, hsl(195 100% 70% / 0.4) 0%, transparent 60%)',
-            filter: 'blur(50px)',
-            animation: 'glow-pulse 3s ease-in-out infinite 1.5s, drift-5 12s ease-in-out infinite',
-            top: '40%',
-            right: '20%',
           }}
         />
       </div>
@@ -133,12 +111,11 @@ const Mining = () => {
       </button>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center animate-fade-in w-full max-w-md">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-md">
 
         {/* Total Balance Card */}
         <div 
-          className="glass-card px-6 sm:px-10 md:px-20 py-4 sm:py-6 md:py-8 mb-4 sm:mb-6 md:mb-8 text-center animate-scale-in w-full"
-          style={{ animationDelay: '0.1s' }}
+          className="glass-card px-6 sm:px-10 md:px-20 py-4 sm:py-6 md:py-8 mb-4 sm:mb-6 md:mb-8 text-center w-full"
         >
           <p className="text-muted-foreground text-xs sm:text-sm md:text-base mb-1">Total Balance</p>
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground tracking-tight">
@@ -146,7 +123,7 @@ const Mining = () => {
           </h2>
         </div>
 
-        {/* Session Earnings */}
+        {/* Session Earnings - only show when actively mining */}
         {isMining && (
           <div 
             className="glass-card px-4 sm:px-6 py-3 sm:py-4 mb-4 sm:mb-6 text-center w-full border-green-500/30 bg-green-500/5"
@@ -167,7 +144,6 @@ const Mining = () => {
         {/* Mining Circle */}
         <div 
           className="relative w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 mb-4 sm:mb-6"
-          style={{ animationDelay: '0.2s' }}
         >
           {/* Progress Ring */}
           <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -189,19 +165,19 @@ const Mining = () => {
               strokeDasharray={`${2 * Math.PI * 45} ${2 * Math.PI * 45}`}
               strokeDashoffset={`${2 * Math.PI * 45 * (1 - progressPercentage / 100)}`}
               strokeLinecap="round"
-              className="transition-all duration-1000"
+              style={{ transition: 'stroke-dashoffset 1s linear' }}
             />
           </svg>
           
           {/* Center Content */}
           <div className="absolute inset-0 flex flex-col items-center justify-center glass-card rounded-full border-2 border-border/50">
             {loading ? (
-              <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full" />
+              <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             ) : isMining ? (
               <>
                 <p className="text-muted-foreground text-[10px] sm:text-xs mb-0.5 sm:mb-1">Time Remaining</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-                  {formatTime(remainingTime)}
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground tracking-tight font-mono">
+                  {formattedRemainingTime}
                 </p>
                 <div className="flex items-center gap-1 mt-1 sm:mt-2">
                   <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-400 animate-pulse" />
@@ -227,7 +203,7 @@ const Mining = () => {
           <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full mb-4 sm:mb-6">
             <div className="glass-card p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground">Elapsed Time</p>
-              <p className="text-sm sm:text-lg font-bold text-foreground">{formatTime(elapsedTime)}</p>
+              <p className="text-sm sm:text-lg font-bold text-foreground font-mono">{formattedElapsedTime}</p>
             </div>
             <div className="glass-card p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground">Rate</p>
@@ -247,6 +223,7 @@ const Mining = () => {
               className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold"
               size="lg"
             >
+              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
               Checking mining status...
             </Button>
           ) : miningDisabled ? (
@@ -257,7 +234,7 @@ const Mining = () => {
           ) : isMining ? (
             <Button
               onClick={stopMining}
-              className="btn-glow w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30 active:scale-[0.98] active:shadow-[0_0_20px_hsl(var(--destructive)/0.5)]"
+              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30"
               size="lg"
             >
               <Square className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -267,7 +244,7 @@ const Mining = () => {
             <Button
               onClick={handleStartMining}
               disabled={loading}
-              className="btn-glow w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0 active:scale-[0.98] active:shadow-[0_0_30px_hsl(142_76%_36%/0.6)]"
+              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0"
               size="lg"
             >
               {isSessionComplete ? (
@@ -296,8 +273,7 @@ const Mining = () => {
         {/* Copy Referral */}
         <button
           onClick={copyReferralCode}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors animate-fade-in"
-          style={{ animationDelay: '0.4s' }}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span className="text-[10px] sm:text-xs md:text-sm font-medium">Copy referral code</span>
@@ -307,104 +283,27 @@ const Mining = () => {
       {/* Auth Dialog */}
       <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
 
-      {/* CSS Keyframes for orb animations */}
+      {/* CSS for glow orb animations - using CSS classes instead of inline styles to prevent flickering */}
       <style>{`
-        @keyframes drift-1 {
-          0%, 100% {
-            transform: translateX(-50%) translateY(0);
-          }
-          25% {
-            transform: translateX(-30%) translateY(-20px);
-          }
-          50% {
-            transform: translateX(-70%) translateY(10px);
-          }
-          75% {
-            transform: translateX(-40%) translateY(-10px);
-          }
+        .glow-orb-main {
+          animation: glow-pulse 4s ease-in-out infinite;
         }
         
-        @keyframes drift-2 {
-          0%, 100% {
-            transform: translateX(0) translateY(0);
-          }
-          33% {
-            transform: translateX(-80px) translateY(-40px);
-          }
-          66% {
-            transform: translateX(-40px) translateY(20px);
-          }
+        .glow-orb-right {
+          animation: glow-pulse 5s ease-in-out infinite 1s;
         }
         
-        @keyframes drift-3 {
-          0%, 100% {
-            transform: translateX(0) translateY(0);
-          }
-          50% {
-            transform: translateX(100px) translateY(-50px);
-          }
-        }
-        
-        @keyframes drift-4 {
-          0%, 100% {
-            transform: translateX(0) translateY(0) scale(1);
-          }
-          50% {
-            transform: translateX(60px) translateY(-30px) scale(1.1);
-          }
-        }
-
-        @keyframes drift-5 {
-          0%, 100% {
-            transform: translateX(0) translateY(0);
-          }
-          33% {
-            transform: translateX(-40px) translateY(30px);
-          }
-          66% {
-            transform: translateX(30px) translateY(-20px);
-          }
+        .glow-orb-left {
+          animation: glow-pulse 6s ease-in-out infinite 2s;
         }
 
         @keyframes glow-pulse {
           0%, 100% {
             opacity: 0.6;
-            transform: translateX(-50%) scale(1);
           }
           50% {
             opacity: 1;
-            transform: translateX(-50%) scale(1.05);
           }
-        }
-
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out forwards;
-        }
-
-        .animate-scale-in {
-          animation: scale-in 0.5s ease-out forwards;
         }
       `}</style>
     </div>
