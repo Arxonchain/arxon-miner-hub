@@ -93,8 +93,21 @@ export const useXProfile = () => {
     setScanning(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      // First, check if there's an existing profile and delete it to allow reconnection
+      const { data: existingProfile } = await supabase
+        .from('x_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // Delete existing profile first to prevent conflicts
+        await supabase
+          .from('x_profiles')
+          .delete()
+          .eq('user_id', user.id);
+      }
+
       const response = await supabase.functions.invoke('scan-x-profile', {
         body: {
           username,
@@ -124,7 +137,7 @@ export const useXProfile = () => {
       console.error('Error connecting X profile:', error);
       toast({
         title: 'Connection Failed',
-        description: error.message || 'Failed to connect X profile',
+        description: error.message || 'Failed to connect X profile. Please try again.',
         variant: 'destructive',
       });
       return false;
@@ -208,17 +221,17 @@ export const useXProfile = () => {
     return lastScanned < sixHoursAgo;
   }, [xProfile]);
 
-  // Fetch profile on mount
+  // Fetch profile on mount and when user changes
   useEffect(() => {
     fetchXProfile();
   }, [fetchXProfile]);
 
-  // Auto-refresh on app open if needed
+  // Auto-refresh on app open if needed (only once)
   useEffect(() => {
     if (xProfile && shouldRefresh() && !scanning) {
       refreshBoost();
     }
-  }, [xProfile, shouldRefresh]);
+  }, [xProfile?.id]); // Only run when profile ID changes (not on every xProfile update)
 
   // Calculate boosted rate
   const getBoostedRate = (baseRate: number) => {

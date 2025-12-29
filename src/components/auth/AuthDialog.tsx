@@ -1,12 +1,17 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ReCAPTCHA from "react-google-recaptcha";
+
+// Note: Replace with your actual reCAPTCHA site key from https://www.google.com/recaptcha/admin
+// For testing, you can use the test key: 6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
+const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 interface AuthDialogProps {
   open: boolean;
@@ -22,6 +27,8 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(initialReferralCode);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   useEffect(() => {
     if (initialReferralCode) {
@@ -29,6 +36,12 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
       setMode("signup");
     }
   }, [initialReferralCode]);
+
+  // Reset captcha when mode changes
+  useEffect(() => {
+    setCaptchaToken(null);
+    recaptchaRef.current?.reset();
+  }, [mode]);
 
   const processReferral = async (referredUserId: string, code: string) => {
     if (!code.trim()) return;
@@ -118,11 +131,23 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     }
   };
 
-  // Store referral code to process after signup confirmation
-  const pendingReferralCodeRef = useState<string>('');
+  const handleCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate captcha for signup
+    if (mode === "signup" && !captchaToken) {
+      toast({
+        title: "Verification Required",
+        description: "Please complete the CAPTCHA verification",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -147,6 +172,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         
         const { error, user: newUser } = await signUp(email, password);
         if (error) {
+          // Reset captcha on error
+          recaptchaRef.current?.reset();
+          setCaptchaToken(null);
+          
           toast({
             title: "Sign Up Failed",
             description: error.message,
@@ -169,6 +198,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
       }
     } catch (error) {
       console.error('Auth error:', error);
+      // Reset captcha on error
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
+      
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -182,6 +215,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md border-border/50 bg-card/95 backdrop-blur-xl overflow-hidden p-0">
+        <DialogDescription className="sr-only">
+          Sign in or create an account to access ARXON mining features
+        </DialogDescription>
+        
         {/* Animated background orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
@@ -291,34 +328,52 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
             {/* Referral code input - only show on signup */}
             {mode === "signup" && (
-              <div className="space-y-2">
-                <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-accent" />
-                  Referral Code (Optional)
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="referral"
-                    type="text"
-                    placeholder="Enter a friend's referral code"
-                    value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                    className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
-                    disabled={loading}
-                  />
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-accent" />
+                    Referral Code (Optional)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="referral"
+                      type="text"
+                      placeholder="Enter a friend's referral code"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
+                      disabled={loading}
+                    />
+                  </div>
+                  {referralCode && (
+                    <p className="text-xs text-accent">
+                      Your friend will receive bonus points and a mining boost!
+                    </p>
+                  )}
                 </div>
-                {referralCode && (
-                  <p className="text-xs text-accent">
-                    Your friend will receive bonus points and a mining boost!
-                  </p>
-                )}
-              </div>
+
+                {/* CAPTCHA for signup */}
+                <div className="space-y-2">
+                  <Label className="text-foreground flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-accent" />
+                    Security Verification
+                  </Label>
+                  <div className="flex justify-center">
+                    <ReCAPTCHA
+                      ref={recaptchaRef}
+                      sitekey={RECAPTCHA_SITE_KEY}
+                      onChange={handleCaptchaChange}
+                      theme="dark"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             <Button
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
-              disabled={loading}
+              disabled={loading || (mode === "signup" && !captchaToken)}
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
