@@ -20,7 +20,7 @@ export const useMining = () => {
   const [isMining, setIsMining] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [earnedPoints, setEarnedPoints] = useState(0); // Fractional points for display
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [miningSettings, setMiningSettings] = useState<MiningSettings>({
@@ -29,7 +29,7 @@ export const useMining = () => {
     blockReward: 1000,
     consensusMode: 'PoW'
   });
-  const lastPointsAwardedRef = useRef(0);
+  const lastDbPointsRef = useRef(0); // Track last whole points saved to DB
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
   const sessionStartTimeRef = useRef<number | null>(null);
@@ -37,6 +37,9 @@ export const useMining = () => {
   // Calculate effective points per hour with referral bonus
   const referralBonus = points?.referral_bonus_percentage || 0;
   const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + referralBonus / 100);
+  
+  // Points per second for real-time display
+  const pointsPerSecond = pointsPerHour / 3600;
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -91,12 +94,13 @@ export const useMining = () => {
           // Session expired, end it
           await endSession(data.id, data.arx_mined);
         } else {
-          // Resume session - calculate elapsed from server start time
+          // Resume session - calculate fractional points based on elapsed time
+          const fractionalPoints = (elapsed / 3600) * pointsPerHour;
           setSessionId(data.id);
           setIsMining(true);
           setElapsedTime(elapsed);
-          setEarnedPoints(Number(data.arx_mined));
-          lastPointsAwardedRef.current = Number(data.arx_mined);
+          setEarnedPoints(fractionalPoints);
+          lastDbPointsRef.current = Math.floor(fractionalPoints);
           sessionStartTimeRef.current = startTime;
         }
       }
@@ -164,7 +168,7 @@ export const useMining = () => {
       setIsMining(true);
       setElapsedTime(0);
       setEarnedPoints(0);
-      lastPointsAwardedRef.current = 0;
+      lastDbPointsRef.current = 0;
       sessionStartTimeRef.current = startTime;
 
       toast({
@@ -202,7 +206,7 @@ export const useMining = () => {
       setSessionId(null);
       setElapsedTime(0);
       setEarnedPoints(0);
-      lastPointsAwardedRef.current = 0;
+      lastDbPointsRef.current = 0;
       sessionStartTimeRef.current = null;
 
       toast({
@@ -220,37 +224,40 @@ export const useMining = () => {
   };
 
   // Timer and points calculation - use server start time for accuracy
+  // Update every 100ms for smooth fractional point display
   useEffect(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
     intervalRef.current = setInterval(async () => {
-      // Calculate elapsed based on actual start time from server
+      // Calculate elapsed based on actual start time from server (in milliseconds for precision)
       const startTime = sessionStartTimeRef.current!;
-      const newElapsed = Math.floor((Date.now() - startTime) / 1000);
+      const elapsedMs = Date.now() - startTime;
+      const newElapsed = Math.floor(elapsedMs / 1000);
       
       // Check if max time reached
       if (newElapsed >= maxTimeSeconds) {
-        endSession(sessionId, earnedPoints);
+        const finalPoints = Math.floor((newElapsed / 3600) * pointsPerHour);
+        endSession(sessionId, finalPoints);
         return;
       }
 
       setElapsedTime(newElapsed);
 
-      // Calculate points based on hours mined with referral bonus
-      const hoursElapsed = newElapsed / 3600;
-      const pointsEarned = Math.floor(hoursElapsed * pointsPerHour);
+      // Calculate fractional points for real-time display
+      const secondsElapsed = elapsedMs / 1000;
+      const fractionalPoints = (secondsElapsed / 3600) * pointsPerHour;
+      setEarnedPoints(fractionalPoints);
       
-      if (pointsEarned > lastPointsAwardedRef.current) {
-        lastPointsAwardedRef.current = pointsEarned;
-        setEarnedPoints(pointsEarned);
-        
-        // Update session in database periodically (every point change)
+      // Only update database when whole points change (to avoid excessive writes)
+      const wholePoints = Math.floor(fractionalPoints);
+      if (wholePoints > lastDbPointsRef.current) {
+        lastDbPointsRef.current = wholePoints;
         supabase
           .from('mining_sessions')
-          .update({ arx_mined: pointsEarned })
+          .update({ arx_mined: wholePoints })
           .eq('id', sessionId);
       }
-    }, 1000);
+    }, 100); // Update every 100ms for smooth display
 
     return () => {
       if (intervalRef.current) {
@@ -385,6 +392,7 @@ export const useMining = () => {
     formatTime,
     referralBonus,
     pointsPerHour,
+    pointsPerSecond,
     miningSettings
   };
 };

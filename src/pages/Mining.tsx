@@ -24,6 +24,7 @@ const Mining = () => {
     startMining, 
     stopMining, 
     formatTime,
+    pointsPerSecond,
     miningSettings
   } = useMining();
   const { xProfile, getBoostedRate } = useXProfile();
@@ -61,6 +62,19 @@ const Mining = () => {
   // Memoize formatted times
   const formattedRemainingTime = useMemo(() => formatTime(remainingTime), [remainingTime, formatTime]);
   const formattedElapsedTime = useMemo(() => formatTime(elapsedTime), [elapsedTime, formatTime]);
+
+  // Format earned points - show fractional amounts with appropriate precision
+  const formattedEarnedPoints = useMemo(() => {
+    if (earnedPoints < 0.01) {
+      return earnedPoints.toFixed(6); // Show 6 decimals for tiny amounts
+    } else if (earnedPoints < 1) {
+      return earnedPoints.toFixed(4); // Show 4 decimals for small amounts
+    } else if (earnedPoints < 10) {
+      return earnedPoints.toFixed(3); // Show 3 decimals for medium amounts  
+    } else {
+      return earnedPoints.toFixed(2); // Show 2 decimals for larger amounts
+    }
+  }, [earnedPoints]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center px-4">
@@ -132,12 +146,13 @@ const Mining = () => {
               <Zap className="h-4 w-4 text-green-400" />
               <p className="text-xs sm:text-sm text-green-400">Session Earnings</p>
             </div>
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-400">+{earnedPoints} ARX-P</p>
-            {hasBoost && (
-              <p className="text-[10px] text-yellow-400 mt-1">
-                +{xProfile.boost_percentage}% boost applied
-              </p>
-            )}
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-400 font-mono tabular-nums">
+              +{formattedEarnedPoints} ARX-P
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              +{pointsPerSecond.toFixed(6)} ARX-P/sec
+              {hasBoost && <span className="text-yellow-400 ml-1">• {xProfile.boost_percentage}% boost</span>}
+            </p>
           </div>
         )}
 
