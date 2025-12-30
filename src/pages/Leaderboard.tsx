@@ -3,15 +3,15 @@ import { ChevronDown, Clock, FileText, Users, Zap, TrendingUp, Flame } from "luc
 import XIcon from "@/components/icons/XIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
-import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { useLeaderboard, TimeFilter } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
 import { useMining } from "@/hooks/useMining";
 
 const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
-  const [timeFilter, setTimeFilter] = useState<"all" | "month" | "week">("all");
-  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard();
-  const { yappers, loading: yappersLoading } = useYapperLeaderboard();
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(100, timeFilter);
+  const { yappers, loading: yappersLoading } = useYapperLeaderboard(timeFilter);
   const { isMining } = useMining();
 
   const getBadge = (boost: number) => {
@@ -67,15 +67,14 @@ const Leaderboard = () => {
             </button>
           </div>
 
-          <div className="flex gap-1 sm:gap-2">
-            {(["all", "month", "week"] as const).map(filter => (
+          <div className="flex gap-1 sm:gap-2 flex-wrap">
+            {(["all", "month", "week", "7days"] as const).map(filter => (
               <button 
                 key={filter} 
                 onClick={() => setTimeFilter(filter)} 
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded text-[10px] sm:text-xs lg:text-sm font-medium transition-colors flex items-center gap-0.5 sm:gap-1 ${timeFilter === filter ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                {filter !== "all" && <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
+                {filter === "7days" ? "7 Days" : filter.charAt(0).toUpperCase() + filter.slice(1)}
               </button>
             ))}
           </div>
