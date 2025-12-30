@@ -34,12 +34,18 @@ export const useMining = () => {
   const initialLoadRef = useRef(true);
   const sessionStartTimeRef = useRef<number | null>(null);
 
-  // Calculate effective points per hour with referral bonus
+  // Calculate effective points per hour with referral bonus (includes social boosts)
+  // This value updates in real-time via the usePoints real-time subscription
   const referralBonus = points?.referral_bonus_percentage || 0;
   const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + referralBonus / 100);
   
   // Points per second for real-time display
   const pointsPerSecond = pointsPerHour / 3600;
+  
+  // Log when mining rate changes for debugging
+  useEffect(() => {
+    console.log('Mining rate updated:', { referralBonus, pointsPerHour, pointsPerSecond });
+  }, [referralBonus, pointsPerHour, pointsPerSecond]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);

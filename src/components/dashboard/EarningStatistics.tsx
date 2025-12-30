@@ -159,6 +159,12 @@ const EarningStatistics = () => {
         table: 'social_submissions',
         filter: `user_id=eq.${user.id}`
       }, () => fetchEarnings())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_points',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchEarnings())
       .subscribe();
 
     return () => {

@@ -65,7 +65,7 @@ const Profile = () => {
     }
   }, [user, fetchProfile, fetchMiningHistory]);
 
-  // Real-time subscription for mining history only (points handled by usePoints hook)
+  // Real-time subscription for mining history
   useEffect(() => {
     if (!user) return;
 
@@ -83,6 +83,29 @@ const Profile = () => {
       supabase.removeChannel(channel);
     };
   }, [user, fetchMiningHistory]);
+
+  // Real-time subscription for profile changes (username, etc)
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('profile-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.new && 'username' in payload.new) {
+          setUsername(payload.new.username || '');
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const saveUsername = async () => {
     if (!user || !username.trim()) return;

@@ -102,6 +102,13 @@ export const usePoints = () => {
       .eq('user_id', user.id);
 
     if (!error) {
+      // Update local state immediately for instant UI reflection
+      setPoints(prev => prev ? {
+        ...prev,
+        total_points: newTotal,
+        [column]: newTypePoints
+      } : null);
+      
       // Trigger confetti for significant rewards
       if (amount >= 10) {
         triggerConfetti();
