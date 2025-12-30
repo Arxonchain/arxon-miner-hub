@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Swords } from 'lucide-react';
+import { Swords, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
 import { usePoints } from '@/hooks/usePoints';
+import { useAdmin } from '@/hooks/useAdmin';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import BattleCard from '@/components/arena/BattleCard';
 import VoteModal from '@/components/arena/VoteModal';
@@ -16,10 +18,15 @@ import ArenaHeader from '@/components/arena/ArenaHeader';
 import ArenaNavigation from '@/components/arena/ArenaNavigation';
 import AuthDialog from '@/components/auth/AuthDialog';
 
+// Set this to true to enable Arena for public, false to restrict to admins only
+const ARENA_PUBLIC_ACCESS = false;
+
 type ArenaTab = 'battle' | 'explorer' | 'leaderboard' | 'history' | 'analytics';
 
 const Arena = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const { points } = usePoints();
   const {
     activeBattle,
@@ -40,6 +47,37 @@ const Arena = () => {
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<ArenaTab>('battle');
+
+  // Check if user has access to Arena
+  const hasArenaAccess = ARENA_PUBLIC_ACCESS || isAdmin;
+
+  // Show access denied page if Arena is not public and user is not admin
+  if (!adminLoading && !hasArenaAccess) {
+    return (
+      <div className="min-h-screen bg-[#0A1F44] flex items-center justify-center relative overflow-hidden">
+        <AnimatedBackground />
+        <div className="relative z-10 text-center p-8 glass-card border border-primary/20 max-w-md mx-4">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', duration: 0.5 }}
+          >
+            <Lock className="w-16 h-16 mx-auto mb-4 text-primary" />
+          </motion.div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Arena Coming Soon</h1>
+          <p className="text-muted-foreground mb-6">
+            The Arxon Arena is currently under construction. We're preparing epic battles for you. Stay tuned!
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const totalArenaBoost = getTotalArenaBoost();
 

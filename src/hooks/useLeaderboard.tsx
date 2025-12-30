@@ -8,20 +8,55 @@ interface LeaderboardEntry {
   username?: string;
   avatar_url?: string;
   rank: number;
+  created_at?: string;
 }
 
-export const useLeaderboard = (limit: number = 100) => {
+export type TimeFilter = 'all' | 'month' | 'week' | '7days';
+
+export const useLeaderboard = (limit: number = 100, timeFilter: TimeFilter = 'all') => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLeaderboard = useCallback(async () => {
     try {
-      // Fetch user points ordered by total_points
-      const { data: pointsData, error: pointsError } = await supabase
+      setLoading(true);
+      
+      // Calculate date range based on filter
+      let startDate: Date | null = null;
+      const now = new Date();
+      
+      switch (timeFilter) {
+        case 'week':
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case '7days':
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case 'all':
+        default:
+          startDate = null;
+          break;
+      }
+
+      // Build query
+      let query = supabase
         .from('user_points')
-        .select('user_id, total_points, daily_streak')
+        .select('user_id, total_points, daily_streak, created_at')
         .order('total_points', { ascending: false })
         .limit(limit);
+
+      // For time-based filters, we filter by created_at or updated_at
+      if (startDate) {
+        query = query.gte('updated_at', startDate.toISOString());
+      }
+
+      const { data: pointsData, error: pointsError } = await query;
 
       if (pointsError) throw pointsError;
 
@@ -55,7 +90,7 @@ export const useLeaderboard = (limit: number = 100) => {
     } finally {
       setLoading(false);
     }
-  }, [limit]);
+  }, [limit, timeFilter]);
 
   // Initial fetch
   useEffect(() => {
