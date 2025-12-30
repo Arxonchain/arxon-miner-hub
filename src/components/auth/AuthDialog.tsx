@@ -9,7 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ReCAPTCHA from "react-google-recaptcha";
 
-const RECAPTCHA_SITE_KEY = "6LfypzosAAAAABp_534W20pZyWRCzsRFD0CN62fd";
+// reCAPTCHA is currently disabled - set a valid site key to enable
+const RECAPTCHA_SITE_KEY = "";
+const CAPTCHA_ENABLED = false;
 
 interface AuthDialogProps {
   open: boolean;
@@ -136,8 +138,8 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate captcha for signup
-    if (mode === "signup" && !captchaToken) {
+    // Validate captcha for signup (only if enabled)
+    if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
       toast({
         title: "Verification Required",
         description: "Please complete the CAPTCHA verification",
@@ -350,28 +352,30 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
                   )}
                 </div>
 
-                {/* CAPTCHA for signup */}
-                <div className="space-y-2">
-                  <Label className="text-foreground flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-accent" />
-                    Security Verification
-                  </Label>
-                  <div className="flex justify-center">
-                    <ReCAPTCHA
-                      ref={recaptchaRef}
-                      sitekey={RECAPTCHA_SITE_KEY}
-                      onChange={handleCaptchaChange}
-                      theme="dark"
-                    />
+                {/* CAPTCHA for signup - only show if enabled */}
+                {CAPTCHA_ENABLED && RECAPTCHA_SITE_KEY && (
+                  <div className="space-y-2">
+                    <Label className="text-foreground flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-accent" />
+                      Security Verification
+                    </Label>
+                    <div className="flex justify-center">
+                      <ReCAPTCHA
+                        ref={recaptchaRef}
+                        sitekey={RECAPTCHA_SITE_KEY}
+                        onChange={handleCaptchaChange}
+                        theme="dark"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 
             <Button
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
-              disabled={loading || (mode === "signup" && !captchaToken)}
+              disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && !captchaToken)}
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
