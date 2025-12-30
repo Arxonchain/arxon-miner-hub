@@ -5,22 +5,29 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
 import { useCheckin } from "@/hooks/useCheckin";
+import { useSocialSubmissions } from "@/hooks/useSocialSubmissions";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import EarningStatistics from "@/components/dashboard/EarningStatistics";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/auth/AuthDialog";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { points, loading: pointsLoading, rank } = usePoints();
-  const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading } = useMining();
+  const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading, pointsPerHour } = useMining();
   const { canCheckin, performCheckin, currentStreak, loading: checkinLoading } = useCheckin();
+  const { totalMiningBoost } = useSocialSubmissions();
   const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = settingsLoading || !miningSettings.publicMiningEnabled;
+
+  // Calculate current mining rate with all boosts - real-time from useMining hook
+  const currentMiningRate = useMemo(() => {
+    return pointsPerHour;
+  }, [pointsPerHour]);
 
   const handleStartMining = () => {
     if (!user) {
@@ -96,7 +103,7 @@ const Dashboard = () => {
         />
         <StatCard 
           label="Mining Rate" 
-          value="+10" 
+          value={`+${currentMiningRate.toFixed(currentMiningRate % 1 === 0 ? 0 : 1)}`}
           suffix=" ARX-P/hr" 
           icon={<Flame className="h-4 w-4 text-orange-500" />}
         />

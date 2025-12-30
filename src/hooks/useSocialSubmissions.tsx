@@ -321,7 +321,7 @@ export const useSocialSubmissions = () => {
       // Add points to user's balance (social_points) - instant reflection
       await addPoints(SOCIAL_POST_POINTS, 'social');
 
-      // Update mining boost in user_points
+      // Update mining boost in user_points - this will trigger real-time subscription
       const { data: currentPoints } = await supabase
         .from('user_points')
         .select('referral_bonus_percentage')
@@ -331,10 +331,17 @@ export const useSocialSubmissions = () => {
       if (currentPoints) {
         // Each post adds 50% boost (5 ARX-P/HR out of base 10/hr)
         const newBoost = (currentPoints.referral_bonus_percentage || 0) + (SOCIAL_MINING_BOOST * 10);
-        await supabase
+        const { error: boostError } = await supabase
           .from('user_points')
-          .update({ referral_bonus_percentage: newBoost })
+          .update({ 
+            referral_bonus_percentage: newBoost,
+            updated_at: new Date().toISOString()
+          })
           .eq('user_id', user.id);
+        
+        if (!boostError) {
+          console.log('Mining boost updated to:', newBoost);
+        }
       }
 
       // Update local state immediately for instant UI reflection
