@@ -94,7 +94,9 @@ const Leaderboard = () => {
               </div>
             ) : (
               yappers.map((yapper, index) => {
-                const badge = getBadge(yapper.historical_boost_total || yapper.boost_percentage);
+                // Use social_points for badge calculation (actual ARX-P earned)
+                const earnedPoints = yapper.social_points || yapper.historical_arx_p_total || 0;
+                const badge = getBadge(earnedPoints >= 1000 ? 800 : earnedPoints >= 500 ? 500 : earnedPoints >= 200 ? 300 : earnedPoints >= 50 ? 100 : 0);
                 return (
                   <div key={yapper.id} className="glass-card p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 sm:gap-4">
@@ -121,18 +123,25 @@ const Leaderboard = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground text-xs mt-0.5">
-                          <span>{yapper.historical_posts_count || 0} ARXON posts</span>
+                          <span>{yapper.qualified_posts_today || 0} posts today</span>
                           <span>•</span>
-                          <span>{yapper.historical_arx_p_total?.toLocaleString() || 0} ARX-P earned</span>
+                          <span>avg {yapper.average_engagement || 0} eng</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
-                      <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                        <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span className="text-sm sm:text-base">{yapper.historical_boost_total || yapper.boost_percentage}%</span>
-                        <span className="text-muted-foreground font-normal">total boost</span>
+                      <div className="flex items-center gap-1.5 text-green-400 font-semibold">
+                        <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="text-sm sm:text-base">{earnedPoints.toLocaleString()}</span>
+                        <span className="text-muted-foreground font-normal">ARX-P</span>
                       </div>
+                      {yapper.boost_percentage > 0 && (
+                        <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                          <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          <span className="text-sm sm:text-base">{yapper.boost_percentage}%</span>
+                          <span className="text-muted-foreground font-normal">boost</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
