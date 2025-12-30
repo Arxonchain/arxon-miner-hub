@@ -200,90 +200,106 @@ const XProfilePage = () => {
 
           {/* Historical Rewards Section */}
           <div className="glass-card p-3 sm:p-4 md:p-6 border-purple-500/30 bg-purple-500/5">
-            <div className="flex items-center gap-2 mb-3">
-              <Gift className="h-5 w-5 text-purple-400" />
-              <h3 className="font-medium text-sm sm:text-base text-foreground">Prior ARXON Posts Rewards</h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-purple-400" />
+                <h3 className="font-medium text-sm sm:text-base text-foreground">Prior ARXON Posts Rewards</h3>
+              </div>
+              {!xProfile.historical_scanned && !scanning && (
+                <Button
+                  onClick={refreshBoost}
+                  variant="ghost"
+                  size="sm"
+                  className="text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3 text-purple-400 hover:text-purple-300"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                  Scan Now
+                </Button>
+              )}
             </div>
 
-            {xProfile.historical_scanned ? (
+            {scanning ? (
+              <div className="text-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-400 mb-2" />
+                <p className="text-xs text-muted-foreground">Scanning posts (takes ~6 seconds)...</p>
+              </div>
+            ) : postRewards.length > 0 ? (
               <>
-                {xProfile.historical_posts_count > 0 ? (
-                  <>
-                    {/* Historical Totals */}
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                        <p className="text-xl sm:text-2xl font-bold text-purple-400">{xProfile.historical_posts_count}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Prior Posts</p>
-                      </div>
-                      <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                        <p className="text-xl sm:text-2xl font-bold text-green-400">{xProfile.historical_arx_p_total}</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">ARX-P Earned</p>
-                      </div>
-                      <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                        <p className="text-xl sm:text-2xl font-bold text-yellow-400">+{xProfile.historical_boost_total}%</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">Boost Earned</p>
-                      </div>
-                    </div>
-
-                    {/* Individual Post Rewards */}
-                    <div className="border-t border-border/50 pt-3">
-                      <p className="text-xs text-muted-foreground mb-2">Rewards breakdown per post:</p>
-                      <ScrollArea className="h-[250px]">
-                        <div className="space-y-2 pr-3">
-                          {postRewards.map((reward) => (
-                            <div 
-                              key={reward.id} 
-                              className="p-3 bg-background/30 rounded-lg border border-border/30"
-                            >
-                              <p className="text-xs sm:text-sm text-foreground line-clamp-2 mb-2">
-                                {reward.tweet_text}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {reward.tweet_created_at ? new Date(reward.tweet_created_at).toLocaleDateString() : 'N/A'}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Heart className="h-3 w-3 text-red-400" />
-                                  {reward.like_count}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Repeat className="h-3 w-3 text-green-400" />
-                                  {reward.retweet_count}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <MessageCircle className="h-3 w-3 text-blue-400" />
-                                  {reward.reply_count}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/20">
-                                <span className="text-xs font-medium text-green-400">+{reward.arx_p_reward} ARX-P</span>
-                                <span className="text-xs font-medium text-yellow-400">+{reward.boost_reward}% Boost</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-6">
-                    <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-3">
-                      <XIcon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      No prior posts about ARXON found
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Start posting with <span className="text-blue-400">#Arxon</span>, <span className="text-blue-400">#ArxonMining</span>, <span className="text-blue-400">#Arxonchain</span>, or <span className="text-blue-400">@Arxonarx</span> to earn rewards!
-                    </p>
+                {/* Historical Totals */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
+                    <p className="text-xl sm:text-2xl font-bold text-purple-400">{postRewards.length}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Prior Posts</p>
                   </div>
-                )}
+                  <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
+                    <p className="text-xl sm:text-2xl font-bold text-green-400">
+                      {postRewards.reduce((sum, r) => sum + Number(r.arx_p_reward), 0)}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">ARX-P Earned</p>
+                  </div>
+                  <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
+                    <p className="text-xl sm:text-2xl font-bold text-yellow-400">
+                      +{postRewards.reduce((sum, r) => sum + Number(r.boost_reward), 0)}%
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Boost Earned</p>
+                  </div>
+                </div>
+
+                {/* Individual Post Rewards */}
+                <div className="border-t border-border/50 pt-3">
+                  <p className="text-xs text-muted-foreground mb-2">Rewards breakdown per post:</p>
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-2 pr-3">
+                      {postRewards.map((reward) => (
+                        <div 
+                          key={reward.id} 
+                          className="p-3 bg-background/30 rounded-lg border border-border/30"
+                        >
+                          <p className="text-xs sm:text-sm text-foreground line-clamp-2 mb-2">
+                            {reward.tweet_text}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {reward.tweet_created_at ? new Date(reward.tweet_created_at).toLocaleDateString() : 'N/A'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Heart className="h-3 w-3 text-red-400" />
+                              {reward.like_count}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Repeat className="h-3 w-3 text-green-400" />
+                              {reward.retweet_count}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="h-3 w-3 text-blue-400" />
+                              {reward.reply_count}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/20">
+                            <span className="text-xs font-medium text-green-400">+{reward.arx_p_reward} ARX-P</span>
+                            <span className="text-xs font-medium text-yellow-400">+{reward.boost_reward}% Boost</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
               </>
             ) : (
-              <div className="text-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground">Scanning historical posts...</p>
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                  <XIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {xProfile.historical_scanned ? 'No prior posts about ARXON found' : 'Historical posts not scanned yet'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {xProfile.historical_scanned 
+                    ? <>Start posting with <span className="text-blue-400">#Arxon</span>, <span className="text-blue-400">#ArxonMining</span>, <span className="text-blue-400">#Arxonchain</span>, or <span className="text-blue-400">@Arxonarx</span> to earn rewards!</>
+                    : 'Click "Scan Now" to check for prior ARXON posts'
+                  }
+                </p>
               </div>
             )}
           </div>
