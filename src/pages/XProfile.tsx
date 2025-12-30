@@ -3,6 +3,7 @@ import { Link2, Unlink, Check, RefreshCw, Zap, Loader2, Gift, Clock, Heart, Repe
 import XIcon from "@/components/icons/XIcon";
 import { useXProfile } from "@/hooks/useXProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useMining } from "@/hooks/useMining";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AuthDialog from "@/components/auth/AuthDialog";
@@ -10,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const XProfilePage = () => {
   const { user } = useAuth();
+  const { pointsPerHour, totalBoostPercentage } = useMining();
   const { 
     xProfile, 
     postRewards,
@@ -192,8 +194,8 @@ const XProfilePage = () => {
 
             <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/50">
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Your mining rate: <span className="text-yellow-400 font-semibold">{(10 * (1 + xProfile.boost_percentage / 100)).toFixed(1)} ARX-P/hour</span>
-                <span className="text-muted-foreground"> (base 10 ARX-P/hour + {xProfile.boost_percentage}% boost)</span>
+                Your mining rate: <span className="text-yellow-400 font-semibold">{pointsPerHour.toFixed(1)} ARX-P/hour</span>
+                <span className="text-muted-foreground"> (base 10 + {totalBoostPercentage}% total boost)</span>
               </p>
             </div>
           </div>

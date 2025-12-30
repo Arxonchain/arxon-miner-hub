@@ -14,6 +14,11 @@ interface MiningSettings {
   consensusMode: string;
 }
 
+interface ArenaBoost {
+  boost_percentage: number;
+  expires_at: string;
+}
+
 export const useMining = () => {
   const { user } = useAuth();
   const { addPoints, triggerConfetti, points } = usePoints();
@@ -29,23 +34,77 @@ export const useMining = () => {
     blockReward: 1000,
     consensusMode: 'PoW'
   });
+  const [xProfileBoost, setXProfileBoost] = useState(0);
+  const [arenaBoosts, setArenaBoosts] = useState<ArenaBoost[]>([]); 
   const lastDbPointsRef = useRef(0); // Track last whole points saved to DB
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
   const sessionStartTimeRef = useRef<number | null>(null);
 
-  // Calculate effective points per hour with referral bonus (includes social boosts)
-  // This value updates in real-time via the usePoints real-time subscription
-  const referralBonus = points?.referral_bonus_percentage || 0;
-  const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + referralBonus / 100);
+  // Fetch X profile boost
+  const fetchXProfileBoost = useCallback(async () => {
+    if (!user) {
+      setXProfileBoost(0);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('x_profiles')
+        .select('boost_percentage')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setXProfileBoost(data.boost_percentage || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching X profile boost:', err);
+    }
+  }, [user]);
+
+  // Fetch arena boosts
+  const fetchArenaBoosts = useCallback(async () => {
+    if (!user) {
+      setArenaBoosts([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('arena_boosts')
+        .select('boost_percentage, expires_at')
+        .eq('user_id', user.id)
+        .gte('expires_at', new Date().toISOString());
+      
+      if (!error && data) {
+        setArenaBoosts(data);
+      }
+    } catch (err) {
+      console.error('Error fetching arena boosts:', err);
+    }
+  }, [user]);
+
+  // Calculate all boost sources
+  const referralBonus = points?.referral_bonus_percentage || 0; // Includes social task boosts
+  const totalArenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
+  const totalBoostPercentage = referralBonus + xProfileBoost + totalArenaBoost;
+  
+  // Calculate effective points per hour with ALL boosts
+  const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + totalBoostPercentage / 100);
   
   // Points per second for real-time display
   const pointsPerSecond = pointsPerHour / 3600;
   
   // Log when mining rate changes for debugging
   useEffect(() => {
-    console.log('Mining rate updated:', { referralBonus, pointsPerHour, pointsPerSecond });
-  }, [referralBonus, pointsPerHour, pointsPerSecond]);
+    console.log('Mining rate updated:', { 
+      referralBonus, 
+      xProfileBoost, 
+      totalArenaBoost, 
+      totalBoostPercentage,
+      pointsPerHour, 
+      pointsPerSecond 
+    });
+  }, [referralBonus, xProfileBoost, totalArenaBoost, totalBoostPercentage, pointsPerHour, pointsPerSecond]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -327,13 +386,70 @@ export const useMining = () => {
     };
   }, [isMining, sessionId, maxTimeSeconds, pointsPerHour]);
 
-  // Initial fetch
+  // Initial fetch - including all boost sources
   useEffect(() => {
     (async () => {
       await fetchMiningSettings();
+      await fetchXProfileBoost();
+      await fetchArenaBoosts();
       await checkActiveSession();
     })();
-  }, [checkActiveSession, fetchMiningSettings]);
+  }, [checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts]);
+
+  // Real-time subscription for X profile boost changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('x-profile-boost-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'x_profiles',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time X profile update:', payload);
+          if (payload.new) {
+            const newProfile = payload.new as any;
+            setXProfileBoost(newProfile.boost_percentage || 0);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Real-time subscription for arena boost changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('arena-boost-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'arena_boosts',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refetch arena boosts on any change
+          fetchArenaBoosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchArenaBoosts]);
 
   // Real-time subscription for mining sessions
   useEffect(() => {
@@ -452,7 +568,12 @@ export const useMining = () => {
     stopMining,
     claimPoints,
     formatTime,
+    // Boost breakdown for UI display
     referralBonus,
+    xProfileBoost,
+    totalArenaBoost,
+    totalBoostPercentage,
+    // Unified rate
     pointsPerHour,
     pointsPerSecond,
     miningSettings

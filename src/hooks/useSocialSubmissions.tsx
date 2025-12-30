@@ -424,7 +424,7 @@ export const useSocialSubmissions = () => {
       console.log('Cleaning up social_submissions subscription');
       supabase.removeChannel(channel);
     };
-  }, [user, triggerConfetti]);
+  }, [user]);
 
   return {
     submissions,

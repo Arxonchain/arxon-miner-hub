@@ -4,7 +4,6 @@ import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
-import { useXProfile } from "@/hooks/useXProfile";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { useState, useMemo } from "react";
@@ -26,16 +25,14 @@ const Mining = () => {
     claimPoints,
     formatTime,
     pointsPerSecond,
+    pointsPerHour,
+    totalBoostPercentage,
     miningSettings
   } = useMining();
-  const { xProfile, getBoostedRate } = useXProfile();
   const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = !miningSettings.publicMiningEnabled;
-
-  const baseRate = 10;
-  const boostedRate = getBoostedRate(baseRate);
-  const hasBoost = xProfile && xProfile.boost_percentage > 0;
+  const hasBoost = totalBoostPercentage > 0;
 
   const copyReferralCode = () => {
     navigator.clipboard.writeText("ARX-REF-12345");
@@ -152,7 +149,7 @@ const Mining = () => {
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
               +{pointsPerSecond.toFixed(6)} ARX-P/sec
-              {hasBoost && <span className="text-yellow-400 ml-1">• {xProfile.boost_percentage}% boost</span>}
+              {hasBoost && <span className="text-yellow-400 ml-1">• {totalBoostPercentage}% boost</span>}
             </p>
             
             {/* Claim Button - claim anytime */}
@@ -218,7 +215,7 @@ const Mining = () => {
                 <p className="text-muted-foreground text-[10px] sm:text-xs">Session Duration</p>
                 <p className="text-base sm:text-lg md:text-xl font-bold text-foreground">8 Hours Max</p>
                 <p className="text-[10px] sm:text-xs text-accent mt-0.5 sm:mt-1">
-                  +{boostedRate.toFixed(hasBoost ? 1 : 0)} ARX-P/hour
+                  +{pointsPerHour.toFixed(hasBoost ? 1 : 0)} ARX-P/hour
                   {hasBoost && <span className="text-yellow-400 ml-1">🔥</span>}
                 </p>
               </>
@@ -236,7 +233,7 @@ const Mining = () => {
             <div className="glass-card p-2 sm:p-3 text-center">
               <p className="text-[10px] sm:text-xs text-muted-foreground">Rate</p>
               <p className="text-sm sm:text-lg font-bold text-accent">
-                +{boostedRate.toFixed(hasBoost ? 1 : 0)} ARX-P/hr
+                +{pointsPerHour.toFixed(hasBoost ? 1 : 0)} ARX-P/hr
                 {hasBoost && <span className="text-yellow-400 ml-1">🔥</span>}
               </p>
             </div>
@@ -293,7 +290,7 @@ const Mining = () => {
         {/* Info Card */}
         <div className="glass-card p-3 sm:p-4 w-full text-center mb-4 sm:mb-6">
           <p className="text-[10px] sm:text-xs text-muted-foreground">
-            Mine for up to 8 hours per session. Earn {hasBoost ? `${boostedRate.toFixed(1)}` : '10'} ARX-P per hour. 
+            Mine for up to 8 hours per session. Earn {hasBoost ? `${pointsPerHour.toFixed(1)}` : '10'} ARX-P per hour. 
             {isMining ? " Stop anytime to collect your points." : " Start a new session after completion."}
           </p>
         </div>
