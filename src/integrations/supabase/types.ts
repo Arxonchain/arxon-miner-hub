@@ -661,11 +661,66 @@ export type Database = {
         }
         Relationships: []
       }
+      x_post_rewards: {
+        Row: {
+          arx_p_reward: number
+          boost_reward: number
+          created_at: string
+          id: string
+          like_count: number
+          quote_count: number
+          reply_count: number
+          retweet_count: number
+          total_engagement: number
+          tweet_created_at: string | null
+          tweet_id: string
+          tweet_text: string
+          user_id: string
+          x_profile_id: string
+        }
+        Insert: {
+          arx_p_reward?: number
+          boost_reward?: number
+          created_at?: string
+          id?: string
+          like_count?: number
+          quote_count?: number
+          reply_count?: number
+          retweet_count?: number
+          total_engagement?: number
+          tweet_created_at?: string | null
+          tweet_id: string
+          tweet_text: string
+          user_id: string
+          x_profile_id: string
+        }
+        Update: {
+          arx_p_reward?: number
+          boost_reward?: number
+          created_at?: string
+          id?: string
+          like_count?: number
+          quote_count?: number
+          reply_count?: number
+          retweet_count?: number
+          total_engagement?: number
+          tweet_created_at?: string | null
+          tweet_id?: string
+          tweet_text?: string
+          user_id?: string
+          x_profile_id?: string
+        }
+        Relationships: []
+      }
       x_profiles: {
         Row: {
           average_engagement: number
           boost_percentage: number
           created_at: string
+          historical_arx_p_total: number
+          historical_boost_total: number
+          historical_posts_count: number
+          historical_scanned: boolean
           id: string
           last_scanned_at: string | null
           profile_url: string
@@ -679,6 +734,10 @@ export type Database = {
           average_engagement?: number
           boost_percentage?: number
           created_at?: string
+          historical_arx_p_total?: number
+          historical_boost_total?: number
+          historical_posts_count?: number
+          historical_scanned?: boolean
           id?: string
           last_scanned_at?: string | null
           profile_url: string
@@ -692,6 +751,10 @@ export type Database = {
           average_engagement?: number
           boost_percentage?: number
           created_at?: string
+          historical_arx_p_total?: number
+          historical_boost_total?: number
+          historical_posts_count?: number
+          historical_scanned?: boolean
           id?: string
           last_scanned_at?: string | null
           profile_url?: string

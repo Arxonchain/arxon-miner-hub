@@ -15,18 +15,39 @@ interface XProfile {
   last_scanned_at: string | null;
   created_at: string;
   updated_at: string;
+  historical_posts_count: number;
+  historical_arx_p_total: number;
+  historical_boost_total: number;
+  historical_scanned: boolean;
+}
+
+interface XPostReward {
+  id: string;
+  tweet_id: string;
+  tweet_text: string;
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  quote_count: number;
+  total_engagement: number;
+  arx_p_reward: number;
+  boost_reward: number;
+  tweet_created_at: string | null;
+  created_at: string;
 }
 
 export const useXProfile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [xProfile, setXProfile] = useState<XProfile | null>(null);
+  const [postRewards, setPostRewards] = useState<XPostReward[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
 
   const fetchXProfile = useCallback(async () => {
     if (!user) {
       setXProfile(null);
+      setPostRewards([]);
       setLoading(false);
       return;
     }
@@ -42,6 +63,21 @@ export const useXProfile = () => {
         console.error('Error fetching X profile:', error);
       } else {
         setXProfile(data);
+        
+        // Fetch post rewards if profile exists
+        if (data) {
+          const { data: rewards, error: rewardsError } = await supabase
+            .from('x_post_rewards')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('tweet_created_at', { ascending: false });
+          
+          if (rewardsError) {
+            console.error('Error fetching post rewards:', rewardsError);
+          } else {
+            setPostRewards(rewards || []);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching X profile:', error);
@@ -96,14 +132,22 @@ export const useXProfile = () => {
       // First, check if there's an existing profile and delete it to allow reconnection
       const { data: existingProfile } = await supabase
         .from('x_profiles')
-        .select('id')
+        .select('id, historical_scanned')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      const isInitialConnect = !existingProfile || !existingProfile.historical_scanned;
 
       if (existingProfile) {
         // Delete existing profile first to prevent conflicts
         await supabase
           .from('x_profiles')
+          .delete()
+          .eq('user_id', user.id);
+        
+        // Also delete existing post rewards
+        await supabase
+          .from('x_post_rewards')
           .delete()
           .eq('user_id', user.id);
       }
@@ -112,6 +156,7 @@ export const useXProfile = () => {
         body: {
           username,
           profileUrl: `https://x.com/${username}`,
+          isInitialConnect,
         },
       });
 
@@ -241,6 +286,7 @@ export const useXProfile = () => {
 
   return {
     xProfile,
+    postRewards,
     loading,
     scanning,
     connectXProfile,

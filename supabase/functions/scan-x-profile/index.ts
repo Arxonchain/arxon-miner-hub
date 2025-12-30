@@ -21,6 +21,7 @@ interface TwitterResponse {
   data?: Tweet[]
   meta?: {
     result_count: number
+    next_token?: string
   }
   errors?: any[]
 }
@@ -56,6 +57,25 @@ function calculateBoost(qualifiedPosts: number, avgEngagement: number, hasViralP
   return boost
 }
 
+// Calculate ARX-P reward based on engagement
+function calculateArxPReward(engagement: number): number {
+  if (engagement >= 1000) return 500
+  if (engagement >= 500) return 250
+  if (engagement >= 100) return 100
+  if (engagement >= 50) return 50
+  if (engagement >= 10) return 25
+  return 10 // Minimum reward for any qualified post
+}
+
+// Calculate boost reward based on engagement
+function calculateBoostReward(engagement: number): number {
+  if (engagement >= 1000) return 50
+  if (engagement >= 500) return 25
+  if (engagement >= 100) return 10
+  if (engagement >= 50) return 5
+  return 2 // Minimum boost for any qualified post
+}
+
 async function fetchUserData(username: string, bearerToken: string): Promise<{ id: string, profileImageUrl: string | null }> {
   const userResponse = await fetch(
     `https://api.twitter.com/2/users/by/username/${username}?user.fields=profile_image_url`,
@@ -89,12 +109,13 @@ async function fetchUserData(username: string, bearerToken: string): Promise<{ i
   }
 }
 
-async function fetchUserTweets(userId: string, bearerToken: string): Promise<{ tweets: Tweet[], rateLimited: boolean }> {
-  // Get tweets from the last 24 hours
-  const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+async function fetchUserTweets(userId: string, bearerToken: string, startTime?: string): Promise<{ tweets: Tweet[], rateLimited: boolean }> {
+  // Get tweets from the last 24 hours for daily boost
+  const defaultStartTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const timeParam = startTime || defaultStartTime
   
   const tweetsResponse = await fetch(
-    `https://api.twitter.com/2/users/${userId}/tweets?max_results=100&start_time=${startTime}&tweet.fields=public_metrics,created_at`,
+    `https://api.twitter.com/2/users/${userId}/tweets?max_results=100&start_time=${timeParam}&tweet.fields=public_metrics,created_at`,
     {
       headers: {
         'Authorization': `Bearer ${bearerToken}`,
@@ -113,6 +134,33 @@ async function fetchUserTweets(userId: string, bearerToken: string): Promise<{ t
     }
     
     throw new Error(`Failed to fetch tweets: ${tweetsResponse.status}`)
+  }
+
+  const tweetsData: TwitterResponse = await tweetsResponse.json()
+  return { tweets: tweetsData.data || [], rateLimited: false }
+}
+
+// Fetch historical tweets (all time, up to 100 due to API limits)
+async function fetchHistoricalTweets(userId: string, bearerToken: string): Promise<{ tweets: Tweet[], rateLimited: boolean }> {
+  const tweetsResponse = await fetch(
+    `https://api.twitter.com/2/users/${userId}/tweets?max_results=100&tweet.fields=public_metrics,created_at`,
+    {
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`,
+      },
+    }
+  )
+
+  if (!tweetsResponse.ok) {
+    const errorText = await tweetsResponse.text()
+    console.error('Failed to fetch historical tweets:', errorText)
+    
+    if (tweetsResponse.status === 429 || errorText.includes('UsageCapExceeded')) {
+      console.log('Twitter API rate limited for historical tweets')
+      return { tweets: [], rateLimited: true }
+    }
+    
+    throw new Error(`Failed to fetch historical tweets: ${tweetsResponse.status}`)
   }
 
   const tweetsData: TwitterResponse = await tweetsResponse.json()
@@ -151,13 +199,13 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
-    const { username, profileUrl } = body
+    const { username, profileUrl, isInitialConnect } = body
 
     if (!username) {
       throw new Error('Username is required')
     }
 
-    console.log(`Scanning tweets for @${username}`)
+    console.log(`Scanning tweets for @${username}, initial connect: ${isInitialConnect}`)
 
     // Fetch user data including profile image
     const userData = await fetchUserData(username, bearerToken)
@@ -167,7 +215,7 @@ Deno.serve(async (req) => {
     const { tweets, rateLimited } = await fetchUserTweets(userData.id, bearerToken)
     console.log(`Found ${tweets.length} tweets in last 24 hours${rateLimited ? ' (rate limited)' : ''}`)
 
-    // Filter qualified tweets
+    // Filter qualified tweets for daily boost
     const qualifiedTweets = tweets.filter(tweet => isQualifiedTweet(tweet.text))
     console.log(`Found ${qualifiedTweets.length} qualified tweets`)
 
@@ -222,6 +270,114 @@ Deno.serve(async (req) => {
       throw new Error('Failed to save profile data')
     }
 
+    // Process historical posts on initial connect
+    let historicalRewards: any[] = []
+    let historicalTotalArxP = 0
+    let historicalTotalBoost = 0
+
+    if (isInitialConnect && !xProfile.historical_scanned) {
+      console.log('Processing historical posts for initial connect...')
+      
+      const { tweets: historicalTweets, rateLimited: histRateLimited } = await fetchHistoricalTweets(userData.id, bearerToken)
+      console.log(`Found ${historicalTweets.length} historical tweets${histRateLimited ? ' (rate limited)' : ''}`)
+
+      const qualifiedHistoricalTweets = historicalTweets.filter(tweet => isQualifiedTweet(tweet.text))
+      console.log(`Found ${qualifiedHistoricalTweets.length} qualified historical tweets`)
+
+      for (const tweet of qualifiedHistoricalTweets) {
+        const engagement = 
+          tweet.public_metrics.like_count + 
+          tweet.public_metrics.retweet_count + 
+          tweet.public_metrics.reply_count +
+          tweet.public_metrics.quote_count
+
+        const arxPReward = calculateArxPReward(engagement)
+        const boostReward = calculateBoostReward(engagement)
+
+        historicalTotalArxP += arxPReward
+        historicalTotalBoost += boostReward
+
+        // Insert into x_post_rewards (use service role to bypass RLS for inserts)
+        const { error: rewardError } = await supabase
+          .from('x_post_rewards')
+          .upsert({
+            user_id: user.id,
+            x_profile_id: xProfile.id,
+            tweet_id: tweet.id,
+            tweet_text: tweet.text.substring(0, 500), // Limit text length
+            like_count: tweet.public_metrics.like_count,
+            retweet_count: tweet.public_metrics.retweet_count,
+            reply_count: tweet.public_metrics.reply_count,
+            quote_count: tweet.public_metrics.quote_count,
+            total_engagement: engagement,
+            arx_p_reward: arxPReward,
+            boost_reward: boostReward,
+            tweet_created_at: tweet.created_at,
+          }, {
+            onConflict: 'user_id,tweet_id'
+          })
+
+        if (rewardError) {
+          console.error('Failed to insert reward:', rewardError)
+        } else {
+          historicalRewards.push({
+            tweetId: tweet.id,
+            text: tweet.text.substring(0, 100) + (tweet.text.length > 100 ? '...' : ''),
+            engagement,
+            arxPReward,
+            boostReward,
+            createdAt: tweet.created_at,
+          })
+        }
+      }
+
+      // Update x_profile with historical totals
+      const { error: updateError } = await supabase
+        .from('x_profiles')
+        .update({
+          historical_posts_count: qualifiedHistoricalTweets.length,
+          historical_arx_p_total: historicalTotalArxP,
+          historical_boost_total: historicalTotalBoost,
+          historical_scanned: true,
+        })
+        .eq('id', xProfile.id)
+
+      if (updateError) {
+        console.error('Failed to update historical totals:', updateError)
+      }
+
+      // Add ARX-P rewards to user's points
+      if (historicalTotalArxP > 0) {
+        const { data: existingPoints } = await supabase
+          .from('user_points')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (existingPoints) {
+          await supabase
+            .from('user_points')
+            .update({
+              social_points: existingPoints.social_points + historicalTotalArxP,
+              total_points: existingPoints.total_points + historicalTotalArxP,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+        } else {
+          await supabase
+            .from('user_points')
+            .insert({
+              user_id: user.id,
+              social_points: historicalTotalArxP,
+              total_points: historicalTotalArxP,
+            })
+        }
+        console.log(`Added ${historicalTotalArxP} ARX-P from historical posts`)
+      }
+
+      console.log(`Historical rewards processed: ${qualifiedHistoricalTweets.length} posts, ${historicalTotalArxP} ARX-P, ${historicalTotalBoost}% boost`)
+    }
+
     // Update user's profile avatar_url with X profile picture if they don't have one
     if (userData.profileImageUrl) {
       const { data: existingProfile } = await supabase
@@ -256,9 +412,16 @@ Deno.serve(async (req) => {
           lastScanned: new Date().toISOString(),
           profileImageUrl: userData.profileImageUrl,
           rateLimited,
+          // Historical rewards data
+          historicalRewards: isInitialConnect ? historicalRewards : undefined,
+          historicalTotalArxP: isInitialConnect ? historicalTotalArxP : undefined,
+          historicalTotalBoost: isInitialConnect ? historicalTotalBoost : undefined,
+          historicalPostsCount: isInitialConnect ? historicalRewards.length : undefined,
           message: rateLimited 
             ? 'Profile connected! Tweet scanning temporarily unavailable due to API limits. Boost will update when limits reset.'
-            : undefined,
+            : isInitialConnect && historicalRewards.length > 0
+              ? `Found ${historicalRewards.length} prior ARXON posts! Rewarded ${historicalTotalArxP} ARX-P and ${historicalTotalBoost}% boost.`
+              : undefined,
         },
       }),
       {
