@@ -371,7 +371,7 @@ const Tasks = () => {
                 className="bg-input border-border"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Posts should mention #ArxonMining, #Arxon, or @Arxonarx for best quality.
+                <span className="text-yellow-400 font-medium">Required:</span> Posts must mention <span className="text-accent">@arxonarx</span>, <span className="text-accent">#arxon</span>, <span className="text-accent">#arxonmining</span>, or <span className="text-accent">#arxonchain</span> to qualify.
                 <br />
                 <span className="text-accent">{qualityPostsCount}/{MAX_QUALITY_POSTS}</span> posts used.
               </p>
