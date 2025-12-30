@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.resolve-arena-battle]
 verify_jwt = false
+
+[functions.validate-x-post]
+verify_jwt = false
