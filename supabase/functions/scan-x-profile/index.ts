@@ -76,7 +76,7 @@ function calculateBoostReward(engagement: number): number {
   return 2 // Minimum boost for any qualified post
 }
 
-async function fetchUserData(username: string, bearerToken: string): Promise<{ id: string, profileImageUrl: string | null }> {
+async function fetchUserData(username: string, bearerToken: string): Promise<{ id: string | null, profileImageUrl: string | null, rateLimited: boolean }> {
   const userResponse = await fetch(
     `https://api.twitter.com/2/users/by/username/${username}?user.fields=profile_image_url`,
     {
@@ -89,6 +89,13 @@ async function fetchUserData(username: string, bearerToken: string): Promise<{ i
   if (!userResponse.ok) {
     const errorText = await userResponse.text()
     console.error('Failed to fetch user:', errorText)
+    
+    // Handle rate limit gracefully
+    if (userResponse.status === 429 || errorText.includes('UsageCapExceeded') || errorText.includes('Too Many Requests')) {
+      console.log('Twitter API rate limited on user lookup - proceeding with cached data')
+      return { id: null, profileImageUrl: null, rateLimited: true }
+    }
+    
     throw new Error(`Failed to fetch user: ${userResponse.status}`)
   }
 
@@ -105,7 +112,8 @@ async function fetchUserData(username: string, bearerToken: string): Promise<{ i
 
   return {
     id: userData.data.id,
-    profileImageUrl
+    profileImageUrl,
+    rateLimited: false
   }
 }
 
@@ -209,6 +217,43 @@ Deno.serve(async (req) => {
 
     // Fetch user data including profile image
     const userData = await fetchUserData(username, bearerToken)
+    
+    // If rate limited on user lookup, return cached/default data without error
+    if (userData.rateLimited || !userData.id) {
+      console.log('Rate limited - using cached profile data')
+      
+      // Just update last_scanned_at timestamp
+      await supabase
+        .from('x_profiles')
+        .upsert({
+          user_id: user.id,
+          username: username,
+          profile_url: profileUrl || `https://x.com/${username}`,
+          last_scanned_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
+        })
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            username,
+            boostPercentage: 0,
+            qualifiedPostsToday: 0,
+            avgEngagement: 0,
+            viralBonus: false,
+            lastScanned: new Date().toISOString(),
+            profileImageUrl: null,
+            rateLimited: true,
+          },
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+    
     console.log(`User ID: ${userData.id}, Profile Image: ${userData.profileImageUrl}`)
 
     // Fetch recent tweets (handles rate limits gracefully)
@@ -278,7 +323,7 @@ Deno.serve(async (req) => {
     if (isInitialConnect && !xProfile.historical_scanned) {
       console.log('Processing historical posts for initial connect...')
       
-      const { tweets: historicalTweets, rateLimited: histRateLimited } = await fetchHistoricalTweets(userData.id, bearerToken)
+      const { tweets: historicalTweets, rateLimited: histRateLimited } = await fetchHistoricalTweets(userData.id!, bearerToken)
       console.log(`Found ${historicalTweets.length} historical tweets${histRateLimited ? ' (rate limited)' : ''}`)
 
       const qualifiedHistoricalTweets = historicalTweets.filter(tweet => isQualifiedTweet(tweet.text))
