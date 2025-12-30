@@ -94,7 +94,7 @@ const Leaderboard = () => {
               </div>
             ) : (
               yappers.map((yapper, index) => {
-                const badge = getBadge(yapper.boost_percentage);
+                const badge = getBadge(yapper.historical_boost_total || yapper.boost_percentage);
                 return (
                   <div key={yapper.id} className="glass-card p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 sm:gap-4">
@@ -121,17 +121,17 @@ const Leaderboard = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground text-xs mt-0.5">
-                          <span>{yapper.qualified_posts_today} posts today</span>
+                          <span>{yapper.historical_posts_count || 0} ARXON posts</span>
                           <span>•</span>
-                          <span>avg {yapper.average_engagement} eng</span>
+                          <span>{yapper.historical_arx_p_total?.toLocaleString() || 0} ARX-P earned</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
                       <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
                         <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span className="text-sm sm:text-base">{yapper.boost_percentage}%</span>
-                        <span className="text-muted-foreground font-normal">boost</span>
+                        <span className="text-sm sm:text-base">{yapper.historical_boost_total || yapper.boost_percentage}%</span>
+                        <span className="text-muted-foreground font-normal">total boost</span>
                       </div>
                     </div>
                   </div>
