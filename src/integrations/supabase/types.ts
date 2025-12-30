@@ -305,6 +305,7 @@ export type Database = {
       }
       mining_settings: {
         Row: {
+          arena_public_access: boolean
           block_reward: number
           claiming_enabled: boolean
           consensus_mode: string
@@ -314,6 +315,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          arena_public_access?: boolean
           block_reward?: number
           claiming_enabled?: boolean
           consensus_mode?: string
@@ -323,6 +325,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          arena_public_access?: boolean
           block_reward?: number
           claiming_enabled?: boolean
           consensus_mode?: string

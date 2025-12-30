@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
 import { usePoints } from '@/hooks/usePoints';
 import { useAdmin } from '@/hooks/useAdmin';
+import { supabase } from '@/integrations/supabase/client';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import BattleCard from '@/components/arena/BattleCard';
 import VoteModal from '@/components/arena/VoteModal';
@@ -17,9 +18,6 @@ import UserBadges from '@/components/arena/UserBadges';
 import ArenaHeader from '@/components/arena/ArenaHeader';
 import ArenaNavigation from '@/components/arena/ArenaNavigation';
 import AuthDialog from '@/components/auth/AuthDialog';
-
-// Set this to true to enable Arena for public, false to restrict to admins only
-const ARENA_PUBLIC_ACCESS = false;
 
 type ArenaTab = 'battle' | 'explorer' | 'leaderboard' | 'history' | 'analytics';
 
@@ -47,12 +45,45 @@ const Arena = () => {
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<ArenaTab>('battle');
+  const [arenaPublicAccess, setArenaPublicAccess] = useState<boolean | null>(null);
+  const [accessLoading, setAccessLoading] = useState(true);
+
+  // Fetch arena access setting from database
+  useEffect(() => {
+    const fetchArenaAccess = async () => {
+      const { data, error } = await supabase
+        .from('mining_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setArenaPublicAccess((data as any).arena_public_access ?? false);
+      }
+      setAccessLoading(false);
+    };
+
+    fetchArenaAccess();
+  }, []);
 
   // Check if user has access to Arena
-  const hasArenaAccess = ARENA_PUBLIC_ACCESS || isAdmin;
+  const hasArenaAccess = arenaPublicAccess === true || isAdmin;
 
   // Show access denied page if Arena is not public and user is not admin
-  if (!adminLoading && !hasArenaAccess) {
+  if (accessLoading || adminLoading) {
+    return (
+      <div className="min-h-screen bg-[#0A1F44] flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+        >
+          <Swords className="w-12 h-12 text-primary" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!hasArenaAccess) {
     return (
       <div className="min-h-screen bg-[#0A1F44] flex items-center justify-center relative overflow-hidden">
         <AnimatedBackground />

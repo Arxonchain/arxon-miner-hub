@@ -15,6 +15,7 @@ import Tasks from "./pages/Tasks";
 import XProfilePage from "./pages/XProfile";
 import Profile from "./pages/Profile";
 import Arena from "./pages/Arena";
+import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 
 // Admin imports
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
             <Route path="/mining" element={<Mining />} />
             <Route path="/arena" element={<Arena />} />
+            <Route path="/wallet" element={<WalletPage />} />
             
             {/* Admin routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
