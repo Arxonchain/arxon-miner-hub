@@ -8,6 +8,15 @@ const SOCIAL_POST_POINTS = 50; // Points per quality post
 const SOCIAL_MINING_BOOST = 5; // +5 ARX-P/HR per quality post
 const MAX_QUALITY_POSTS = 5; // Maximum quality posts allowed
 
+// Required hashtags/mentions for a qualified post
+const REQUIRED_TERMS = [
+  '@arxonarx',
+  '#arxon',
+  '#arxonmining',
+  '#arxonchain',
+  'arxon'
+];
+
 interface SocialSubmission {
   id: string;
   user_id: string;
@@ -17,8 +26,31 @@ interface SocialSubmission {
   points_awarded: number;
   created_at: string;
   reviewed_at: string | null;
-  claimed: boolean; // Track if rewards have been claimed
+  claimed: boolean;
 }
+
+// Validate if a post URL/content qualifies for rewards
+const validatePostQuality = async (postUrl: string): Promise<{ valid: boolean; reason?: string }> => {
+  // Extract tweet ID from URL
+  const tweetIdMatch = postUrl.match(/status\/(\d+)/);
+  if (!tweetIdMatch) {
+    return { valid: false, reason: "Invalid post URL format" };
+  }
+
+  // For now, we'll validate based on common patterns in the URL itself
+  // In production, you'd call an edge function to fetch the actual tweet content
+  const urlLower = postUrl.toLowerCase();
+  
+  // Check if URL contains any of the required terms (basic validation)
+  // Real validation would require fetching tweet content via API
+  const hasRequiredTerm = REQUIRED_TERMS.some(term => urlLower.includes(term.toLowerCase()));
+  
+  // Since we can't fetch tweet content directly from frontend, 
+  // we'll set status to 'pending' and let an edge function validate
+  // For MVP, we'll require manual validation or use a backend check
+  
+  return { valid: true }; // Will be validated server-side
+};
 
 export const useSocialSubmissions = () => {
   const { user } = useAuth();
@@ -28,12 +60,12 @@ export const useSocialSubmissions = () => {
   const [submissions, setSubmissions] = useState<SocialSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Calculate total mining boost from approved/claimed posts
+  // Calculate total mining boost from claimed posts only
   const totalMiningBoost = submissions.filter(
-    s => s.status === 'approved' || s.claimed
+    s => s.status === 'approved' && s.points_awarded > 0
   ).length * SOCIAL_MINING_BOOST;
 
-  // Count quality posts (approved or pending)
+  // Count quality posts (not rejected)
   const qualityPostsCount = submissions.filter(
     s => s.status !== 'rejected'
   ).length;
@@ -56,7 +88,7 @@ export const useSocialSubmissions = () => {
 
       if (error) throw error;
       
-      // Add claimed field based on points_awarded > 0
+      // claimed = points_awarded > 0 (already received rewards)
       const submissionsWithClaimed = (data || []).map(s => ({
         ...s,
         claimed: s.points_awarded > 0
@@ -115,31 +147,69 @@ export const useSocialSubmissions = () => {
     setSubmitting(true);
 
     try {
-      // Insert the submission - auto-approve for instant rewards
+      // Submit as pending - will be validated by edge function
       const { data, error } = await supabase
         .from('social_submissions')
         .insert({
           user_id: user.id,
           post_url: postUrl,
           platform: 'twitter',
-          status: 'approved', // Auto-approve for instant claiming
-          points_awarded: 0 // Points awarded when claimed
+          status: 'pending', // Pending validation
+          points_awarded: 0
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      toast({
-        title: "Post Submitted! 🐦",
-        description: `Claim your ${SOCIAL_POST_POINTS} ARX-P + ${SOCIAL_MINING_BOOST} ARX-P/HR boost!`,
+      // Call edge function to validate the post
+      const { data: validationResult, error: validationError } = await supabase.functions.invoke('validate-x-post', {
+        body: { submissionId: data.id, postUrl }
       });
 
-      // Add to local state
-      setSubmissions(prev => [{
-        ...data,
-        claimed: false
-      }, ...prev]);
+      if (validationError) {
+        console.error('Validation error:', validationError);
+        // Still allow submission, will be manually reviewed
+        toast({
+          title: "Post Submitted",
+          description: "Your post is pending review",
+        });
+      } else if (validationResult?.qualified) {
+        // Post is qualified - update local state
+        setSubmissions(prev => [{
+          ...data,
+          status: 'approved',
+          claimed: false
+        }, ...prev]);
+        
+        toast({
+          title: "Post Qualified! 🐦",
+          description: `Your post mentions ARXON! Claim your ${SOCIAL_POST_POINTS} ARX-P + ${SOCIAL_MINING_BOOST} ARX-P/HR boost!`,
+        });
+        return true;
+      } else {
+        // Post not qualified
+        setSubmissions(prev => [{
+          ...data,
+          status: 'rejected',
+          claimed: false
+        }, ...prev]);
+        
+        toast({
+          title: "Post Not Qualified",
+          description: validationResult?.reason || "Post must mention @arxonarx, #arxon, #arxonmining, or #arxonchain to qualify",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Add to local state as pending if validation didn't complete
+      if (!validationResult) {
+        setSubmissions(prev => [{
+          ...data,
+          claimed: false
+        }, ...prev]);
+      }
 
       return true;
     } catch (error: any) {
@@ -155,34 +225,103 @@ export const useSocialSubmissions = () => {
     }
   };
 
-  // Claim rewards for a submission
+  // Claim rewards for a submission - with double-claim prevention
   const claimRewards = async (submissionId: string) => {
     if (!user) return false;
 
+    // Get fresh submission data from local state
     const submission = submissions.find(s => s.id === submissionId);
-    if (!submission || submission.claimed || submission.status === 'rejected') {
+    if (!submission) {
+      toast({
+        title: "Submission Not Found",
+        description: "Please refresh and try again",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    // Check if already claimed (local state)
+    if (submission.claimed || submission.points_awarded > 0) {
+      toast({
+        title: "Already Claimed",
+        description: "You have already claimed rewards for this post",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    // Check if approved
+    if (submission.status !== 'approved') {
+      toast({
+        title: "Not Eligible",
+        description: "Only approved posts can be claimed",
+        variant: "destructive"
+      });
       return false;
     }
 
     setClaiming(submissionId);
 
     try {
-      // Update submission as claimed with points
+      // First, verify from database that it hasn't been claimed (prevent race conditions)
+      const { data: freshData, error: checkError } = await supabase
+        .from('social_submissions')
+        .select('points_awarded, status')
+        .eq('id', submissionId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError) throw checkError;
+
+      // Double-check server-side: if already claimed, abort
+      if (freshData.points_awarded > 0) {
+        // Update local state to reflect reality
+        setSubmissions(prev => 
+          prev.map(s => s.id === submissionId 
+            ? { ...s, claimed: true, points_awarded: freshData.points_awarded }
+            : s
+          )
+        );
+        toast({
+          title: "Already Claimed",
+          description: "Rewards for this post were already claimed",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Check if still approved
+      if (freshData.status !== 'approved') {
+        setSubmissions(prev => 
+          prev.map(s => s.id === submissionId 
+            ? { ...s, status: freshData.status }
+            : s
+          )
+        );
+        toast({
+          title: "Not Eligible",
+          description: "This post is no longer approved for rewards",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Update submission as claimed with points (atomic operation)
       const { error: updateError } = await supabase
         .from('social_submissions')
         .update({
           points_awarded: SOCIAL_POST_POINTS,
           reviewed_at: new Date().toISOString()
         })
-        .eq('id', submissionId);
+        .eq('id', submissionId)
+        .eq('points_awarded', 0); // Only update if not already claimed
 
       if (updateError) throw updateError;
 
-      // Add points to user's balance (social_points)
+      // Add points to user's balance (social_points) - instant reflection
       await addPoints(SOCIAL_POST_POINTS, 'social');
 
-      // Update user's referral_bonus_percentage for mining boost
-      // Each quality post adds 5% to mining rate (referral_bonus_percentage is used as boost)
+      // Update mining boost in user_points
       const { data: currentPoints } = await supabase
         .from('user_points')
         .select('referral_bonus_percentage')
@@ -190,14 +329,15 @@ export const useSocialSubmissions = () => {
         .single();
 
       if (currentPoints) {
-        const newBoost = (currentPoints.referral_bonus_percentage || 0) + (SOCIAL_MINING_BOOST * 10); // 5 ARX-P/HR = 50% of base 10/hr
+        // Each post adds 50% boost (5 ARX-P/HR out of base 10/hr)
+        const newBoost = (currentPoints.referral_bonus_percentage || 0) + (SOCIAL_MINING_BOOST * 10);
         await supabase
           .from('user_points')
           .update({ referral_bonus_percentage: newBoost })
           .eq('user_id', user.id);
       }
 
-      // Update local state
+      // Update local state immediately for instant UI reflection
       setSubmissions(prev => 
         prev.map(s => s.id === submissionId 
           ? { ...s, claimed: true, points_awarded: SOCIAL_POST_POINTS }
@@ -205,13 +345,13 @@ export const useSocialSubmissions = () => {
         )
       );
 
-      // Refresh points to get updated balance
+      // Refresh points to get updated balance instantly
       await refreshPoints();
 
       triggerConfetti();
       toast({
         title: "Rewards Claimed! 🎉",
-        description: `+${SOCIAL_POST_POINTS} ARX-P & +${SOCIAL_MINING_BOOST} ARX-P/HR mining boost!`,
+        description: `+${SOCIAL_POST_POINTS} ARX-P & +${SOCIAL_MINING_BOOST} ARX-P/HR mining boost added to your account!`,
       });
 
       return true;
@@ -255,14 +395,14 @@ export const useSocialSubmissions = () => {
           if (payload.eventType === 'INSERT') {
             const newSub = payload.new as SocialSubmission;
             setSubmissions(prev => {
-              // Check if already exists
               if (prev.some(s => s.id === newSub.id)) return prev;
               return [{ ...newSub, claimed: newSub.points_awarded > 0 }, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
+            const updatedSub = payload.new as SocialSubmission;
             setSubmissions(prev => 
-              prev.map(s => s.id === (payload.new as SocialSubmission).id 
-                ? { ...payload.new as SocialSubmission, claimed: (payload.new as SocialSubmission).points_awarded > 0 }
+              prev.map(s => s.id === updatedSub.id 
+                ? { ...updatedSub, claimed: updatedSub.points_awarded > 0 }
                 : s
               )
             );
