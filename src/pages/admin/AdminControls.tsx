@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Power, Coins, RefreshCw, Megaphone, AlertTriangle } from "lucide-react";
+import { Power, Coins, RefreshCw, Megaphone, AlertTriangle, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ const AdminControls = () => {
     claimingEnabled: false,
     blockReward: 1000,
     consensusMode: "PoW" as "PoW" | "PoS",
+    arenaPublicAccess: false,
   });
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ const AdminControls = () => {
           claimingEnabled: data.claiming_enabled,
           blockReward: data.block_reward,
           consensusMode: data.consensus_mode as "PoW" | "PoS",
+          arenaPublicAccess: (data as any).arena_public_access ?? false,
         });
       }
     } catch (error) {
@@ -55,6 +57,7 @@ const AdminControls = () => {
         claimingEnabled: "claiming_enabled",
         blockReward: "block_reward",
         consensusMode: "consensus_mode",
+        arenaPublicAccess: "arena_public_access",
       };
 
       // First get the settings row ID
@@ -105,6 +108,7 @@ const AdminControls = () => {
         claimingEnabled: "$ARX Token Claiming",
         blockReward: "Block Reward",
         consensusMode: "Consensus Mode",
+        arenaPublicAccess: "Arena Public Access",
       };
       
       toast({
@@ -201,6 +205,21 @@ const AdminControls = () => {
               <Switch
                 checked={settings.claimingEnabled}
                 onCheckedChange={(checked) => updateSetting("claimingEnabled", checked)}
+              />
+            </div>
+
+            {/* Arena Public Access */}
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Swords className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium text-foreground">Arena Public Access</p>
+                  <p className="text-sm text-muted-foreground">Enable or disable public access to the Arena</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.arenaPublicAccess}
+                onCheckedChange={(checked) => updateSetting("arenaPublicAccess", checked)}
               />
             </div>
 
