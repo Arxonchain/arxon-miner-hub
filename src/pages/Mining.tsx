@@ -22,7 +22,8 @@ const Mining = () => {
     earnedPoints, 
     maxTimeSeconds,
     startMining, 
-    stopMining, 
+    stopMining,
+    claimPoints,
     formatTime,
     pointsPerSecond,
     miningSettings
@@ -153,6 +154,18 @@ const Mining = () => {
               +{pointsPerSecond.toFixed(6)} ARX-P/sec
               {hasBoost && <span className="text-yellow-400 ml-1">• {xProfile.boost_percentage}% boost</span>}
             </p>
+            
+            {/* Claim Button - claim anytime */}
+            {earnedPoints >= 0.01 && (
+              <Button
+                onClick={claimPoints}
+                className="mt-3 bg-green-600 hover:bg-green-500 text-white text-xs sm:text-sm"
+                size="sm"
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                Claim {Math.floor(earnedPoints)} ARX-P
+              </Button>
+            )}
           </div>
         )}
 

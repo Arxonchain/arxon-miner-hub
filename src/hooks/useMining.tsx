@@ -220,7 +220,62 @@ export const useMining = () => {
 
   const stopMining = async () => {
     if (!sessionId) return;
-    await endSession(sessionId, earnedPoints);
+    // Use whole earned points for claiming
+    const pointsToClaim = Math.floor(earnedPoints);
+    await endSession(sessionId, pointsToClaim);
+  };
+  
+  // Claim current earned points without stopping mining
+  const claimPoints = async () => {
+    if (!sessionId || !user) return;
+    
+    const pointsToClaim = Math.floor(earnedPoints);
+    if (pointsToClaim <= 0) {
+      toast({
+        title: "Nothing to Claim",
+        description: "Keep mining to earn points",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Add points to total balance
+      await addPoints(pointsToClaim, 'mining');
+      
+      // Reset earned points display (keep mining)
+      setEarnedPoints(0);
+      lastDbPointsRef.current = 0;
+      
+      // Update session start time to now for fresh count
+      const newStartTime = Date.now();
+      sessionStartTimeRef.current = newStartTime;
+      
+      // Update the session in database
+      await supabase
+        .from('mining_sessions')
+        .update({ 
+          started_at: new Date(newStartTime).toISOString(),
+          arx_mined: 0 
+        })
+        .eq('id', sessionId);
+      
+      // Reset elapsed time
+      setElapsedTime(0);
+      
+      toast({
+        title: "Points Claimed! 🎉",
+        description: `+${pointsToClaim} ARX-P added to your balance`,
+      });
+      triggerConfetti();
+    } catch (error) {
+      console.error('Error claiming points:', error);
+      toast({
+        title: "Claim Failed",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
   };
 
   // Timer and points calculation - use server start time for accuracy
@@ -243,9 +298,9 @@ export const useMining = () => {
 
       setElapsedTime(newElapsed);
 
-      // Calculate fractional points for real-time display
+      // Calculate fractional points for real-time display - always positive, start from 0
       const secondsElapsed = elapsedMs / 1000;
-      const fractionalPoints = (secondsElapsed / 3600) * pointsPerHour;
+      const fractionalPoints = Math.max(0, (secondsElapsed / 3600) * pointsPerHour);
       setEarnedPoints(fractionalPoints);
       
       // Only update database when whole points change (to avoid excessive writes)
@@ -385,10 +440,11 @@ export const useMining = () => {
     settingsLoading,
     elapsedTime,
     remainingTime,
-    earnedPoints,
+    earnedPoints: Math.max(0, earnedPoints), // Ensure never negative
     maxTimeSeconds,
     startMining,
     stopMining,
+    claimPoints,
     formatTime,
     referralBonus,
     pointsPerHour,
