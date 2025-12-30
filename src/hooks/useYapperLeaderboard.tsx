@@ -13,6 +13,9 @@ interface YapperEntry {
   viral_bonus: boolean;
   last_scanned_at: string | null;
   updated_at?: string;
+  historical_posts_count: number;
+  historical_arx_p_total: number;
+  historical_boost_total: number;
 }
 
 export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
@@ -43,11 +46,13 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
           break;
       }
 
+      // Fetch x_profiles with all relevant fields, sorted by total historical ARX-P earned
       let query = supabase
         .from('x_profiles')
-        .select('id, user_id, username, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, last_scanned_at, updated_at')
+        .select('id, user_id, username, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, last_scanned_at, updated_at, historical_posts_count, historical_arx_p_total, historical_boost_total')
+        .order('historical_arx_p_total', { ascending: false })
+        .order('historical_boost_total', { ascending: false })
         .order('boost_percentage', { ascending: false })
-        .order('average_engagement', { ascending: false })
         .limit(50);
 
       if (startDate) {
