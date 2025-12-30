@@ -168,12 +168,14 @@ export const useXProfile = () => {
         throw new Error(response.data.error || 'Failed to scan profile');
       }
 
-      const message = response.data.data.message || `@${username} connected with ${response.data.data.boostPercentage}% boost`;
+      const boostPct = response.data.data.boostPercentage || 0;
+      const postsFound = response.data.data.qualifiedPostsToday || 0;
       
       toast({
-        title: response.data.data.rateLimited ? 'X Profile Connected' : 'X Profile Connected!',
-        description: message,
-        variant: response.data.data.rateLimited ? 'default' : 'default',
+        title: 'X Profile Connected!',
+        description: boostPct > 0 
+          ? `@${username} connected with ${boostPct}% boost from ${postsFound} posts!`
+          : `@${username} connected successfully. Post about ARXON to earn boost!`,
       });
 
       await fetchXProfile();
@@ -212,11 +214,14 @@ export const useXProfile = () => {
         throw new Error(response.data.error || 'Failed to refresh boost');
       }
 
-      const message = response.data.data.message || `Your current boost is ${response.data.data.boostPercentage}%`;
+      const boostPct = response.data.data.boostPercentage || 0;
+      const postsFound = response.data.data.qualifiedPostsToday || 0;
       
       toast({
-        title: response.data.data.rateLimited ? 'Boost Check Complete' : 'Boost Refreshed!',
-        description: message,
+        title: 'Scan Complete!',
+        description: boostPct > 0 
+          ? `Found ${postsFound} posts. Current boost: ${boostPct}%`
+          : 'No ARXON posts found yet. Post with #Arxon to earn boost!',
       });
 
       await fetchXProfile();
