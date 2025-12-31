@@ -23,13 +23,8 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminMiners from "./pages/admin/AdminMiners";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminUsers from "./pages/admin/AdminUsers";
 import AdminControls from "./pages/admin/AdminControls";
-import AdminMerkle from "./pages/admin/AdminMerkle";
-import AdminClaims from "./pages/admin/AdminClaims";
-import AdminAllocations from "./pages/admin/AdminAllocations";
-import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 
 const queryClient = new QueryClient();
 
@@ -59,13 +54,8 @@ const App = () => (
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
-              <Route path="miners" element={<AdminMiners />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="users" element={<AdminUsers />} />
               <Route path="controls" element={<AdminControls />} />
-              <Route path="merkle" element={<AdminMerkle />} />
-              <Route path="claims" element={<AdminClaims />} />
-              <Route path="allocations" element={<AdminAllocations />} />
-              <Route path="announcements" element={<AdminAnnouncements />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
