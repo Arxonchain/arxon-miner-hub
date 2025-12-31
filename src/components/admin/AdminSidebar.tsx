@@ -3,18 +3,12 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
-  BarChart3, 
   Settings2, 
-  FileCheck, 
-  Gift, 
-  Coins, 
-  Megaphone,
   LogOut,
   ChevronLeft,
   ChevronRight,
   User,
   Menu,
-  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,13 +18,8 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-  { icon: Users, label: "Miners", path: "/admin/miners" },
-  { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
-  { icon: Settings2, label: "Controls", path: "/admin/controls" },
-  { icon: FileCheck, label: "Merkle / Eligibility", path: "/admin/merkle" },
-  { icon: Gift, label: "Claim Manager", path: "/admin/claims" },
-  { icon: Coins, label: "Founder Allocation", path: "/admin/allocations" },
-  { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
+  { icon: Users, label: "Users & Miners", path: "/admin/users" },
+  { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
 ];
 
 const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {
