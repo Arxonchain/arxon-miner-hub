@@ -18,22 +18,55 @@ const ResetPassword = () => {
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isValidSession, setIsValidSession] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if we have a valid session from the reset link
+    // Listen for auth state changes to detect PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth event:', event, 'Session:', !!session);
+        
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsValidSession(true);
+          setChecking(false);
+        } else if (event === 'SIGNED_IN' && session) {
+          // User might have been redirected with a valid recovery session
+          setIsValidSession(true);
+          setChecking(false);
+        }
+      }
+    );
+
+    // Also check for existing session (in case the event already fired)
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Invalid or Expired Link",
-          description: "Please request a new password reset link.",
-          variant: "destructive"
-        });
-        navigate("/");
+      if (session) {
+        setIsValidSession(true);
       }
+      setChecking(false);
     };
-    checkSession();
-  }, [navigate, toast]);
+    
+    // Give a small delay to allow auth state to process the URL hash
+    const timer = setTimeout(checkSession, 1000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Show error only after checking is complete and no valid session
+  useEffect(() => {
+    if (!checking && !isValidSession && !success) {
+      toast({
+        title: "Invalid or Expired Link",
+        description: "Please request a new password reset link.",
+        variant: "destructive"
+      });
+      navigate("/");
+    }
+  }, [checking, isValidSession, success, navigate, toast]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +164,12 @@ const ResetPassword = () => {
         </CardHeader>
         
         <CardContent>
-          {success ? (
+          {checking ? (
+            <div className="text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent" />
+              <p className="text-muted-foreground">Verifying your reset link...</p>
+            </div>
+          ) : success ? (
             <div className="text-center space-y-4">
               <div className="flex justify-center">
                 <CheckCircle className="h-16 w-16 text-green-500 animate-pulse" />
