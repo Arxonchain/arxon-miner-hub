@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import Arena from "./pages/Arena";
 import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 
 // Admin imports
 import AdminLayout from "./components/admin/AdminLayout";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/mining" element={<Mining />} />
             <Route path="/arena" element={<Arena />} />
             <Route path="/wallet" element={<WalletPage />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Admin routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
