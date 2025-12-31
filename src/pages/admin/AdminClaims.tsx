@@ -88,65 +88,65 @@ const AdminClaims = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">$ARX Claim Manager</h1>
-          <p className="text-muted-foreground">Manage ARX-P to $ARX token claims and merkle proofs</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">$ARX Claim Manager</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage ARX-P to $ARX token claims</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex items-center gap-2" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
-            Export CSV
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
         </div>
       </div>
 
       {/* Claim Info Banner */}
-      <div className="glass-card p-4 border-accent/30 bg-accent/5">
-        <p className="text-sm">
-          <span className="font-medium text-foreground">Token Conversion:</span> ARX-P points convert to $ARX tokens at TGE. 
-          <span className="text-muted-foreground ml-2">Users must have verified merkle proofs to claim their $ARX allocation.</span>
+      <div className="glass-card p-3 md:p-4 border-accent/30 bg-accent/5">
+        <p className="text-xs md:text-sm">
+          <span className="font-medium text-foreground">Token Conversion:</span> ARX-P → $ARX at TGE. 
+          <span className="text-muted-foreground ml-1 hidden sm:inline">Users need verified proofs to claim.</span>
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalEligible || 0)}</p>
-          <p className="text-sm text-muted-foreground">Total $ARX Eligible</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
+        <div className="glass-card p-3 md:p-4 text-center">
+          <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalEligible || 0)}</p>
+          <p className="text-xs md:text-sm text-muted-foreground">$ARX Eligible</p>
         </div>
-        <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-green-500">{formatNumber(stats?.totalClaimed || 0)}</p>
-          <p className="text-sm text-muted-foreground">$ARX Claimed</p>
+        <div className="glass-card p-3 md:p-4 text-center">
+          <p className="text-lg md:text-2xl font-bold text-green-500">{formatNumber(stats?.totalClaimed || 0)}</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Claimed</p>
         </div>
-        <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-yellow-500">{formatNumber(stats?.unclaimed || 0)}</p>
-          <p className="text-sm text-muted-foreground">$ARX Unclaimed</p>
+        <div className="glass-card p-3 md:p-4 text-center">
+          <p className="text-lg md:text-2xl font-bold text-yellow-500">{formatNumber(stats?.unclaimed || 0)}</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Unclaimed</p>
         </div>
-        <div className="glass-card p-4 text-center">
-          <p className="text-2xl font-bold text-primary">{stats?.claimRate || 0}%</p>
-          <p className="text-sm text-muted-foreground">Claim Rate</p>
+        <div className="glass-card p-3 md:p-4 text-center">
+          <p className="text-lg md:text-2xl font-bold text-primary">{stats?.claimRate || 0}%</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Claim Rate</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by wallet address..."
+            placeholder="Search by wallet..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-muted/50"
+            className="pl-10 bg-muted/50 text-sm"
           />
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="flex items-center gap-2 w-fit">
           <Filter className="h-4 w-4" />
           Filters
         </Button>
@@ -160,33 +160,33 @@ const AdminClaims = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[450px]">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">$ARX Eligible</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">$ARX Claimed</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Proof Status</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Wallet</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Eligible</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden sm:table-cell">Claimed</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden md:table-cell">Last Active</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden lg:table-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClaims.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground text-sm">
                       No claims found
                     </td>
                   </tr>
                 ) : (
                   filteredClaims.map((claim) => (
                     <tr key={claim.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                      <td className="py-4 px-4 text-sm font-mono text-primary">{claim.wallet}</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{claim.eligible.toLocaleString()} $ARX</td>
-                      <td className="py-4 px-4 text-sm text-accent font-medium">{claim.claimed.toLocaleString()} $ARX</td>
-                      <td className="py-4 px-4">{getProofBadge(claim.proofStatus)}</td>
-                      <td className="py-4 px-4 text-sm text-muted-foreground">{claim.lastActive}</td>
-                      <td className="py-4 px-4">
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm font-mono text-primary">{claim.wallet}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-foreground">{claim.eligible.toLocaleString()}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-accent font-medium hidden sm:table-cell">{claim.claimed.toLocaleString()}</td>
+                      <td className="py-3 px-3 md:px-4">{getProofBadge(claim.proofStatus)}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-muted-foreground hidden md:table-cell">{claim.lastActive}</td>
+                      <td className="py-3 px-3 md:px-4 hidden lg:table-cell">
                         <Button variant="ghost" size="sm">View</Button>
                       </td>
                     </tr>

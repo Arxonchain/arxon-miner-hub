@@ -165,71 +165,72 @@ const AdminMiners = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Miners</h1>
-          <p className="text-muted-foreground">Manage and monitor all ARX-P miners</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Miners</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage and monitor all ARX-P miners</p>
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="flex items-center gap-2 w-fit">
           <Download className="h-4 w-4" />
-          Export Data
+          <span className="hidden sm:inline">Export Data</span>
+          <span className="sm:hidden">Export</span>
         </Button>
       </div>
 
       {/* Mining Info */}
-      <div className="glass-card p-4 border-primary/30 bg-primary/5">
-        <p className="text-sm text-muted-foreground">
+      <div className="glass-card p-3 md:p-4 border-primary/30 bg-primary/5">
+        <p className="text-xs md:text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Mining Rate:</span> +10 ARX-P/hour | 
-          <span className="font-medium text-foreground ml-2">Max Session:</span> 8 hours (80 ARX-P max) | 
-          <span className="font-medium text-foreground ml-2">Conversion:</span> ARX-P → $ARX at TGE
+          <span className="font-medium text-foreground ml-1 md:ml-2">Max:</span> 8h (80 ARX-P)
+          <span className="hidden sm:inline"> | <span className="font-medium text-foreground ml-2">Conversion:</span> ARX-P → $ARX at TGE</span>
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-card p-4 flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-            <Activity className="h-6 w-6 text-green-500" />
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+            <Activity className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
           </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.activeNow || 0)}</p>
-            <p className="text-sm text-muted-foreground">Currently Mining</p>
-          </div>
-        </div>
-        <div className="glass-card p-4 flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Users className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMiners || 0)}</p>
-            <p className="text-sm text-muted-foreground">Total Miners</p>
+          <div className="text-center sm:text-left">
+            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.activeNow || 0)}</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Mining Now</p>
           </div>
         </div>
-        <div className="glass-card p-4 flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-            <Coins className="h-6 w-6 text-accent" />
+        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
           </div>
-          <div>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)}</p>
-            <p className="text-sm text-muted-foreground">Total ARX-P Mined</p>
+          <div className="text-center sm:text-left">
+            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalMiners || 0)}</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Total Miners</p>
+          </div>
+        </div>
+        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+            <Coins className="h-5 w-5 md:h-6 md:w-6 text-accent" />
+          </div>
+          <div className="text-center sm:text-left">
+            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)}</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Total ARX-P</p>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by wallet or username..."
+            placeholder="Search wallet or username..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-muted/50"
+            className="pl-10 bg-muted/50 text-sm"
           />
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="flex items-center gap-2 w-fit">
           <Filter className="h-4 w-4" />
           Filters
         </Button>
@@ -243,36 +244,36 @@ const AdminMiners = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Username</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Sessions</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">ARX-P Mined</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Last Active</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Wallet</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden sm:table-cell">Username</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden md:table-cell">Sessions</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">ARX-P</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden lg:table-cell">Last Active</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden md:table-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredMiners.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground text-sm">
                       No miners found
                     </td>
                   </tr>
                 ) : (
                   filteredMiners.map((miner) => (
                     <tr key={miner.user_id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                      <td className="py-4 px-4 text-sm font-mono text-primary">{miner.wallet}</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{miner.username}</td>
-                      <td className="py-4 px-4 text-sm text-foreground">{miner.sessions}</td>
-                      <td className="py-4 px-4 text-sm text-accent font-medium">{miner.totalMined.toLocaleString()} ARX-P</td>
-                      <td className="py-4 px-4 text-sm text-muted-foreground">{miner.lastActive}</td>
-                      <td className="py-4 px-4">{getStatusBadge(miner.status)}</td>
-                      <td className="py-4 px-4">
-                        <Button variant="ghost" size="icon">
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm font-mono text-primary">{miner.wallet}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-foreground hidden sm:table-cell">{miner.username}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-foreground hidden md:table-cell">{miner.sessions}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-accent font-medium">{miner.totalMined.toLocaleString()}</td>
+                      <td className="py-3 px-3 md:px-4 text-xs md:text-sm text-muted-foreground hidden lg:table-cell">{miner.lastActive}</td>
+                      <td className="py-3 px-3 md:px-4">{getStatusBadge(miner.status)}</td>
+                      <td className="py-3 px-3 md:px-4 hidden md:table-cell">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </td>

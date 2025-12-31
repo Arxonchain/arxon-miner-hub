@@ -159,36 +159,36 @@ const AdminControls = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Mining Controls</h1>
-        <p className="text-muted-foreground">Manage ARX-P mining settings and $ARX token controls</p>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Mining Controls</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Manage ARX-P mining settings and $ARX token controls</p>
       </div>
 
       {/* Info Banner */}
-      <div className="glass-card p-4 border-primary/30 bg-primary/5">
-        <p className="text-sm">
+      <div className="glass-card p-3 md:p-4 border-primary/30 bg-primary/5">
+        <p className="text-xs md:text-sm">
           <span className="font-medium text-foreground">Current Rate:</span> +10 ARX-P/hour | 
-          <span className="font-medium text-foreground ml-2">Max Session:</span> 8 hours | 
-          <span className="font-medium text-foreground ml-2">Token:</span> ARX-P → $ARX at TGE
+          <span className="font-medium text-foreground ml-1 md:ml-2">Max:</span> 8 hours
+          <span className="hidden sm:inline"> | <span className="font-medium text-foreground ml-2">Token:</span> ARX-P → $ARX at TGE</span>
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Toggle Controls */}
-        <div className="glass-card p-6 space-y-6">
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <Power className="h-5 w-5 text-primary" />
+        <div className="glass-card p-4 md:p-6 space-y-4 md:space-y-6">
+          <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
+            <Power className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             Network Toggles
           </h3>
 
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {/* Public Mining */}
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="font-medium text-foreground">Public Mining</p>
-                <p className="text-sm text-muted-foreground">Enable or disable public mining</p>
+            <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-lg gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-sm md:text-base text-foreground">Public Mining</p>
+                <p className="text-xs md:text-sm text-muted-foreground truncate">Enable or disable public mining</p>
               </div>
               <Switch
                 checked={settings.publicMiningEnabled}
@@ -197,10 +197,10 @@ const AdminControls = () => {
             </div>
 
             {/* Claiming */}
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="font-medium text-foreground">$ARX Token Claiming</p>
-                <p className="text-sm text-muted-foreground">Enable or disable ARX-P to $ARX conversion</p>
+            <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-lg gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-sm md:text-base text-foreground">$ARX Token Claiming</p>
+                <p className="text-xs md:text-sm text-muted-foreground truncate">ARX-P to $ARX conversion</p>
               </div>
               <Switch
                 checked={settings.claimingEnabled}
@@ -209,12 +209,12 @@ const AdminControls = () => {
             </div>
 
             {/* Arena Public Access */}
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Swords className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium text-foreground">Arena Public Access</p>
-                  <p className="text-sm text-muted-foreground">Enable or disable public access to the Arena</p>
+            <div className="flex items-center justify-between p-3 md:p-4 bg-muted/30 rounded-lg gap-3">
+              <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                <Swords className="h-4 w-4 md:h-5 md:w-5 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-medium text-sm md:text-base text-foreground">Arena Public Access</p>
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Public access to the Arena</p>
                 </div>
               </div>
               <Switch
@@ -224,13 +224,13 @@ const AdminControls = () => {
             </div>
 
             {/* Consensus Mode */}
-            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-foreground">Consensus Mode</p>
-                  <p className="text-sm text-muted-foreground">Switch between PoW and PoS</p>
+            <div className="p-3 md:p-4 bg-muted/30 rounded-lg space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm md:text-base text-foreground">Consensus Mode</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Switch between PoW and PoS</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                <span className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium shrink-0 ${
                   settings.consensusMode === "PoW" 
                     ? "bg-primary/10 text-primary" 
                     : "bg-accent/10 text-accent"
@@ -243,7 +243,7 @@ const AdminControls = () => {
                   variant={settings.consensusMode === "PoW" ? "default" : "outline"}
                   size="sm"
                   onClick={() => updateSetting("consensusMode", "PoW")}
-                  className="flex-1"
+                  className="flex-1 text-xs md:text-sm"
                 >
                   Proof of Work
                 </Button>
@@ -251,7 +251,7 @@ const AdminControls = () => {
                   variant={settings.consensusMode === "PoS" ? "default" : "outline"}
                   size="sm"
                   onClick={() => updateSetting("consensusMode", "PoS")}
-                  className="flex-1"
+                  className="flex-1 text-xs md:text-sm"
                 >
                   Proof of Stake
                 </Button>
@@ -261,34 +261,34 @@ const AdminControls = () => {
         </div>
 
         {/* Block Reward */}
-        <div className="glass-card p-6 space-y-6">
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <Coins className="h-5 w-5 text-primary" />
+        <div className="glass-card p-4 md:p-6 space-y-4 md:space-y-6">
+          <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
+            <Coins className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             Mining Reward Settings
           </h3>
 
-          <div className="space-y-4">
-            <div className="p-4 bg-muted/30 rounded-lg space-y-4">
+          <div className="space-y-3 md:space-y-4">
+            <div className="p-3 md:p-4 bg-muted/30 rounded-lg space-y-3 md:space-y-4">
               <div>
-                <Label htmlFor="blockReward">Block Reward (ARX-P)</Label>
+                <Label htmlFor="blockReward" className="text-sm md:text-base">Block Reward (ARX-P)</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     id="blockReward"
                     type="number"
                     value={settings.blockReward}
                     onChange={(e) => setSettings((prev) => ({ ...prev, blockReward: parseInt(e.target.value) || 0 }))}
-                    className="bg-background"
+                    className="bg-background text-sm"
                   />
-                  <Button onClick={() => updateSetting("blockReward", settings.blockReward)}>
+                  <Button onClick={() => updateSetting("blockReward", settings.blockReward)} size="sm">
                     Update
                   </Button>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5" />
+              <div className="flex items-start gap-2 p-2 md:p-3 bg-yellow-500/10 rounded-lg">
+                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-yellow-500">
-                  Changing block rewards affects all active miners immediately. Current rate: +10 ARX-P/hour.
+                  Changing block rewards affects all active miners immediately.
                 </p>
               </div>
             </div>
@@ -300,7 +300,7 @@ const AdminControls = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => updateSetting("blockReward", value)}
-                  className={settings.blockReward === value ? "border-primary" : ""}
+                  className={`text-xs md:text-sm ${settings.blockReward === value ? "border-primary" : ""}`}
                 >
                   {value} ARX-P
                 </Button>
@@ -310,21 +310,21 @@ const AdminControls = () => {
         </div>
 
         {/* Broadcast Message */}
-        <div className="glass-card p-6 space-y-6 lg:col-span-2">
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-primary" />
+        <div className="glass-card p-4 md:p-6 space-y-4 md:space-y-6 lg:col-span-2">
+          <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
+            <Megaphone className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             Broadcast to All Miners
           </h3>
 
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             <Textarea
               placeholder="Enter your message to broadcast to all active miners..."
               value={broadcastMessage}
               onChange={(e) => setBroadcastMessage(e.target.value)}
-              className="bg-muted/50 min-h-[120px]"
+              className="bg-muted/50 min-h-[100px] md:min-h-[120px] text-sm"
             />
             <div className="flex justify-end">
-              <Button onClick={handleBroadcast} disabled={!broadcastMessage.trim()}>
+              <Button onClick={handleBroadcast} disabled={!broadcastMessage.trim()} size="sm">
                 <Megaphone className="h-4 w-4 mr-2" />
                 Send Broadcast
               </Button>

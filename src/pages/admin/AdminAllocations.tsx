@@ -107,11 +107,11 @@ const AdminAllocations = () => {
     .sort((a, b) => new Date(a.next_unlock_date!).getTime() - new Date(b.next_unlock_date!).getTime())[0]?.next_unlock_date;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-primary">Founder Allocation</h1>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
+        <h1 className="text-xl md:text-2xl font-bold text-primary">Founder Allocation</h1>
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -119,9 +119,9 @@ const AdminAllocations = () => {
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
             <span>Network:</span>
             <span className="text-foreground">Mainnet</span>
           </div>
@@ -133,40 +133,40 @@ const AdminAllocations = () => {
       </div>
 
       {/* Description Card */}
-      <div className="glass-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <p className="text-muted-foreground">
+      <div className="glass-card p-3 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
+        <p className="text-sm md:text-base text-muted-foreground">
           Manage Founder vesting, allocation %, release operations, and logs.
         </p>
-        <Button className="flex items-center gap-2 bg-primary hover:bg-primary/90">
+        <Button size="sm" className="flex items-center gap-2 bg-primary hover:bg-primary/90 w-fit">
           <Upload className="h-4 w-4" />
-          Export Vesting
+          <span className="hidden sm:inline">Export Vesting</span>
+          <span className="sm:hidden">Export</span>
         </Button>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="glass-card p-4 border-l-2 border-primary">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
+        <div className="glass-card p-3 md:p-4 border-l-2 border-primary">
           <p className="text-xs text-muted-foreground mb-1">Total Allocation</p>
-          <p className="text-lg font-bold text-foreground">{formatNumber(totalAllocated)} ARX</p>
+          <p className="text-sm md:text-lg font-bold text-foreground">{formatNumber(totalAllocated)} ARX</p>
         </div>
-        <div className="glass-card p-4 border-l-2 border-primary">
-          <p className="text-xs text-muted-foreground mb-1">Released to Date</p>
-          <p className="text-lg font-bold text-foreground">{formatNumber(totalClaimed)} ARX</p>
+        <div className="glass-card p-3 md:p-4 border-l-2 border-primary">
+          <p className="text-xs text-muted-foreground mb-1">Released</p>
+          <p className="text-sm md:text-lg font-bold text-foreground">{formatNumber(totalClaimed)} ARX</p>
         </div>
-        <div className="glass-card p-4 border-l-2 border-primary">
-          <p className="text-xs text-muted-foreground mb-1">Remaining Locked</p>
-          <p className="text-lg font-bold text-foreground">{formatNumber(remainingLocked)} ARX</p>
+        <div className="glass-card p-3 md:p-4 border-l-2 border-primary">
+          <p className="text-xs text-muted-foreground mb-1">Locked</p>
+          <p className="text-sm md:text-lg font-bold text-foreground">{formatNumber(remainingLocked)} ARX</p>
         </div>
-        <div className="glass-card p-4 border-l-2 border-primary">
-          <p className="text-xs text-muted-foreground mb-1">Next Global Unlock Date</p>
-          <p className="text-lg font-bold text-foreground">
+        <div className="glass-card p-3 md:p-4 border-l-2 border-primary col-span-2 sm:col-span-1">
+          <p className="text-xs text-muted-foreground mb-1">Next Unlock</p>
+          <p className="text-sm md:text-lg font-bold text-foreground">
             {nextUnlockDate ? formatDate(nextUnlockDate) : "N/A"}
-            {nextUnlockDate && <span className="text-xs text-muted-foreground ml-1">4:00 UTC</span>}
           </p>
         </div>
-        <div className="glass-card p-4 border-l-2 border-primary">
+        <div className="glass-card p-3 md:p-4 border-l-2 border-primary hidden lg:block">
           <p className="text-xs text-muted-foreground mb-1">Active Founders</p>
-          <p className="text-lg font-bold text-green-500">{allocations.length} founders</p>
+          <p className="text-sm md:text-lg font-bold text-green-500">{allocations.length} founders</p>
         </div>
       </div>
 
