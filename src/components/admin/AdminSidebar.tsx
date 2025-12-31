@@ -12,10 +12,15 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  User
+  User,
+  Menu,
+  X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -28,8 +33,7 @@ const navItems = [
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
 ];
 
-const AdminSidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
+const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -37,13 +41,12 @@ const AdminSidebar = () => {
     navigate("/admin/login");
   };
 
+  const handleNavClick = () => {
+    onNavigate?.();
+  };
+
   return (
-    <aside 
-      className={cn(
-        "min-h-screen bg-sidebar border-r border-border/50 py-6 flex flex-col transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
+    <>
       {/* Header */}
       <div className="px-4 mb-6 flex items-center justify-between">
         {!collapsed && (
@@ -54,16 +57,18 @@ const AdminSidebar = () => {
             <span className="font-bold text-foreground">ARXON Admin</span>
           </div>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -73,6 +78,7 @@ const AdminSidebar = () => {
             key={item.path}
             to={item.path}
             end={item.path === "/admin"}
+            onClick={handleNavClick}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
@@ -118,6 +124,61 @@ const AdminSidebar = () => {
           {!collapsed && <span className="font-medium text-sm">Logout</span>}
         </button>
       </div>
+    </>
+  );
+};
+
+const AdminSidebar = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Mobile: Use Sheet drawer
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Header Bar */}
+        <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-border/50 flex items-center px-4 z-50">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="mr-3">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+              <div className="min-h-screen py-6 flex flex-col">
+                <SidebarContent 
+                  collapsed={false} 
+                  onNavigate={() => setMobileOpen(false)} 
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">A</span>
+            </div>
+            <span className="font-bold text-foreground">ARXON Admin</span>
+          </div>
+        </div>
+        {/* Spacer for fixed header */}
+        <div className="h-14" />
+      </>
+    );
+  }
+
+  // Desktop: Regular sidebar
+  return (
+    <aside 
+      className={cn(
+        "min-h-screen bg-sidebar border-r border-border/50 py-6 flex flex-col transition-all duration-300",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
+      <SidebarContent 
+        collapsed={collapsed} 
+        onCollapse={() => setCollapsed(!collapsed)} 
+      />
     </aside>
   );
 };

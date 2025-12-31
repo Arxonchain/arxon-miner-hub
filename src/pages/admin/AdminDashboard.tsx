@@ -13,13 +13,13 @@ const StatCard = ({ icon: Icon, label, value, subtext, trend, loading }: {
   trend?: "up" | "down" | "neutral";
   loading?: boolean;
 }) => (
-  <div className="glass-card p-5 space-y-3">
+  <div className="glass-card p-3 md:p-5 space-y-2 md:space-y-3">
     <div className="flex items-center justify-between">
-      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-        <Icon className="h-5 w-5 text-primary" />
+      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+        <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
       </div>
       {trend && (
-        <span className={`text-xs px-2 py-1 rounded-full ${
+        <span className={`text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full ${
           trend === "up" ? "bg-green-500/10 text-green-500" :
           trend === "down" ? "bg-red-500/10 text-red-500" :
           "bg-muted text-muted-foreground"
@@ -30,12 +30,12 @@ const StatCard = ({ icon: Icon, label, value, subtext, trend, loading }: {
     </div>
     <div>
       {loading ? (
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin text-primary" />
       ) : (
-        <p className="text-2xl font-bold text-foreground">{value}</p>
+        <p className="text-lg md:text-2xl font-bold text-foreground">{value}</p>
       )}
-      <p className="text-sm text-muted-foreground">{label}</p>
-      {subtext && <p className="text-xs text-muted-foreground mt-1">{subtext}</p>}
+      <p className="text-xs md:text-sm text-muted-foreground">{label}</p>
+      {subtext && <p className="text-xs text-muted-foreground mt-0.5 md:mt-1 hidden sm:block">{subtext}</p>}
     </div>
   </div>
 );
@@ -208,15 +208,15 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
-        <p className="text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <StatCard 
           icon={Users} 
           label="Total Miners" 
@@ -263,11 +263,11 @@ const AdminDashboard = () => {
       </div>
 
       {/* Mining Info Banner */}
-      <div className="glass-card p-4 border-primary/30 bg-primary/5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="glass-card p-3 md:p-4 border-primary/30 bg-primary/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="font-semibold text-foreground">Mining Rate: +10 ARX-P/hour</p>
-            <p className="text-sm text-muted-foreground">Max session: 8 hours | ARX-P converts to $ARX tokens at TGE</p>
+            <p className="font-semibold text-sm md:text-base text-foreground">Mining Rate: +10 ARX-P/hour</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Max session: 8 hours | ARX-P converts to $ARX tokens at TGE</p>
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="text-center">
@@ -279,20 +279,20 @@ const AdminDashboard = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* 24h Active Miners */}
-        <div className="glass-card p-6 space-y-4">
+        <div className="glass-card p-4 md:p-6 space-y-3 md:space-y-4">
           <div>
-            <h3 className="font-semibold text-foreground">24h Active Miners</h3>
-            <p className="text-sm text-muted-foreground">Hourly mining activity</p>
+            <h3 className="font-semibold text-sm md:text-base text-foreground">24h Active Miners</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">Hourly mining activity</p>
           </div>
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             {loadingHourly ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : hourlyData.every(d => d.miners === 0) ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                 No mining activity in the last 24h
               </div>
             ) : (
@@ -308,20 +308,22 @@ const AdminDashboard = () => {
                     dataKey="time" 
                     axisLine={false} 
                     tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                     interval="preserveStartEnd"
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                     allowDecimals={false}
+                    width={30}
                   />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
+                      fontSize: '12px'
                     }}
                     formatter={(value: number) => [`${value} miners`, 'Active']}
                   />
@@ -339,20 +341,20 @@ const AdminDashboard = () => {
         </div>
 
         {/* ARX-P Distribution */}
-        <div className="glass-card p-6 space-y-4">
+        <div className="glass-card p-4 md:p-6 space-y-3 md:space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-foreground">ARX-P Distribution</h3>
-              <p className="text-sm text-muted-foreground">Points by source</p>
+              <h3 className="font-semibold text-sm md:text-base text-foreground">ARX-P Distribution</h3>
+              <p className="text-xs md:text-sm text-muted-foreground">Points by source</p>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-xs md:text-sm">
+              <Clock className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
               <span className="text-muted-foreground">All time</span>
             </div>
           </div>
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             {pointsDistribution.every(d => d.points === 0) ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                 No points data yet
               </div>
             ) : (
@@ -362,19 +364,21 @@ const AdminDashboard = () => {
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                     tickFormatter={(value) => formatNumber(value)}
+                    width={40}
                   />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
+                      fontSize: '12px'
                     }}
                     formatter={(value: number) => [`${value.toLocaleString()} ARX-P`, 'Points']}
                   />
@@ -391,47 +395,47 @@ const AdminDashboard = () => {
       </div>
 
       {/* Recent Sessions */}
-      <div className="glass-card p-6 space-y-4">
+      <div className="glass-card p-4 md:p-6 space-y-3 md:space-y-4">
         <div>
-          <h3 className="font-semibold text-foreground">Recent Mining Sessions</h3>
-          <p className="text-sm text-muted-foreground">Latest ARX-P mining activity</p>
+          <h3 className="font-semibold text-sm md:text-base text-foreground">Recent Mining Sessions</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">Latest ARX-P mining activity</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 md:mx-0">
           {loadingBlocks ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : recentSessions.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
+            <div className="py-8 text-center text-muted-foreground text-sm">
               No mining sessions yet
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Session ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Wallet</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Username</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">ARX-P Earned</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Started</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Session ID</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Wallet</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden sm:table-cell">Username</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">ARX-P</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden md:table-cell">Started</th>
+                  <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {recentSessions.map((session, index) => (
                   <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 text-sm font-mono text-primary">{session.id}</td>
-                    <td className="py-3 px-4 text-sm font-mono text-foreground">{session.miner}</td>
-                    <td className="py-3 px-4 text-sm text-foreground">{session.username}</td>
-                    <td className="py-3 px-4 text-sm text-accent font-medium">{session.earned}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{session.time}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-mono text-primary">{session.id}</td>
+                    <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm font-mono text-foreground">{session.miner}</td>
+                    <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-foreground hidden sm:table-cell">{session.username}</td>
+                    <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-accent font-medium">{session.earned}</td>
+                    <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-muted-foreground hidden md:table-cell">{session.time}</td>
+                    <td className="py-2 md:py-3 px-3 md:px-4">
+                      <span className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium ${
                         session.status === "active" 
                           ? "bg-green-500/10 text-green-500" 
                           : "bg-muted text-muted-foreground"
                       }`}>
-                        {session.status === "active" ? "Mining" : "Completed"}
+                        {session.status === "active" ? "Mining" : "Done"}
                       </span>
                     </td>
                   </tr>

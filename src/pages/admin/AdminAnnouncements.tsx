@@ -110,42 +110,42 @@ const AdminAnnouncements = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Announcements</h1>
-        <p className="text-muted-foreground">Send announcements to all miners</p>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Announcements</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Send announcements to all miners</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Create Announcement */}
-        <div className="glass-card p-6 space-y-4">
-          <h3 className="font-semibold text-foreground">New Announcement</h3>
+        <div className="glass-card p-4 md:p-6 space-y-3 md:space-y-4">
+          <h3 className="font-semibold text-sm md:text-base text-foreground">New Announcement</h3>
 
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title" className="text-sm">Title</Label>
               <Input
                 id="title"
                 placeholder="Enter announcement title..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-muted/50"
+                className="bg-muted/50 text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="message">Message</Label>
+              <Label htmlFor="message" className="text-sm">Message</Label>
               <Textarea
                 id="message"
                 placeholder="Write your announcement message..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="bg-muted/50 min-h-[200px]"
+                className="bg-muted/50 min-h-[150px] md:min-h-[200px] text-sm"
               />
             </div>
 
-            <Button onClick={handleSend} className="w-full">
+            <Button onClick={handleSend} className="w-full" size="sm">
               <Send className="h-4 w-4 mr-2" />
               Send Announcement
             </Button>
@@ -153,8 +153,8 @@ const AdminAnnouncements = () => {
         </div>
 
         {/* Recent Announcements */}
-        <div className="glass-card p-6 space-y-4">
-          <h3 className="font-semibold text-foreground">Recent Announcements</h3>
+        <div className="glass-card p-4 md:p-6 space-y-3 md:space-y-4">
+          <h3 className="font-semibold text-sm md:text-base text-foreground">Recent Announcements</h3>
 
           {loading ? (
             <div className="flex items-center justify-center h-32">
@@ -162,32 +162,32 @@ const AdminAnnouncements = () => {
             </div>
           ) : announcements.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No announcements yet</p>
+              <p className="text-sm">No announcements yet</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 md:space-y-3 max-h-[350px] md:max-h-[400px] overflow-y-auto">
               {announcements.map((announcement) => (
                 <div
                   key={announcement.id}
-                  className="p-4 bg-muted/30 rounded-lg space-y-2"
+                  className="p-3 md:p-4 bg-muted/30 rounded-lg space-y-2"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-medium text-foreground">{announcement.title}</h4>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Edit2 className="h-4 w-4" />
+                    <h4 className="font-medium text-sm md:text-base text-foreground line-clamp-1">{announcement.title}</h4>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                        <Edit2 className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-7 w-7 md:h-8 md:w-8 text-destructive hover:text-destructive"
                         onClick={() => handleDelete(announcement.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
                     {announcement.message}
                   </p>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
