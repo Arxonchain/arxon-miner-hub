@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield } from "lucide-react";
+import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,7 @@ interface AuthDialogProps {
 const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialogProps) => {
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(initialReferralCode);
@@ -42,6 +42,49 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     setCaptchaToken(null);
     recaptchaRef.current?.reset();
   }, [mode]);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Check Your Email",
+          description: "We've sent you a password reset link. Please check your inbox.",
+        });
+        setMode("signin");
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const processReferral = async (referredUserId: string, code: string) => {
     if (!code.trim()) return;
@@ -241,14 +284,18 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
           {/* Header with animated icons */}
           <div className="flex items-center justify-center gap-3 mb-6">
             <div className="relative">
-              <User className="h-8 w-8 text-accent animate-pulse" />
+              {mode === "forgot" ? (
+                <KeyRound className="h-8 w-8 text-accent animate-pulse" />
+              ) : (
+                <User className="h-8 w-8 text-accent animate-pulse" />
+              )}
               <Sparkles 
                 className="absolute -top-2 -right-2 h-4 w-4 text-primary"
                 style={{ animation: 'spin 4s linear infinite' }}
               />
             </div>
             <DialogTitle className="text-2xl font-bold text-foreground">
-              {mode === "signin" ? "Welcome Back" : "Join ARXON"}
+              {mode === "signin" ? "Welcome Back" : mode === "signup" ? "Join ARXON" : "Reset Password"}
             </DialogTitle>
             <Zap 
               className="h-5 w-5 text-primary"
@@ -260,133 +307,192 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
           <p className="text-center text-muted-foreground mb-6">
             {mode === "signin" 
               ? "Sign in to start mining and earn ARX tokens" 
-              : "Create an account to join the mining revolution"}
+              : mode === "signup"
+              ? "Create an account to join the mining revolution"
+              : "Enter your email and we'll send you a reset link"}
           </p>
 
-          {/* Toggle tabs */}
-          <div className="flex bg-secondary/50 rounded-lg p-1 mb-6">
-            <button
-              type="button"
-              onClick={() => setMode("signin")}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                mode === "signin"
-                  ? "bg-accent text-accent-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("signup")}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                mode === "signup"
-                  ? "bg-accent text-accent-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
+          {/* Toggle tabs - hide on forgot password */}
+          {mode !== "forgot" && (
+            <div className="flex bg-secondary/50 rounded-lg p-1 mb-6">
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                  mode === "signin"
+                    ? "bg-accent text-accent-foreground shadow-lg"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                  mode === "signup"
+                    ? "bg-accent text-accent-foreground shadow-lg"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
-                  required
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
-                  required
-                  minLength={6}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* Referral code input - only show on signup */}
-            {mode === "signup" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
-                    <Gift className="h-4 w-4 text-accent" />
-                    Referral Code (Optional)
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="referral"
-                      type="text"
-                      placeholder="Enter a friend's referral code"
-                      value={referralCode}
-                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                      className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
-                      disabled={loading}
-                    />
-                  </div>
-                  {referralCode && (
-                    <p className="text-xs text-accent">
-                      Your friend will receive bonus points and a mining boost!
-                    </p>
-                  )}
+          {mode === "forgot" ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email" className="text-foreground">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
+                    required
+                    disabled={loading}
+                  />
                 </div>
+              </div>
 
-                {/* CAPTCHA for signup - only show if enabled */}
-                {CAPTCHA_ENABLED && RECAPTCHA_SITE_KEY && (
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Send Reset Link
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Back to Sign In
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
+                    required
+                    minLength={6}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Forgot password link - only show on signin */}
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="text-sm text-accent hover:text-accent/80 transition-colors"
+                >
+                  Forgot your password?
+                </button>
+              )}
+
+              {/* Referral code input - only show on signup */}
+              {mode === "signup" && (
+                <>
                   <div className="space-y-2">
-                    <Label className="text-foreground flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-accent" />
-                      Security Verification
+                    <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
+                      <Gift className="h-4 w-4 text-accent" />
+                      Referral Code (Optional)
                     </Label>
-                    <div className="flex justify-center">
-                      <ReCAPTCHA
-                        ref={recaptchaRef}
-                        sitekey={RECAPTCHA_SITE_KEY}
-                        onChange={handleCaptchaChange}
-                        theme="dark"
+                    <div className="relative">
+                      <Input
+                        id="referral"
+                        type="text"
+                        placeholder="Enter a friend's referral code"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
+                        disabled={loading}
                       />
                     </div>
+                    {referralCode && (
+                      <p className="text-xs text-accent">
+                        Your friend will receive bonus points and a mining boost!
+                      </p>
+                    )}
                   </div>
-                )}
-              </>
-            )}
 
-            <Button
-              type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
-              disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && !captchaToken)}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  {mode === "signin" ? "Start Mining" : "Create Account"}
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  {/* CAPTCHA for signup - only show if enabled */}
+                  {CAPTCHA_ENABLED && RECAPTCHA_SITE_KEY && (
+                    <div className="space-y-2">
+                      <Label className="text-foreground flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-accent" />
+                        Security Verification
+                      </Label>
+                      <div className="flex justify-center">
+                        <ReCAPTCHA
+                          ref={recaptchaRef}
+                          sitekey={RECAPTCHA_SITE_KEY}
+                          onChange={handleCaptchaChange}
+                          theme="dark"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
-            </Button>
-          </form>
+
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
+                disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && !captchaToken)}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    {mode === "signin" ? "Start Mining" : "Create Account"}
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
 
           {/* Footer */}
           <div className="mt-6 text-center">
