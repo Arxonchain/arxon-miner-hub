@@ -118,9 +118,27 @@ const Tasks = () => {
     }
   };
 
+  // Filter out claimed/rejected submissions older than 5 minutes
+  const CLEAR_AFTER_MS = 5 * 60 * 1000; // 5 minutes
+  const now = Date.now();
+
+  const isRecentSubmission = (sub: typeof submissions[0]) => {
+    const reviewedAt = sub.reviewed_at ? new Date(sub.reviewed_at).getTime() : 0;
+    const createdAt = new Date(sub.created_at).getTime();
+    const referenceTime = reviewedAt || createdAt;
+    return now - referenceTime < CLEAR_AFTER_MS;
+  };
+
   // Get unclaimed approved submissions
   const unclaimedSubmissions = submissions.filter(s => s.status === 'approved' && !s.claimed);
-  const claimedSubmissions = submissions.filter(s => s.claimed);
+  
+  // Only show claimed submissions from the last 5 minutes
+  const claimedSubmissions = submissions.filter(s => s.claimed && isRecentSubmission(s));
+  
+  // Only show rejected submissions from the last 5 minutes
+  const recentRejectedOrPending = submissions.filter(s => 
+    s.status === 'pending' || (s.status === 'rejected' && isRecentSubmission(s))
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -246,11 +264,11 @@ const Tasks = () => {
         )}
 
         {/* Pending/Rejected Submissions */}
-        {submissions.filter(s => s.status === 'pending' || s.status === 'rejected').length > 0 && (
+        {recentRejectedOrPending.length > 0 && (
           <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border">
             <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">Other Submissions</p>
             <div className="space-y-2">
-              {submissions.filter(s => s.status === 'pending' || s.status === 'rejected').map((sub) => (
+              {recentRejectedOrPending.map((sub) => (
                 <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 bg-secondary/50 rounded-lg">
                   <a 
                     href={sub.post_url} 
