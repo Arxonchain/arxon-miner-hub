@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Download, Eye, X, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface XProfileData {
   id: string;
@@ -21,6 +21,47 @@ interface XProfileData {
   historical_boost_total: number;
   last_scanned_at: string | null;
   created_at: string;
+}
+
+interface BoostBreakdown {
+  xScanBoost: number;
+  xPostBoost: number;
+  referralBoost: number;
+  arenaBoost: number;
+  storedTotalBoost: number;
+  totalBoostPercentage: number;
+  effectiveMiningRate: number;
+  claimedXPostsCount: number;
+  referralCount: number;
+}
+
+interface UserSnapshot {
+  userId: string;
+  profile: any;
+  points: any;
+  wallets: any[];
+  referrals: { given: any[]; received: any[]; count: number };
+  xProfile: XProfileData | null;
+  xRewards: any[];
+  socialSubmissions: any[];
+  miningSessions: any[];
+  arenaVotes: any[];
+  arenaBoosts: any[];
+  badges: any[];
+  boostBreakdown: BoostBreakdown;
+  stats: {
+    totalPoints: number;
+    miningPoints: number;
+    taskPoints: number;
+    socialPoints: number;
+    referralPoints: number;
+    dailyStreak: number;
+    totalSessions: number;
+    activeSessions: number;
+    totalArxMined: number;
+    arenaVotesCount: number;
+    arenaPowerSpent: number;
+  };
 }
 
 interface UserData {
@@ -44,6 +85,7 @@ interface UserData {
   x_profile: XProfileData | null;
   arena_votes: number;
   arena_power_spent: number;
+  referral_bonus_percentage: number;
 }
 
 interface MiningSession {
@@ -203,6 +245,7 @@ const AdminUsers = () => {
           x_profile: xProfileMap.get(profile.user_id) || null,
           arena_votes: arena.votes,
           arena_power_spent: arena.power,
+          referral_bonus_percentage: userPoints?.referral_bonus_percentage || 0,
         };
       });
 
@@ -211,21 +254,26 @@ const AdminUsers = () => {
     refetchInterval: 30000,
   });
 
-  // Fetch mining sessions for selected user
-  const { data: userSessions = [], isLoading: loadingSessions } = useQuery({
-    queryKey: ["admin-user-sessions", selectedUser?.user_id],
-    queryFn: async () => {
-      if (!selectedUser) return [];
+  // Fetch detailed user snapshot via admin endpoint
+  const { data: userSnapshot, isLoading: loadingSnapshot } = useQuery({
+    queryKey: ["admin-user-snapshot", selectedUser?.user_id],
+    queryFn: async (): Promise<UserSnapshot | null> => {
+      if (!selectedUser) return null;
       
-      const { data, error } = await supabase
-        .from("mining_sessions")
-        .select("*")
-        .eq("user_id", selectedUser.user_id)
-        .order("started_at", { ascending: false })
-        .limit(20);
+      const { data, error } = await supabase.functions.invoke('admin-user-snapshot', {
+        body: { userId: selectedUser.user_id }
+      });
 
-      if (error) throw error;
-      return data as MiningSession[];
+      if (error) {
+        console.error('Error fetching user snapshot:', error);
+        throw error;
+      }
+      
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to fetch user snapshot');
+      }
+      
+      return data.data as UserSnapshot;
     },
     enabled: !!selectedUser,
   });
@@ -447,8 +495,8 @@ const AdminUsers = () => {
                                 <p className="font-medium">{user.daily_streak} days</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground text-xs">X Boost</p>
-                                <p className="font-medium text-primary">+{user.x_profile?.boost_percentage || 0}%</p>
+                                <p className="text-muted-foreground text-xs">Total Boost</p>
+                                <p className="font-medium text-yellow-400">+{(user.referral_bonus_percentage || 0) + (user.x_profile?.boost_percentage || 0)}%</p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">Arena Votes</p>
@@ -496,27 +544,71 @@ const AdminUsers = () => {
                 <p className="text-sm text-muted-foreground font-mono">{selectedUser?.user_id}</p>
               </div>
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Detailed view of user account and statistics
+            </DialogDescription>
           </DialogHeader>
 
-          {selectedUser && (
+          {loadingSnapshot ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : userSnapshot ? (
             <div className="space-y-6">
               {/* Overview Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-card p-3">
                   <p className="text-xs text-muted-foreground">Total ARX-P</p>
-                  <p className="text-xl font-bold text-accent">{formatNumber(selectedUser.total_points)}</p>
+                  <p className="text-xl font-bold text-accent">{formatNumber(userSnapshot.stats.totalPoints)}</p>
                 </div>
                 <div className="glass-card p-3">
                   <p className="text-xs text-muted-foreground">Mining Points</p>
-                  <p className="text-xl font-bold">{formatNumber(selectedUser.mining_points)}</p>
+                  <p className="text-xl font-bold">{formatNumber(userSnapshot.stats.miningPoints)}</p>
                 </div>
                 <div className="glass-card p-3">
                   <p className="text-xs text-muted-foreground">Sessions</p>
-                  <p className="text-xl font-bold">{selectedUser.total_sessions}</p>
+                  <p className="text-xl font-bold">{userSnapshot.stats.totalSessions}</p>
                 </div>
                 <div className="glass-card p-3">
                   <p className="text-xs text-muted-foreground">Referrals</p>
-                  <p className="text-xl font-bold">{selectedUser.referral_count}</p>
+                  <p className="text-xl font-bold">{userSnapshot.referrals.count}</p>
+                </div>
+              </div>
+
+              {/* Boost Breakdown - NEW */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-yellow-400" />
+                  Mining Boost Breakdown
+                </h3>
+                <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-lg p-4 border border-yellow-500/20">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    <div className="text-center p-2 bg-background/50 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground">X Scan</p>
+                      <p className="text-lg font-bold text-blue-400">+{userSnapshot.boostBreakdown.xScanBoost}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-background/50 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground">X Posts ({userSnapshot.boostBreakdown.claimedXPostsCount})</p>
+                      <p className="text-lg font-bold text-purple-400">+{userSnapshot.boostBreakdown.xPostBoost}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-background/50 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground">Referrals ({userSnapshot.boostBreakdown.referralCount})</p>
+                      <p className="text-lg font-bold text-green-400">+{userSnapshot.boostBreakdown.referralBoost}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-background/50 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground">Arena</p>
+                      <p className="text-lg font-bold text-red-400">+{userSnapshot.boostBreakdown.arenaBoost}%</p>
+                    </div>
+                    <div className="text-center p-2 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                      <p className="text-[10px] text-yellow-400 font-medium">TOTAL BOOST</p>
+                      <p className="text-lg font-bold text-yellow-400">+{userSnapshot.boostBreakdown.totalBoostPercentage}%</p>
+                    </div>
+                  </div>
+                  <div className="text-center pt-3 border-t border-border/50">
+                    <p className="text-sm text-muted-foreground">
+                      Effective Mining Rate: <span className="text-yellow-400 font-bold">{userSnapshot.boostBreakdown.effectiveMiningRate.toFixed(1)} ARX-P/hour</span>
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -526,33 +618,37 @@ const AdminUsers = () => {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">User ID:</span>
-                    <span className="font-mono text-xs">{selectedUser.user_id}</span>
+                    <span className="font-mono text-xs">{userSnapshot.userId}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Username:</span>
-                    <span>{selectedUser.username}</span>
+                    <span>{userSnapshot.profile?.username || "Anonymous"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Wallet:</span>
-                    <span className="font-mono text-xs">{selectedUser.wallet || "Not connected"}</span>
+                    <span className="font-mono text-xs">
+                      {userSnapshot.wallets.find(w => w.is_primary)?.wallet_address 
+                        ? `${userSnapshot.wallets.find(w => w.is_primary)?.wallet_address.slice(0, 8)}...`
+                        : "Not connected"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Joined:</span>
-                    <span>{format(new Date(selectedUser.created_at), "PPP")}</span>
+                    <span>{userSnapshot.profile?.created_at ? format(new Date(userSnapshot.profile.created_at), "PPP") : "-"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Referral Code:</span>
-                    <span className="font-mono">{selectedUser.referral_code || "-"}</span>
+                    <span className="font-mono">{userSnapshot.profile?.referral_code || "-"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">X Account:</span>
-                    <span>{selectedUser.x_profile ? `@${selectedUser.x_profile.username}` : "Not linked"}</span>
+                    <span>{userSnapshot.xProfile ? `@${userSnapshot.xProfile.username}` : "Not linked"}</span>
                   </div>
                 </div>
               </div>
 
               {/* X Profile Details */}
-              {selectedUser.x_profile && (
+              {userSnapshot.xProfile && (
                 <div className="space-y-3">
                   <h3 className="font-semibold text-foreground flex items-center gap-2">
                     <span className="h-5 w-5 flex items-center justify-center">𝕏</span>
@@ -560,20 +656,20 @@ const AdminUsers = () => {
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-primary/10 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground">Current Boost</p>
-                      <p className="text-lg font-bold text-primary">+{selectedUser.x_profile.boost_percentage}%</p>
+                      <p className="text-xs text-muted-foreground">Scan Boost</p>
+                      <p className="text-lg font-bold text-primary">+{userSnapshot.xProfile.boost_percentage}%</p>
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Avg Engagement</p>
-                      <p className="text-lg font-bold">{formatNumber(selectedUser.x_profile.average_engagement)}</p>
+                      <p className="text-lg font-bold">{formatNumber(userSnapshot.xProfile.average_engagement)}</p>
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Posts Today</p>
-                      <p className="text-lg font-bold">{selectedUser.x_profile.qualified_posts_today}</p>
+                      <p className="text-lg font-bold">{userSnapshot.xProfile.qualified_posts_today}</p>
                     </div>
                     <div className="bg-muted/30 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Viral Bonus</p>
-                      <p className="text-lg font-bold">{selectedUser.x_profile.viral_bonus ? "Active" : "None"}</p>
+                      <p className="text-lg font-bold">{userSnapshot.xProfile.viral_bonus ? "🔥" : "—"}</p>
                     </div>
                   </div>
                   
@@ -582,33 +678,33 @@ const AdminUsers = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">Historical Posts</p>
-                        <p className="font-medium">{selectedUser.x_profile.historical_posts_count}</p>
+                        <p className="font-medium">{userSnapshot.xProfile.historical_posts_count}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">ARX-P from Posts</p>
-                        <p className="font-medium text-accent">{formatNumber(selectedUser.x_profile.historical_arx_p_total)}</p>
+                        <p className="font-medium text-accent">{formatNumber(userSnapshot.xProfile.historical_arx_p_total)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Total Boost Earned</p>
-                        <p className="font-medium text-primary">+{selectedUser.x_profile.historical_boost_total}%</p>
+                        <p className="font-medium text-primary">+{userSnapshot.xProfile.historical_boost_total}%</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Scanned</p>
-                        <p className="font-medium">{selectedUser.x_profile.historical_scanned ? "Yes" : "No"}</p>
+                        <p className="font-medium">{userSnapshot.xProfile.historical_scanned ? "Yes" : "No"}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-border/50">
                       <div>
                         <p className="text-xs text-muted-foreground">Profile URL</p>
-                        <a href={selectedUser.x_profile.profile_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate block">
-                          {selectedUser.x_profile.profile_url}
+                        <a href={userSnapshot.xProfile.profile_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate block">
+                          {userSnapshot.xProfile.profile_url}
                         </a>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Last Scanned</p>
                         <p className="font-medium text-xs">
-                          {selectedUser.x_profile.last_scanned_at 
-                            ? formatDistanceToNow(new Date(selectedUser.x_profile.last_scanned_at), { addSuffix: true })
+                          {userSnapshot.xProfile.last_scanned_at 
+                            ? formatDistanceToNow(new Date(userSnapshot.xProfile.last_scanned_at), { addSuffix: true })
                             : "Never"
                           }
                         </p>
@@ -618,7 +714,7 @@ const AdminUsers = () => {
                 </div>
               )}
 
-              {!selectedUser.x_profile && (
+              {!userSnapshot.xProfile && (
                 <div className="bg-muted/20 rounded-lg p-4 text-center">
                   <p className="text-muted-foreground text-sm">No X profile connected</p>
                 </div>
@@ -630,19 +726,19 @@ const AdminUsers = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-muted/30 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Mining</p>
-                    <p className="text-lg font-bold">{formatNumber(selectedUser.mining_points)}</p>
+                    <p className="text-lg font-bold">{formatNumber(userSnapshot.stats.miningPoints)}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Tasks</p>
-                    <p className="text-lg font-bold">{formatNumber(selectedUser.task_points)}</p>
+                    <p className="text-lg font-bold">{formatNumber(userSnapshot.stats.taskPoints)}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Social</p>
-                    <p className="text-lg font-bold">{formatNumber(selectedUser.social_points)}</p>
+                    <p className="text-lg font-bold">{formatNumber(userSnapshot.stats.socialPoints)}</p>
                   </div>
                   <div className="bg-muted/30 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Referrals</p>
-                    <p className="text-lg font-bold">{formatNumber(selectedUser.referral_points)}</p>
+                    <p className="text-lg font-bold">{formatNumber(userSnapshot.stats.referralPoints)}</p>
                   </div>
                 </div>
               </div>
@@ -650,15 +746,11 @@ const AdminUsers = () => {
               {/* Mining Sessions */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-foreground">Recent Mining Sessions</h3>
-                {loadingSessions ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : userSessions.length === 0 ? (
+                {userSnapshot.miningSessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No mining sessions</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {userSessions.map((session) => (
+                    {userSnapshot.miningSessions.map((session: MiningSession) => (
                       <div key={session.id} className="flex items-center justify-between bg-muted/20 rounded-lg p-3 text-sm">
                         <div className="flex items-center gap-3">
                           <div className={`h-2 w-2 rounded-full ${session.is_active ? "bg-green-500" : "bg-muted-foreground"}`} />
@@ -680,6 +772,36 @@ const AdminUsers = () => {
                   </div>
                 )}
               </div>
+
+              {/* Social Submissions */}
+              {userSnapshot.socialSubmissions.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-foreground">Social Submissions ({userSnapshot.socialSubmissions.length})</h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {userSnapshot.socialSubmissions.slice(0, 5).map((sub: any) => (
+                      <div key={sub.id} className="flex items-center justify-between bg-muted/20 rounded-lg p-2 text-xs">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                            sub.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                            sub.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                            'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {sub.status}
+                          </span>
+                          <a href={sub.post_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                            {sub.post_url}
+                          </a>
+                        </div>
+                        <span className="text-muted-foreground ml-2">+{sub.points_awarded}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Failed to load user data
             </div>
           )}
         </DialogContent>

@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.validate-x-post]
 verify_jwt = false
+
+[functions.admin-user-snapshot]
+verify_jwt = false
