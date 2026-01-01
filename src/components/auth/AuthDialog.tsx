@@ -14,7 +14,7 @@ import PasswordStrengthMeter from "./PasswordStrengthMeter";
 // reCAPTCHA configuration
 const RECAPTCHA_SITE_KEY = "6Let5DwsAAAAAE_wALyFUT98IrbfJvL6YGBQjtKX";
 const CAPTCHA_ENABLED = true;
-
+(typeof window !== "undefined") && (((window as any).recaptchaOptions = { ...(((window as any).recaptchaOptions ?? {})), useRecaptchaNet: true }));
 interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -213,40 +213,64 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     setCaptchaError(msg);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate password strength for signup
-    if (mode === "signup") {
-      const passwordValidation = validatePassword(password);
-      if (!passwordValidation.isValid) {
-        toast({
-          title: "Weak Password",
-          description: passwordValidation.errors[0],
-          variant: "destructive"
-        });
-        return;
-      }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validate password strength for signup
+  if (mode === "signup") {
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Weak Password",
+        description: passwordValidation.errors[0],
+        variant: "destructive"
+      });
+      return;
     }
-    
-    // Validate captcha for signup (only if enabled)
-    if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
-      const msg = "Please complete the CAPTCHA verification.";
+  }
+  
+  // Validate captcha for signup (only if enabled)
+  if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
+    const msg = "Please complete the CAPTCHA verification.";
+    setCaptchaStatus("error");
+    setCaptchaError(msg);
+
+    // Bring the CAPTCHA into view so users can act immediately
+    captchaSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    toast({
+      title: "Verification Required",
+      description: msg,
+      variant: "destructive",
+    });
+    return;
+  }
+
+  // Backend-side CAPTCHA verification (blocks signup unless Google confirms)
+  if (mode === "signup" && CAPTCHA_ENABLED) {
+    const { data, error } = await supabase.functions.invoke("verify-recaptcha", {
+      body: { token: captchaToken },
+    });
+
+    if (error || !data?.success) {
+      const msg = "Google couldn't confirm your CAPTCHA. Please try again.";
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
       setCaptchaStatus("error");
       setCaptchaError(msg);
 
-      // Bring the CAPTCHA into view so users can act immediately
       captchaSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
       toast({
-        title: "Verification Required",
+        title: "CAPTCHA Verification Failed",
         description: msg,
         variant: "destructive",
       });
       return;
     }
+  }
 
-    setLoading(true);
+  setLoading(true);
 
     try {
       if (mode === "signin") {
