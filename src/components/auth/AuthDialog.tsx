@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound, Eye, EyeOff, RotateCcw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,8 +30,13 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [referralCode, setReferralCode] = useState(initialReferralCode);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaStatus, setCaptchaStatus] = useState<"idle" | "verified" | "error" | "expired">("idle");
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+
   const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const captchaSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialReferralCode) {
@@ -43,6 +48,8 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   // Reset captcha when mode changes
   useEffect(() => {
     setCaptchaToken(null);
+    setCaptchaStatus("idle");
+    setCaptchaError(null);
     recaptchaRef.current?.reset();
   }, [mode]);
 
@@ -179,6 +186,31 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
   const handleCaptchaChange = (token: string | null) => {
     setCaptchaToken(token);
+
+    if (token) {
+      setCaptchaStatus("verified");
+      setCaptchaError(null);
+    } else {
+      setCaptchaStatus("idle");
+    }
+  };
+
+  const handleCaptchaErrored = () => {
+    setCaptchaToken(null);
+    setCaptchaStatus("error");
+
+    const msg =
+      "CAPTCHA didn't load/verify. If you're using Brave/ad-blockers, disable Shields for this site and refresh.";
+    setCaptchaError(msg);
+    toast({ title: "CAPTCHA blocked", description: msg, variant: "destructive" });
+  };
+
+  const handleCaptchaExpired = () => {
+    setCaptchaToken(null);
+    setCaptchaStatus("expired");
+
+    const msg = "Verification expired. Please complete the CAPTCHA again.";
+    setCaptchaError(msg);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,10 +231,17 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     
     // Validate captcha for signup (only if enabled)
     if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
+      const msg = "Please complete the CAPTCHA verification.";
+      setCaptchaStatus("error");
+      setCaptchaError(msg);
+
+      // Bring the CAPTCHA into view so users can act immediately
+      captchaSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
       toast({
         title: "Verification Required",
-        description: "Please complete the CAPTCHA verification",
-        variant: "destructive"
+        description: msg,
+        variant: "destructive",
       });
       return;
     }
@@ -484,19 +523,58 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
                   {/* CAPTCHA for signup - only show if enabled */}
                   {CAPTCHA_ENABLED && RECAPTCHA_SITE_KEY && (
-                    <div className="space-y-2">
-                      <Label className="text-foreground flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-accent" />
-                        Security Verification
-                      </Label>
+                    <div className="space-y-2" ref={captchaSectionRef}>
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-foreground flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-accent" />
+                          Security Verification
+                        </Label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            recaptchaRef.current?.reset();
+                            setCaptchaToken(null);
+                            setCaptchaStatus("idle");
+                            setCaptchaError(null);
+                          }}
+                          className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Reload
+                        </button>
+                      </div>
+
                       <div className="flex justify-center">
                         <ReCAPTCHA
                           ref={recaptchaRef}
                           sitekey={RECAPTCHA_SITE_KEY}
                           onChange={handleCaptchaChange}
+                          onErrored={handleCaptchaErrored}
+                          onExpired={handleCaptchaExpired}
                           theme="dark"
                         />
                       </div>
+
+                      <div className="min-h-[1.25rem]">
+                        {captchaStatus === "verified" ? (
+                          <p className="text-xs text-accent flex items-center justify-center gap-2">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Verification complete
+                          </p>
+                        ) : captchaError ? (
+                          <p className="text-xs text-destructive flex items-center justify-center gap-2">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            {captchaError}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      {captchaStatus === "error" && (
+                        <p className="text-[11px] text-muted-foreground text-center">
+                          Current site domain: <span className="font-medium">{window.location.hostname}</span>
+                        </p>
+                      )}
                     </div>
                   )}
                 </>
@@ -505,7 +583,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
-                disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && !captchaToken)}
+                disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && captchaStatus !== "verified")}
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
