@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
+import { toast } from "sonner";
 interface XProfileData {
   id: string;
   username: string;
@@ -100,6 +100,7 @@ const AdminUsers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
 
   // Fetch all users with comprehensive data
   const { data: users = [], isLoading } = useQuery({
@@ -277,6 +278,43 @@ const AdminUsers = () => {
       return data.data as UserSnapshot;
     },
     enabled: !!selectedUser,
+  });
+
+  // Force rescan mutation
+  const forceRescanMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      // Fetch the user's x_profile
+      const { data: xProfile } = await supabase
+        .from('x_profiles')
+        .select('username, profile_url')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!xProfile?.username) {
+        throw new Error('User has no connected X profile');
+      }
+
+      const { data, error } = await supabase.functions.invoke('scan-x-profile', {
+        body: {
+          username: xProfile.username,
+          profileUrl: xProfile.profile_url,
+          isInitialConnect: false,
+          forceHistorical: true,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Rescan failed');
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Historical rescan complete! Rewards synced.');
+      queryClient.invalidateQueries({ queryKey: ['admin-user-snapshot', selectedUser?.user_id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Rescan failed');
+    },
   });
 
   const { data: stats } = useQuery({
@@ -651,10 +689,26 @@ const AdminUsers = () => {
               {/* X Profile Details */}
               {userSnapshot.xProfile && (
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    <span className="h-5 w-5 flex items-center justify-center">𝕏</span>
-                    X Profile Details
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-5 w-5 flex items-center justify-center">𝕏</span>
+                      X Profile Details
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      disabled={forceRescanMutation.isPending}
+                      onClick={() => forceRescanMutation.mutate(userSnapshot.userId)}
+                    >
+                      {forceRescanMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      Force Rescan
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-primary/10 rounded-lg p-3">
                       <p className="text-xs text-muted-foreground">Scan Boost</p>
