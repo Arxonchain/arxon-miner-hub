@@ -148,31 +148,53 @@ async function fetchUserTweets(userId: string, bearerToken: string, startTime?: 
   return { tweets: tweetsData.data || [], rateLimited: false }
 }
 
-// Fetch historical tweets (all time, up to 100 due to API limits)
-async function fetchHistoricalTweets(userId: string, bearerToken: string): Promise<{ tweets: Tweet[], rateLimited: boolean }> {
-  const tweetsResponse = await fetch(
-    `https://api.twitter.com/2/users/${userId}/tweets?max_results=100&tweet.fields=public_metrics,created_at`,
-    {
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-      },
-    }
-  )
+// Fetch historical tweets (paged, up to a cap)
+async function fetchHistoricalTweets(
+  userId: string,
+  bearerToken: string,
+  maxPages = 5
+): Promise<{ tweets: Tweet[]; rateLimited: boolean }> {
+  const allTweets: Tweet[] = []
+  let nextToken: string | undefined
 
-  if (!tweetsResponse.ok) {
-    const errorText = await tweetsResponse.text()
-    console.error('Failed to fetch historical tweets:', errorText)
-    
-    if (tweetsResponse.status === 429 || errorText.includes('UsageCapExceeded')) {
-      console.log('Twitter API rate limited for historical tweets')
-      return { tweets: [], rateLimited: true }
+  for (let page = 0; page < maxPages; page++) {
+    const url = new URL(`https://api.twitter.com/2/users/${userId}/tweets`)
+    url.searchParams.set('max_results', '100')
+    url.searchParams.set('tweet.fields', 'public_metrics,created_at')
+    if (nextToken) url.searchParams.set('pagination_token', nextToken)
+
+    const tweetsResponse = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${bearerToken}`,
+      },
+    })
+
+    if (!tweetsResponse.ok) {
+      const errorText = await tweetsResponse.text()
+      console.error('Failed to fetch historical tweets:', errorText)
+
+      if (tweetsResponse.status === 429 || errorText.includes('UsageCapExceeded')) {
+        console.log('Twitter API rate limited for historical tweets')
+        return { tweets: [], rateLimited: true }
+      }
+
+      throw new Error(`Failed to fetch historical tweets: ${tweetsResponse.status}`)
     }
-    
-    throw new Error(`Failed to fetch historical tweets: ${tweetsResponse.status}`)
+
+    const tweetsData: TwitterResponse = await tweetsResponse.json()
+    const batch = tweetsData.data || []
+    allTweets.push(...batch)
+
+    nextToken = tweetsData.meta?.next_token
+    if (!nextToken) break
   }
 
-  const tweetsData: TwitterResponse = await tweetsResponse.json()
-  return { tweets: tweetsData.data || [], rateLimited: false }
+  return { tweets: allTweets, rateLimited: false }
+}
+
+function extractTweetIdFromUrl(url: string): string | null {
+  const match = url.match(/status\/(\d+)/i)
+  return match?.[1] ?? null
 }
 
 Deno.serve(async (req) => {
@@ -207,7 +229,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
-    const { username, profileUrl, isInitialConnect } = body
+    const { username, profileUrl, isInitialConnect, forceHistorical } = body
 
     if (!username) {
       throw new Error('Username is required')
@@ -315,104 +337,160 @@ Deno.serve(async (req) => {
       throw new Error('Failed to save profile data')
     }
 
-    // Process historical posts on initial connect
+    // Reward processing: always detect qualified tweets and keep rewards/boost/points in sync
+    // - Adds/updates x_post_rewards for any qualified tweet found
+    // - Increments user_points by the delta for tweets that were NOT already manually claimed via social_submissions
+    // - Keeps x_profiles "historical" totals and avg engagement up-to-date
+
     let historicalRewards: any[] = []
-    let historicalTotalArxP = 0
-    let historicalTotalBoost = 0
+    let deltaArxP = 0
+    let deltaBoost = 0
 
-    if (isInitialConnect && !xProfile.historical_scanned) {
-      console.log('Processing historical posts for initial connect...')
-      
-      const { tweets: historicalTweets, rateLimited: histRateLimited } = await fetchHistoricalTweets(userData.id!, bearerToken)
+    // Determine whether we should attempt a historical scan in this run
+    const shouldRunHistorical = Boolean(forceHistorical) || Boolean(isInitialConnect) || !xProfile.historical_scanned
+
+    // Fetch historical tweets only when needed
+    let qualifiedHistoricalTweets: Tweet[] = []
+    let histRateLimited = false
+
+    if (shouldRunHistorical) {
+      console.log('Attempting historical tweet scan...')
+      const { tweets: historicalTweets, rateLimited: histLimited } = await fetchHistoricalTweets(userData.id!, bearerToken, 5)
+      histRateLimited = histLimited
       console.log(`Found ${historicalTweets.length} historical tweets${histRateLimited ? ' (rate limited)' : ''}`)
-
-      const qualifiedHistoricalTweets = historicalTweets.filter(tweet => isQualifiedTweet(tweet.text))
+      qualifiedHistoricalTweets = historicalTweets.filter((tweet) => isQualifiedTweet(tweet.text))
       console.log(`Found ${qualifiedHistoricalTweets.length} qualified historical tweets`)
+    }
 
-      for (const tweet of qualifiedHistoricalTweets) {
-        const engagement = 
-          tweet.public_metrics.like_count + 
-          tweet.public_metrics.retweet_count + 
-          tweet.public_metrics.reply_count +
-          tweet.public_metrics.quote_count
+    // Merge qualified tweets (recent + historical) without duplicates
+    const tweetsToProcessMap = new Map<string, Tweet>()
+    qualifiedTweets.forEach((t) => tweetsToProcessMap.set(t.id, t))
+    qualifiedHistoricalTweets.forEach((t) => tweetsToProcessMap.set(t.id, t))
+    const tweetsToProcess = Array.from(tweetsToProcessMap.values())
 
-        const arxPReward = calculateArxPReward(engagement)
-        const boostReward = calculateBoostReward(engagement)
+    // Build a set of tweet IDs already rewarded via manual URL submissions
+    const { data: approvedSubmissions } = await supabase
+      .from('social_submissions')
+      .select('post_url, points_awarded, status')
+      .eq('user_id', user.id)
+      .eq('status', 'approved')
+      .gt('points_awarded', 0)
 
-        historicalTotalArxP += arxPReward
-        historicalTotalBoost += boostReward
+    const manuallyRewardedTweetIds = new Set<string>()
+    ;(approvedSubmissions || []).forEach((s: any) => {
+      const tid = extractTweetIdFromUrl(String(s.post_url || ''))
+      if (tid) manuallyRewardedTweetIds.add(tid)
+    })
 
-        // Insert into x_post_rewards (use service role to bypass RLS for inserts)
-        const { error: rewardError } = await supabase
+    // Fetch existing rewards for these tweets so we can compute deltas safely
+    const tweetIds = tweetsToProcess.map((t) => t.id)
+    const { data: existingRewardsRows } = tweetIds.length
+      ? await supabase
           .from('x_post_rewards')
-          .upsert({
+          .select('tweet_id, arx_p_reward, boost_reward')
+          .eq('user_id', user.id)
+          .in('tweet_id', tweetIds)
+      : { data: [] as any[] }
+
+    const existingRewardByTweetId = new Map<string, { arx: number; boost: number }>()
+    ;(existingRewardsRows || []).forEach((r: any) => {
+      existingRewardByTweetId.set(String(r.tweet_id), {
+        arx: Number(r.arx_p_reward || 0),
+        boost: Number(r.boost_reward || 0),
+      })
+    })
+
+    // Upsert rewards for every qualified tweet
+    for (const tweet of tweetsToProcess) {
+      const engagement =
+        tweet.public_metrics.like_count +
+        tweet.public_metrics.retweet_count +
+        tweet.public_metrics.reply_count +
+        tweet.public_metrics.quote_count
+
+      const newArxPReward = calculateArxPReward(engagement)
+      const newBoostReward = calculateBoostReward(engagement)
+
+      const old = existingRewardByTweetId.get(tweet.id) || { arx: 0, boost: 0 }
+      const isManuallyRewarded = manuallyRewardedTweetIds.has(tweet.id)
+
+      // Only pay out deltas for tweets not already rewarded through manual submissions
+      if (!isManuallyRewarded) {
+        deltaArxP += newArxPReward - old.arx
+        deltaBoost += newBoostReward - old.boost
+      }
+
+      const { error: rewardError } = await supabase
+        .from('x_post_rewards')
+        .upsert(
+          {
             user_id: user.id,
             x_profile_id: xProfile.id,
             tweet_id: tweet.id,
-            tweet_text: tweet.text.substring(0, 500), // Limit text length
+            tweet_text: tweet.text.substring(0, 500),
             like_count: tweet.public_metrics.like_count,
             retweet_count: tweet.public_metrics.retweet_count,
             reply_count: tweet.public_metrics.reply_count,
             quote_count: tweet.public_metrics.quote_count,
             total_engagement: engagement,
-            arx_p_reward: arxPReward,
-            boost_reward: boostReward,
+            arx_p_reward: newArxPReward,
+            boost_reward: newBoostReward,
             tweet_created_at: tweet.created_at,
-          }, {
-            onConflict: 'user_id,tweet_id'
-          })
+          },
+          { onConflict: 'user_id,tweet_id' }
+        )
 
-        if (rewardError) {
-          console.error('Failed to insert reward:', rewardError)
-        } else {
-          historicalRewards.push({
-            tweetId: tweet.id,
-            text: tweet.text.substring(0, 100) + (tweet.text.length > 100 ? '...' : ''),
-            engagement,
-            arxPReward,
-            boostReward,
-            createdAt: tweet.created_at,
-          })
-        }
+      if (rewardError) {
+        console.error('Failed to upsert reward:', rewardError)
+      } else if (shouldRunHistorical) {
+        historicalRewards.push({
+          tweetId: tweet.id,
+          text: tweet.text.substring(0, 100) + (tweet.text.length > 100 ? '...' : ''),
+          engagement,
+          arxPReward: newArxPReward,
+          boostReward: newBoostReward,
+          createdAt: tweet.created_at,
+        })
       }
+    }
 
-      // Calculate average engagement from all historical qualified posts
-      let historicalTotalEngagement = 0
-      qualifiedHistoricalTweets.forEach(tweet => {
-        historicalTotalEngagement += 
-          tweet.public_metrics.like_count + 
-          tweet.public_metrics.retweet_count + 
-          tweet.public_metrics.reply_count +
-          tweet.public_metrics.quote_count
-      })
-      const historicalAvgEngagement = qualifiedHistoricalTweets.length > 0 
-        ? Math.round(historicalTotalEngagement / qualifiedHistoricalTweets.length) 
-        : 0
-      const historicalViralBonus = qualifiedHistoricalTweets.some(tweet => {
-        const eng = tweet.public_metrics.like_count + tweet.public_metrics.retweet_count + 
-                    tweet.public_metrics.reply_count + tweet.public_metrics.quote_count
-        return eng >= 500
-      })
+    // Update X profile totals from stored rewards
+    const { data: allRewardsRows, error: allRewardsError } = await supabase
+      .from('x_post_rewards')
+      .select('total_engagement, arx_p_reward, boost_reward')
+      .eq('x_profile_id', xProfile.id)
 
-      // Update x_profile with historical totals including average engagement
+    if (allRewardsError) {
+      console.error('Failed to load reward aggregates:', allRewardsError)
+    } else {
+      const rows = allRewardsRows || []
+      const postsCount = rows.length
+      const totalArxP = rows.reduce((sum: number, r: any) => sum + Number(r.arx_p_reward || 0), 0)
+      const totalBoost = rows.reduce((sum: number, r: any) => sum + Number(r.boost_reward || 0), 0)
+      const totalEngagement = rows.reduce((sum: number, r: any) => sum + Number(r.total_engagement || 0), 0)
+      const avgEng = postsCount > 0 ? Math.round(totalEngagement / postsCount) : 0
+      const hasViral = rows.some((r: any) => Number(r.total_engagement || 0) >= 500)
+
+      const historicalScanSucceeded = shouldRunHistorical ? !histRateLimited : xProfile.historical_scanned
+
       const { error: updateError } = await supabase
         .from('x_profiles')
         .update({
-          historical_posts_count: qualifiedHistoricalTweets.length,
-          historical_arx_p_total: historicalTotalArxP,
-          historical_boost_total: historicalTotalBoost,
-          historical_scanned: true,
-          average_engagement: historicalAvgEngagement,
-          viral_bonus: historicalViralBonus,
+          historical_posts_count: postsCount,
+          historical_arx_p_total: totalArxP,
+          historical_boost_total: totalBoost,
+          historical_scanned: Boolean(historicalScanSucceeded),
+          average_engagement: avgEng,
+          viral_bonus: hasViral,
         })
         .eq('id', xProfile.id)
 
       if (updateError) {
-        console.error('Failed to update historical totals:', updateError)
+        console.error('Failed to update X profile aggregates:', updateError)
       }
 
-      // Add ARX-P rewards to user's points
-      if (historicalTotalArxP > 0) {
+      // Apply point/boost deltas to user_points
+      if (deltaArxP !== 0 || deltaBoost !== 0) {
         const { data: existingPoints } = await supabase
           .from('user_points')
           .select('*')
@@ -420,29 +498,31 @@ Deno.serve(async (req) => {
           .maybeSingle()
 
         if (existingPoints) {
+          const nextSocial = Math.max(0, Number(existingPoints.social_points || 0) + deltaArxP)
+          const nextTotal = Math.max(0, Number(existingPoints.total_points || 0) + deltaArxP)
+          const nextBoost = Math.max(0, Number(existingPoints.x_post_boost_percentage || 0) + deltaBoost)
+
           await supabase
             .from('user_points')
             .update({
-              social_points: existingPoints.social_points + historicalTotalArxP,
-              total_points: existingPoints.total_points + historicalTotalArxP,
+              social_points: nextSocial,
+              total_points: nextTotal,
+              x_post_boost_percentage: nextBoost,
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', user.id)
         } else {
-          await supabase
-            .from('user_points')
-            .insert({
-              user_id: user.id,
-              social_points: historicalTotalArxP,
-              total_points: historicalTotalArxP,
-            })
+          await supabase.from('user_points').insert({
+            user_id: user.id,
+            social_points: Math.max(0, deltaArxP),
+            total_points: Math.max(0, deltaArxP),
+            x_post_boost_percentage: Math.max(0, deltaBoost),
+          })
         }
-        console.log(`Added ${historicalTotalArxP} ARX-P from historical posts`)
+
+        console.log(`Auto rewards applied: Δ${deltaArxP} ARX-P, Δ${deltaBoost}% boost (manual-claimed tweets excluded)`) 
       }
-
-      console.log(`Historical rewards processed: ${qualifiedHistoricalTweets.length} posts, ${historicalTotalArxP} ARX-P, ${historicalTotalBoost}% boost`)
     }
-
     // Update user's profile avatar_url with X profile picture if they don't have one
     if (userData.profileImageUrl) {
       const { data: existingProfile } = await supabase
@@ -478,15 +558,10 @@ Deno.serve(async (req) => {
           profileImageUrl: userData.profileImageUrl,
           rateLimited,
           // Historical rewards data
-          historicalRewards: isInitialConnect ? historicalRewards : undefined,
-          historicalTotalArxP: isInitialConnect ? historicalTotalArxP : undefined,
-          historicalTotalBoost: isInitialConnect ? historicalTotalBoost : undefined,
-          historicalPostsCount: isInitialConnect ? historicalRewards.length : undefined,
-          message: rateLimited 
+          historicalRewards: shouldRunHistorical ? historicalRewards : undefined,
+          message: rateLimited
             ? 'Profile connected! Tweet scanning temporarily unavailable due to API limits. Boost will update when limits reset.'
-            : isInitialConnect && historicalRewards.length > 0
-              ? `Found ${historicalRewards.length} prior ARXON posts! Rewarded ${historicalTotalArxP} ARX-P and ${historicalTotalBoost}% boost.`
-              : undefined,
+            : undefined,
         },
       }),
       {
