@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
+import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { useState, useMemo } from "react";
@@ -12,6 +13,7 @@ const Mining = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { points } = usePoints();
+  const { profile } = useProfile();
   const { 
     isMining, 
     loading, 
@@ -35,7 +37,16 @@ const Mining = () => {
   const hasBoost = totalBoostPercentage > 0;
 
   const copyReferralCode = () => {
-    navigator.clipboard.writeText("ARX-REF-12345");
+    const code = profile?.referral_code || "Loading...";
+    if (!profile?.referral_code) {
+      toast({
+        title: "Not Ready",
+        description: "Your referral code is still loading",
+        variant: "destructive"
+      });
+      return;
+    }
+    navigator.clipboard.writeText(code);
     toast({
       title: "Copied!",
       description: "Referral code copied to clipboard",
@@ -301,7 +312,9 @@ const Mining = () => {
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="text-[10px] sm:text-xs md:text-sm font-medium">Copy referral code</span>
+          <span className="text-[10px] sm:text-xs md:text-sm font-medium">
+            {profile?.referral_code || "Copy referral code"}
+          </span>
         </button>
       </div>
 
