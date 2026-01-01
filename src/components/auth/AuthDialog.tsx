@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound } from "lucide-react";
+import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(initialReferralCode);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
@@ -423,15 +424,22 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder={mode === "signup" ? "Create a strong password" : "Enter your password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
+                    className="pl-10 pr-10 bg-secondary/50 border-border/50 focus:border-accent"
                     required
                     minLength={mode === "signup" ? 12 : 6}
                     disabled={loading}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
                 {/* Password strength meter for signup */}
                 {mode === "signup" && <PasswordStrengthMeter password={password} />}
