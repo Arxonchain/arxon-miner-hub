@@ -1,20 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, Shield, KeyRound, Eye, EyeOff, RotateCcw, CheckCircle2, AlertTriangle } from "lucide-react";
+import { User, Mail, Lock, Sparkles, Zap, ArrowRight, Gift, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import ReCAPTCHA from "react-google-recaptcha";
 import { validatePassword } from "@/lib/passwordValidation";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
-// reCAPTCHA configuration
-const RECAPTCHA_SITE_KEY = "6Let5DwsAAAAAE_wALyFUT98IrbfJvL6YGBQjtKX";
-const CAPTCHA_ENABLED = true;
-(typeof window !== "undefined") && (((window as any).recaptchaOptions = { ...(((window as any).recaptchaOptions ?? {})), useRecaptchaNet: true }));
 interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,27 +26,12 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaStatus, setCaptchaStatus] = useState<"idle" | "verified" | "error" | "expired">("idle");
-  const [captchaError, setCaptchaError] = useState<string | null>(null);
-
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const captchaSectionRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (initialReferralCode) {
       setReferralCode(initialReferralCode);
       setMode("signup");
     }
   }, [initialReferralCode]);
-
-  // Reset captcha when mode changes
-  useEffect(() => {
-    setCaptchaToken(null);
-    setCaptchaStatus("idle");
-    setCaptchaError(null);
-    recaptchaRef.current?.reset();
-  }, [mode]);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,93 +164,23 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     }
   };
 
-  const handleCaptchaChange = (token: string | null) => {
-    setCaptchaToken(token);
-
-    if (token) {
-      setCaptchaStatus("verified");
-      setCaptchaError(null);
-    } else {
-      setCaptchaStatus("idle");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate password strength for signup
+    if (mode === "signup") {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        toast({
+          title: "Weak Password",
+          description: passwordValidation.errors[0],
+          variant: "destructive"
+        });
+        return;
+      }
     }
-  };
 
-  const handleCaptchaErrored = () => {
-    setCaptchaToken(null);
-    setCaptchaStatus("error");
-
-    const msg =
-      "CAPTCHA didn't load/verify. If you're using Brave/ad-blockers, disable Shields for this site and refresh.";
-    setCaptchaError(msg);
-    toast({ title: "CAPTCHA blocked", description: msg, variant: "destructive" });
-  };
-
-  const handleCaptchaExpired = () => {
-    setCaptchaToken(null);
-    setCaptchaStatus("expired");
-
-    const msg = "Verification expired. Please complete the CAPTCHA again.";
-    setCaptchaError(msg);
-  };
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Validate password strength for signup
-  if (mode === "signup") {
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      toast({
-        title: "Weak Password",
-        description: passwordValidation.errors[0],
-        variant: "destructive"
-      });
-      return;
-    }
-  }
-  
-  // Validate captcha for signup (only if enabled)
-  if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
-    const msg = "Please complete the CAPTCHA verification.";
-    setCaptchaStatus("error");
-    setCaptchaError(msg);
-
-    // Bring the CAPTCHA into view so users can act immediately
-    captchaSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-    toast({
-      title: "Verification Required",
-      description: msg,
-      variant: "destructive",
-    });
-    return;
-  }
-
-  // Backend-side CAPTCHA verification (blocks signup unless Google confirms)
-  if (mode === "signup" && CAPTCHA_ENABLED) {
-    const { data, error } = await supabase.functions.invoke("verify-recaptcha", {
-      body: { token: captchaToken },
-    });
-
-    if (error || !data?.success) {
-      const msg = "Google couldn't confirm your CAPTCHA. Please try again.";
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
-      setCaptchaStatus("error");
-      setCaptchaError(msg);
-
-      captchaSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-      toast({
-        title: "CAPTCHA Verification Failed",
-        description: msg,
-        variant: "destructive",
-      });
-      return;
-    }
-  }
-
-  setLoading(true);
+    setLoading(true);
 
     try {
       if (mode === "signin") {
@@ -294,10 +204,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         
         const { error, user: newUser } = await signUp(email, password);
         if (error) {
-          // Reset captcha on error
-          recaptchaRef.current?.reset();
-          setCaptchaToken(null);
-          
           toast({
             title: "Sign Up Failed",
             description: error.message,
@@ -320,10 +226,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      // Reset captcha on error
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
-      
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -335,7 +237,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md border-border/50 bg-card/95 backdrop-blur-xl overflow-hidden p-0">
         <DialogDescription className="sr-only">
           Sign in or create an account to access ARXON mining features
@@ -521,93 +423,34 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Referral code input - only show on signup */}
               {mode === "signup" && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
-                      <Gift className="h-4 w-4 text-accent" />
-                      Referral Code (Optional)
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="referral"
-                        type="text"
-                        placeholder="Enter a friend's referral code"
-                        value={referralCode}
-                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                        className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
-                        disabled={loading}
-                      />
-                    </div>
-                    {referralCode && (
-                      <p className="text-xs text-accent">
-                        Your friend will receive bonus points and a mining boost!
-                      </p>
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="referral" className="text-foreground flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-accent" />
+                    Referral Code (Optional)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="referral"
+                      type="text"
+                      placeholder="Enter a friend's referral code"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      className="bg-secondary/50 border-border/50 focus:border-accent uppercase"
+                      disabled={loading}
+                    />
                   </div>
-
-                  {/* CAPTCHA for signup - only show if enabled */}
-                  {CAPTCHA_ENABLED && RECAPTCHA_SITE_KEY && (
-                    <div className="space-y-2" ref={captchaSectionRef}>
-                      <div className="flex items-center justify-between gap-3">
-                        <Label className="text-foreground flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-accent" />
-                          Security Verification
-                        </Label>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            recaptchaRef.current?.reset();
-                            setCaptchaToken(null);
-                            setCaptchaStatus("idle");
-                            setCaptchaError(null);
-                          }}
-                          className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          Reload
-                        </button>
-                      </div>
-
-                      <div className="flex justify-center">
-                        <ReCAPTCHA
-                          ref={recaptchaRef}
-                          sitekey={RECAPTCHA_SITE_KEY}
-                          onChange={handleCaptchaChange}
-                          onErrored={handleCaptchaErrored}
-                          onExpired={handleCaptchaExpired}
-                          theme="dark"
-                        />
-                      </div>
-
-                      <div className="min-h-[1.25rem]">
-                        {captchaStatus === "verified" ? (
-                          <p className="text-xs text-accent flex items-center justify-center gap-2">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Verification complete
-                          </p>
-                        ) : captchaError ? (
-                          <p className="text-xs text-destructive flex items-center justify-center gap-2">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            {captchaError}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {captchaStatus === "error" && (
-                        <p className="text-[11px] text-muted-foreground text-center">
-                          Current site domain: <span className="font-medium">{window.location.hostname}</span>
-                        </p>
-                      )}
-                    </div>
+                  {referralCode && (
+                    <p className="text-xs text-accent">
+                      Your friend will receive bonus points and a mining boost!
+                    </p>
                   )}
-                </>
+                </div>
               )}
 
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-5 group"
-                disabled={loading || (mode === "signup" && CAPTCHA_ENABLED && captchaStatus !== "verified")}
+                disabled={loading}
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
