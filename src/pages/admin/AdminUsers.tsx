@@ -7,6 +7,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface XProfileData {
+  id: string;
+  username: string;
+  profile_url: string;
+  boost_percentage: number;
+  average_engagement: number;
+  viral_bonus: boolean;
+  qualified_posts_today: number;
+  historical_scanned: boolean;
+  historical_posts_count: number;
+  historical_arx_p_total: number;
+  historical_boost_total: number;
+  last_scanned_at: string | null;
+  created_at: string;
+}
+
 interface UserData {
   user_id: string;
   email: string;
@@ -25,8 +41,7 @@ interface UserData {
   active_session: boolean;
   last_active: string | null;
   total_arx_mined: number;
-  x_username: string | null;
-  x_boost: number;
+  x_profile: XProfileData | null;
   arena_votes: number;
   arena_power_spent: number;
 }
@@ -83,10 +98,10 @@ const AdminUsers = () => {
 
       if (referralsError) throw referralsError;
 
-      // Fetch X profiles
+      // Fetch X profiles with all data
       const { data: xProfiles, error: xError } = await supabase
         .from("x_profiles")
-        .select("user_id, username, boost_percentage");
+        .select("*");
 
       if (xError) throw xError;
 
@@ -100,7 +115,21 @@ const AdminUsers = () => {
       // Build lookup maps
       const pointsMap = new Map(points?.map(p => [p.user_id, p]) || []);
       const walletMap = new Map(wallets?.filter(w => w.is_primary).map(w => [w.user_id, w.wallet_address]) || []);
-      const xProfileMap = new Map(xProfiles?.map(x => [x.user_id, x]) || []);
+      const xProfileMap = new Map<string, XProfileData>(xProfiles?.map(x => [x.user_id, {
+        id: x.id,
+        username: x.username,
+        profile_url: x.profile_url,
+        boost_percentage: x.boost_percentage,
+        average_engagement: x.average_engagement,
+        viral_bonus: x.viral_bonus,
+        qualified_posts_today: x.qualified_posts_today,
+        historical_scanned: x.historical_scanned,
+        historical_posts_count: x.historical_posts_count,
+        historical_arx_p_total: Number(x.historical_arx_p_total),
+        historical_boost_total: x.historical_boost_total,
+        last_scanned_at: x.last_scanned_at,
+        created_at: x.created_at,
+      }]) || []);
       
       // Aggregate referrals by referrer
       const referralCounts = new Map<string, number>();
@@ -171,8 +200,7 @@ const AdminUsers = () => {
           active_session: sessionData.active,
           last_active: sessionData.lastActive?.toISOString() || null,
           total_arx_mined: sessionData.totalMined,
-          x_username: xProfile?.username || null,
-          x_boost: xProfile?.boost_percentage || 0,
+          x_profile: xProfileMap.get(profile.user_id) || null,
           arena_votes: arena.votes,
           arena_power_spent: arena.power,
         };
@@ -344,7 +372,7 @@ const AdminUsers = () => {
                             <div>
                               <p className="text-sm font-medium text-foreground">{user.username}</p>
                               <p className="text-xs text-muted-foreground">
-                                {user.x_username ? `@${user.x_username}` : "No X linked"}
+                                {user.x_profile ? `@${user.x_profile.username}` : "No X linked"}
                               </p>
                             </div>
                           </div>
@@ -420,7 +448,7 @@ const AdminUsers = () => {
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">X Boost</p>
-                                <p className="font-medium text-primary">+{user.x_boost}%</p>
+                                <p className="font-medium text-primary">+{user.x_profile?.boost_percentage || 0}%</p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">Arena Votes</p>
@@ -518,10 +546,83 @@ const AdminUsers = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">X Account:</span>
-                    <span>{selectedUser.x_username ? `@${selectedUser.x_username}` : "Not linked"}</span>
+                    <span>{selectedUser.x_profile ? `@${selectedUser.x_profile.username}` : "Not linked"}</span>
                   </div>
                 </div>
               </div>
+
+              {/* X Profile Details */}
+              {selectedUser.x_profile && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    <span className="h-5 w-5 flex items-center justify-center">𝕏</span>
+                    X Profile Details
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-primary/10 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Current Boost</p>
+                      <p className="text-lg font-bold text-primary">+{selectedUser.x_profile.boost_percentage}%</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Avg Engagement</p>
+                      <p className="text-lg font-bold">{formatNumber(selectedUser.x_profile.average_engagement)}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Posts Today</p>
+                      <p className="text-lg font-bold">{selectedUser.x_profile.qualified_posts_today}</p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground">Viral Bonus</p>
+                      <p className="text-lg font-bold">{selectedUser.x_profile.viral_bonus ? "Active" : "None"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-muted/20 rounded-lg p-4 space-y-3">
+                    <h4 className="text-sm font-medium text-foreground">Historical Data</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Historical Posts</p>
+                        <p className="font-medium">{selectedUser.x_profile.historical_posts_count}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">ARX-P from Posts</p>
+                        <p className="font-medium text-accent">{formatNumber(selectedUser.x_profile.historical_arx_p_total)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Boost Earned</p>
+                        <p className="font-medium text-primary">+{selectedUser.x_profile.historical_boost_total}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Scanned</p>
+                        <p className="font-medium">{selectedUser.x_profile.historical_scanned ? "Yes" : "No"}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-border/50">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Profile URL</p>
+                        <a href={selectedUser.x_profile.profile_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate block">
+                          {selectedUser.x_profile.profile_url}
+                        </a>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Last Scanned</p>
+                        <p className="font-medium text-xs">
+                          {selectedUser.x_profile.last_scanned_at 
+                            ? formatDistanceToNow(new Date(selectedUser.x_profile.last_scanned_at), { addSuffix: true })
+                            : "Never"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!selectedUser.x_profile && (
+                <div className="bg-muted/20 rounded-lg p-4 text-center">
+                  <p className="text-muted-foreground text-sm">No X profile connected</p>
+                </div>
+              )}
 
               {/* Points Breakdown */}
               <div className="space-y-3">
