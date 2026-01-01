@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Clock, FileText, Users, Zap, TrendingUp, Flame } from "lucide-react";
+import { Clock, Users, Zap, TrendingUp, Flame, FileText, MessageSquare } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
@@ -10,9 +10,22 @@ import { useMining } from "@/hooks/useMining";
 const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
-  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(100, timeFilter);
-  const { yappers, loading: yappersLoading } = useYapperLeaderboard(timeFilter);
+  const { leaderboard: minerEntries, totals: minerTotals, loading: minersLoading } = useLeaderboard(100, timeFilter);
+  const { yappers, totals: yapperTotals, loading: yappersLoading } = useYapperLeaderboard(timeFilter);
   const { isMining } = useMining();
+
+  const getTimeFilterLabel = (filter: TimeFilter) => {
+    switch (filter) {
+      case '7days':
+      case 'week':
+        return '7 Days';
+      case 'month':
+        return 'This Month';
+      case 'all':
+      default:
+        return 'All Time';
+    }
+  };
 
   const getBadge = (boost: number) => {
     if (boost >= 800) return { label: "🔥 Viral King", color: "bg-orange-500/20 text-orange-400" };
@@ -68,16 +81,66 @@ const Leaderboard = () => {
           </div>
 
           <div className="flex gap-1 sm:gap-2 flex-wrap">
-            {(["all", "month", "week", "7days"] as const).map(filter => (
+            {(["all", "month", "week"] as const).map(filter => (
               <button 
                 key={filter} 
                 onClick={() => setTimeFilter(filter)} 
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded text-[10px] sm:text-xs lg:text-sm font-medium transition-colors flex items-center gap-0.5 sm:gap-1 ${timeFilter === filter ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {filter === "7days" ? "7 Days" : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                {filter === "week" ? "7 Days" : filter.charAt(0).toUpperCase() + filter.slice(1)}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Summary Stats Banner */}
+        <div className="glass-card p-3 sm:p-4 mb-4 border border-accent/20 bg-accent/5">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-accent" />
+            <span className="text-sm font-semibold text-foreground">{getTimeFilterLabel(timeFilter)} Stats</span>
+          </div>
+          {activeTab === "yappers" ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-blue-400">
+                  <FileText className="h-4 w-4" />
+                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalPosts.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Qualified Posts</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-purple-400">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalEngagement.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Engagement</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-green-400">
+                  <Zap className="h-4 w-4" />
+                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalArxP.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">ARX-P Earned</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-green-400">
+                  <Zap className="h-4 w-4" />
+                  <span className="text-lg sm:text-xl font-bold">{minerTotals.totalPoints.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Points Earned</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-blue-400">
+                  <Users className="h-4 w-4" />
+                  <span className="text-lg sm:text-xl font-bold">{minerTotals.totalMiners.toLocaleString()}</span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Active Miners</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2 sm:space-y-3">

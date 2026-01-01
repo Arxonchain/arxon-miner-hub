@@ -20,8 +20,15 @@ interface YapperEntry {
   social_points: number;
 }
 
+interface YapperTotals {
+  totalPosts: number;
+  totalEngagement: number;
+  totalArxP: number;
+}
+
 export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
   const [yappers, setYappers] = useState<YapperEntry[]>([]);
+  const [totals, setTotals] = useState<YapperTotals>({ totalPosts: 0, totalEngagement: 0, totalArxP: 0 });
   const [loading, setLoading] = useState(true);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -67,9 +74,29 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
 
       if (!xProfiles || xProfiles.length === 0) {
         setYappers([]);
+        setTotals({ totalPosts: 0, totalEngagement: 0, totalArxP: 0 });
         setLoading(false);
         return;
       }
+
+      // Fetch x_post_rewards for accurate time-filtered totals
+      let rewardsQuery = supabase
+        .from('x_post_rewards')
+        .select('total_engagement, arx_p_reward, tweet_created_at');
+      
+      if (startDate) {
+        rewardsQuery = rewardsQuery.gte('tweet_created_at', startDate.toISOString());
+      }
+
+      const { data: rewards } = await rewardsQuery;
+
+      // Calculate totals from rewards
+      const periodTotals = {
+        totalPosts: rewards?.length || 0,
+        totalEngagement: rewards?.reduce((sum, r) => sum + (r.total_engagement || 0), 0) || 0,
+        totalArxP: rewards?.reduce((sum, r) => sum + Number(r.arx_p_reward || 0), 0) || 0,
+      };
+      setTotals(periodTotals);
 
       // Get user IDs from x_profiles
       const userIds = xProfiles.map(p => p.user_id);
@@ -180,6 +207,7 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
 
   return {
     yappers,
+    totals,
     loading,
     refreshLeaderboard: fetchLeaderboard,
   };
