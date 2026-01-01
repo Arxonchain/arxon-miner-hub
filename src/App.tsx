@@ -4,8 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
-import Dashboard from "./pages/Dashboard";
 import Leaderboard from "./pages/Leaderboard";
 import Claim from "./pages/Claim";
 import Referrals from "./pages/Referrals";
@@ -36,8 +36,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+            {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
+            <Route path="/" element={<Index />} />
             <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
             <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
             <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
