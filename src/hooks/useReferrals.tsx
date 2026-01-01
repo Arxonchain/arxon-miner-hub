@@ -128,6 +128,30 @@ export const useReferrals = (user: User | null) => {
       return { success: false, error: 'Failed to apply referral code' };
     }
 
+    // Award the referrer +5% boost (capped at 50% total) and 100 ARX-P
+    const { data: referrerPoints } = await supabase
+      .from('user_points')
+      .select('referral_bonus_percentage, referral_points, total_points')
+      .eq('user_id', referrerProfile.user_id)
+      .single();
+
+    if (referrerPoints) {
+      const currentBoost = referrerPoints.referral_bonus_percentage || 0;
+      const newBoost = Math.min(currentBoost + 5, 50); // Cap at 50%
+      const newReferralPoints = (referrerPoints.referral_points || 0) + 100;
+      const newTotalPoints = (referrerPoints.total_points || 0) + 100;
+
+      await supabase
+        .from('user_points')
+        .update({
+          referral_bonus_percentage: newBoost,
+          referral_points: newReferralPoints,
+          total_points: newTotalPoints,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', referrerProfile.user_id);
+    }
+
     return { success: true };
   };
 
