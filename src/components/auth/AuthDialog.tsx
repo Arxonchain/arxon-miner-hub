@@ -12,7 +12,7 @@ import { validatePassword } from "@/lib/passwordValidation";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
 // reCAPTCHA configuration
-const RECAPTCHA_SITE_KEY = "6LfypzosAAAAABp_534W20pZyWRCzsRFD0CN62fd";
+const RECAPTCHA_SITE_KEY = "6Let5DwsAAAAAE_wALyFUT98IrbfJvL6YGBQjtKX";
 const CAPTCHA_ENABLED = true;
 
 interface AuthDialogProps {
