@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Users, Zap, TrendingUp, Flame, FileText, MessageSquare, Pickaxe, CheckSquare, Share2, UserPlus } from "lucide-react";
+import { Clock, Zap, TrendingUp, Flame } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
@@ -95,55 +95,6 @@ const Leaderboard = () => {
           </div>
         </div>
 
-        {/* Global Stats Banner */}
-        <div className="glass-card p-3 sm:p-4 mb-4 border border-accent/20 bg-accent/5">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-accent" />
-            <span className="text-sm font-semibold text-foreground">{getTimeFilterLabel(timeFilter)} Community Stats</span>
-          </div>
-          {activeTab === "yappers" ? (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-blue-400">
-                  <FileText className="h-4 w-4" />
-                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalPosts.toLocaleString()}</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Posts</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-purple-400">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalEngagement.toLocaleString()}</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Engagement</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-green-400">
-                  <Zap className="h-4 w-4" />
-                  <span className="text-lg sm:text-xl font-bold">{yapperTotals.totalArxP.toLocaleString()}</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">ARX-P Earned</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-green-400">
-                  <Zap className="h-4 w-4" />
-                  <span className="text-lg sm:text-xl font-bold">{minerTotals.totalPoints.toLocaleString()}</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Total Points</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-blue-400">
-                  <Users className="h-4 w-4" />
-                  <span className="text-lg sm:text-xl font-bold">{minerTotals.totalMiners.toLocaleString()}</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Active Miners</p>
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="space-y-2 sm:space-y-3">
           {activeTab === "yappers" ? (
@@ -187,11 +138,7 @@ const Leaderboard = () => {
                               <Flame className="h-3.5 w-3.5 text-orange-400" />
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-muted-foreground text-xs mt-0.5">
-                            <span>{yapper.qualified_posts_today || 0} posts today</span>
-                            <span>•</span>
-                            <span>avg {yapper.average_engagement || 0} eng</span>
-                          </div>
+                        
                         </div>
                       </div>
                       <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
@@ -207,30 +154,6 @@ const Leaderboard = () => {
                             <span className="text-muted-foreground font-normal">boost</span>
                           </div>
                         )}
-                      </div>
-                    </div>
-                    {/* Per-user period stats */}
-                    <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <div className="flex items-center justify-center gap-1 text-blue-400">
-                          <FileText className="h-3 w-3" />
-                          <span className="text-sm font-semibold">{yapper.period_posts}</span>
-                        </div>
-                        <p className="text-[9px] sm:text-[10px] text-muted-foreground">Posts ({getTimeFilterLabel(timeFilter)})</p>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-center gap-1 text-purple-400">
-                          <MessageSquare className="h-3 w-3" />
-                          <span className="text-sm font-semibold">{yapper.period_engagement.toLocaleString()}</span>
-                        </div>
-                        <p className="text-[9px] sm:text-[10px] text-muted-foreground">Engagement</p>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-center gap-1 text-green-400">
-                          <Zap className="h-3 w-3" />
-                          <span className="text-sm font-semibold">{yapper.period_arx_p.toLocaleString()}</span>
-                        </div>
-                        <p className="text-[9px] sm:text-[10px] text-muted-foreground">ARX-P Earned</p>
                       </div>
                     </div>
                   </div>
@@ -278,42 +201,6 @@ const Leaderboard = () => {
                         <span className="text-foreground font-semibold">{user.total_points.toLocaleString()}</span> pts
                       </div>
                     </div>
-                  </div>
-                  {/* Per-user period stats */}
-                  <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-4 gap-2 text-center">
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-yellow-400">
-                        <Pickaxe className="h-3 w-3" />
-                        <span className="text-sm font-semibold">{user.period_mining}</span>
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground">Mining</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-blue-400">
-                        <CheckSquare className="h-3 w-3" />
-                        <span className="text-sm font-semibold">{user.period_tasks}</span>
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tasks</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-purple-400">
-                        <Share2 className="h-3 w-3" />
-                        <span className="text-sm font-semibold">{user.period_social}</span>
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground">Social</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-green-400">
-                        <UserPlus className="h-3 w-3" />
-                        <span className="text-sm font-semibold">{user.period_referral}</span>
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground">Referral</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-center">
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">
-                      <span className="text-accent font-semibold">{user.period_total.toLocaleString()}</span> pts earned ({getTimeFilterLabel(timeFilter)})
-                    </span>
                   </div>
                 </div>
               ))
