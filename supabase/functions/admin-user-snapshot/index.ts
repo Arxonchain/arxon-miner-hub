@@ -112,25 +112,23 @@ Deno.serve(async (req) => {
     const socialSubmissions = socialSubmissionsResult.data || []
     const referralsGiven = referralsGivenResult.data || []
 
-    // X scan boost (from x_profiles.boost_percentage)
+    // X scan boost (from x_profiles.boost_percentage - historical scan boost)
     const xScanBoost = xProfile?.boost_percentage || 0
 
-    // X post boost (claimed social submissions, each adds 50% = 5 ARX-P/HR boost)
+    // X post boost from user_points.x_post_boost_percentage (each approved social submission adds 5%)
+    // This is stored in the DB, not calculated from submissions count
+    const xPostBoost = points?.x_post_boost_percentage || 0
     const claimedXPosts = socialSubmissions.filter(s => s.status === 'approved' && s.points_awarded > 0).length
-    const xPostBoost = claimedXPosts * 50 // Each claimed post adds 50% to referral_bonus_percentage
 
-    // Referral boost (each referral adds 5%, capped at 50%)
-    const referralBoost = Math.min(referralsGiven.length * 5, 50)
+    // Referral boost from user_points.referral_bonus_percentage (each referral adds 5%, capped at 50%)
+    const referralBoost = points?.referral_bonus_percentage || 0
 
     // Arena boost (sum of active boosts)
     const arenaBoost = arenaBoosts.reduce((sum, b) => sum + (b.boost_percentage || 0), 0)
 
-    // Total boost stored in DB (referral_bonus_percentage includes referral + X post boosts)
-    const storedTotalBoost = points?.referral_bonus_percentage || 0
-
-    // Calculate effective mining rate
+    // Calculate effective mining rate using ALL boost sources
     const BASE_POINTS_PER_HOUR = 10
-    const totalBoostPercentage = storedTotalBoost + xScanBoost + arenaBoost
+    const totalBoostPercentage = referralBoost + xScanBoost + xPostBoost + arenaBoost
     const effectiveMiningRate = BASE_POINTS_PER_HOUR * (1 + totalBoostPercentage / 100)
 
     // Build unified snapshot
@@ -154,11 +152,10 @@ Deno.serve(async (req) => {
       // Boost breakdown
       boostBreakdown: {
         xScanBoost,           // From X profile scan (x_profiles.boost_percentage)
-        xPostBoost,           // From claimed X posts (each +50% stored in referral_bonus_percentage)
-        referralBoost,        // From referrals (each +5%, max 50%)
+        xPostBoost,           // From X post submissions (user_points.x_post_boost_percentage)
+        referralBoost,        // From referrals (user_points.referral_bonus_percentage)
         arenaBoost,           // From active arena boosts
-        storedTotalBoost,     // What's stored in user_points.referral_bonus_percentage
-        totalBoostPercentage, // Total effective boost
+        totalBoostPercentage, // Total effective boost (sum of all above)
         effectiveMiningRate,  // ARX-P per hour
         claimedXPostsCount: claimedXPosts,
         referralCount: referralsGiven.length,

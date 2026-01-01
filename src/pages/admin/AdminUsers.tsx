@@ -28,7 +28,6 @@ interface BoostBreakdown {
   xPostBoost: number;
   referralBoost: number;
   arenaBoost: number;
-  storedTotalBoost: number;
   totalBoostPercentage: number;
   effectiveMiningRate: number;
   claimedXPostsCount: number;
@@ -86,6 +85,7 @@ interface UserData {
   arena_votes: number;
   arena_power_spent: number;
   referral_bonus_percentage: number;
+  x_post_boost_percentage: number;
 }
 
 interface MiningSession {
@@ -246,6 +246,7 @@ const AdminUsers = () => {
           arena_votes: arena.votes,
           arena_power_spent: arena.power,
           referral_bonus_percentage: userPoints?.referral_bonus_percentage || 0,
+          x_post_boost_percentage: userPoints?.x_post_boost_percentage || 0,
         };
       });
 
@@ -496,7 +497,7 @@ const AdminUsers = () => {
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">Total Boost</p>
-                                <p className="font-medium text-yellow-400">+{(user.referral_bonus_percentage || 0) + (user.x_profile?.boost_percentage || 0)}%</p>
+                                <p className="font-medium text-yellow-400">+{(user.referral_bonus_percentage || 0) + (user.x_post_boost_percentage || 0) + (user.x_profile?.boost_percentage || 0)}%</p>
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs">Arena Votes</p>
