@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ReCAPTCHA from "react-google-recaptcha";
+import { validatePassword } from "@/lib/passwordValidation";
+import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
 // reCAPTCHA is currently disabled - set a valid site key to enable
 const RECAPTCHA_SITE_KEY = "";
@@ -180,6 +182,19 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password strength for signup
+    if (mode === "signup") {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        toast({
+          title: "Weak Password",
+          description: passwordValidation.errors[0],
+          variant: "destructive"
+        });
+        return;
+      }
+    }
     
     // Validate captcha for signup (only if enabled)
     if (mode === "signup" && CAPTCHA_ENABLED && !captchaToken) {
@@ -409,15 +424,17 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder={mode === "signup" ? "Create a strong password" : "Enter your password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 bg-secondary/50 border-border/50 focus:border-accent"
                     required
-                    minLength={6}
+                    minLength={mode === "signup" ? 12 : 6}
                     disabled={loading}
                   />
                 </div>
+                {/* Password strength meter for signup */}
+                {mode === "signup" && <PasswordStrengthMeter password={password} />}
               </div>
 
               {/* Forgot password link - only show on signin */}
