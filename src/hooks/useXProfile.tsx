@@ -283,6 +283,69 @@ export const useXProfile = () => {
     }
   }, [xProfile?.id]); // Only run when profile ID changes (not on every xProfile update)
 
+  // Real-time subscription for X profile changes
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for x_profiles');
+    
+    const channel = supabase
+      .channel('x-profile-changes-hook')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'x_profiles',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time X profile update in hook:', payload);
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setXProfile(payload.new as XProfile);
+          } else if (payload.eventType === 'DELETE') {
+            setXProfile(null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up x_profiles subscription in hook');
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Real-time subscription for X post rewards changes
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for x_post_rewards');
+    
+    const channel = supabase
+      .channel('x-post-rewards-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'x_post_rewards',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time X post rewards update:', payload);
+          // Refetch to get properly sorted data
+          fetchXProfile();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up x_post_rewards subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchXProfile]);
+
   // Calculate boosted rate
   const getBoostedRate = (baseRate: number) => {
     if (!xProfile) return baseRate;
