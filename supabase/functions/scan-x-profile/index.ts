@@ -376,7 +376,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update x_profile with historical totals
+      // Calculate average engagement from all historical qualified posts
+      let historicalTotalEngagement = 0
+      qualifiedHistoricalTweets.forEach(tweet => {
+        historicalTotalEngagement += 
+          tweet.public_metrics.like_count + 
+          tweet.public_metrics.retweet_count + 
+          tweet.public_metrics.reply_count +
+          tweet.public_metrics.quote_count
+      })
+      const historicalAvgEngagement = qualifiedHistoricalTweets.length > 0 
+        ? Math.round(historicalTotalEngagement / qualifiedHistoricalTweets.length) 
+        : 0
+      const historicalViralBonus = qualifiedHistoricalTweets.some(tweet => {
+        const eng = tweet.public_metrics.like_count + tweet.public_metrics.retweet_count + 
+                    tweet.public_metrics.reply_count + tweet.public_metrics.quote_count
+        return eng >= 500
+      })
+
+      // Update x_profile with historical totals including average engagement
       const { error: updateError } = await supabase
         .from('x_profiles')
         .update({
@@ -384,6 +402,8 @@ Deno.serve(async (req) => {
           historical_arx_p_total: historicalTotalArxP,
           historical_boost_total: historicalTotalBoost,
           historical_scanned: true,
+          average_engagement: historicalAvgEngagement,
+          viral_bonus: historicalViralBonus,
         })
         .eq('id', xProfile.id)
 
