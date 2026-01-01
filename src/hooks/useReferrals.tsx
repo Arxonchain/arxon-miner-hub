@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -27,7 +27,7 @@ export const useReferrals = (user: User | null) => {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchReferralCode = async () => {
+  const fetchReferralCode = useCallback(async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -39,9 +39,9 @@ export const useReferrals = (user: User | null) => {
     if (!error && data) {
       setReferralCode(data.referral_code);
     }
-  };
+  }, [user]);
 
-  const fetchReferrals = async () => {
+  const fetchReferrals = useCallback(async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -81,7 +81,7 @@ export const useReferrals = (user: User | null) => {
         totalEarnings
       });
     }
-  };
+  }, [user]);
 
   const applyReferralCode = async (code: string): Promise<{ success: boolean; error?: string }> => {
     if (!user) {
@@ -155,6 +155,7 @@ export const useReferrals = (user: User | null) => {
     return { success: true };
   };
 
+  // Initial fetch
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -167,7 +168,37 @@ export const useReferrals = (user: User | null) => {
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchReferralCode, fetchReferrals]);
+
+  // Real-time subscription for referrals (when someone uses your code)
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for referrals');
+    
+    const channel = supabase
+      .channel('referrals-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'referrals',
+          filter: `referrer_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Real-time referral insert:', payload);
+          // Refetch referrals to get updated data with usernames
+          fetchReferrals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up referrals subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchReferrals]);
 
   const getReferralLink = () => {
     if (!referralCode) return '';
