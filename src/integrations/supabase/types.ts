@@ -517,6 +517,7 @@ export type Database = {
           total_points: number
           updated_at: string
           user_id: string
+          x_post_boost_percentage: number
         }
         Insert: {
           created_at?: string
@@ -531,6 +532,7 @@ export type Database = {
           total_points?: number
           updated_at?: string
           user_id: string
+          x_post_boost_percentage?: number
         }
         Update: {
           created_at?: string
@@ -545,6 +547,7 @@ export type Database = {
           total_points?: number
           updated_at?: string
           user_id?: string
+          x_post_boost_percentage?: number
         }
         Relationships: []
       }
