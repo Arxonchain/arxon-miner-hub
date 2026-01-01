@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { Power, Megaphone, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const AdminControls = () => {
+const AdminControls = forwardRef<HTMLDivElement>((_, ref) => {
   const [settings, setSettings] = useState({
     publicMiningEnabled: true,
     claimingEnabled: false,
@@ -151,7 +151,7 @@ const AdminControls = () => {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div ref={ref} className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-foreground">Mining Controls</h1>
@@ -242,6 +242,8 @@ const AdminControls = () => {
       </div>
     </div>
   );
-};
+});
+
+AdminControls.displayName = "AdminControls";
 
 export default AdminControls;

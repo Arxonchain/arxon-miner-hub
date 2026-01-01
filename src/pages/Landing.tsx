@@ -127,16 +127,16 @@ const Landing = () => {
               style={{ animation: 'fade-in 0.6s ease-out 0.4s backwards' }}
             >
               <div className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-accent">10K+</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Active Miners</p>
+                <p className="text-2xl sm:text-3xl font-bold text-accent">10</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">ARX-P/Hour</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-accent">50M+</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">ARX-P Mined</p>
+                <p className="text-2xl sm:text-3xl font-bold text-accent">8hr</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Max Session</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-accent">24/7</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Mining Active</p>
+                <p className="text-2xl sm:text-3xl font-bold text-accent">5%</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Referral Boost</p>
               </div>
             </div>
           </div>
@@ -318,7 +318,7 @@ const Landing = () => {
                 <span className="text-lg font-bold text-foreground">ARXON</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                © 2024 ARXON. All rights reserved.
+                © {new Date().getFullYear()} ARXON. All rights reserved.
               </p>
             </div>
           </div>
