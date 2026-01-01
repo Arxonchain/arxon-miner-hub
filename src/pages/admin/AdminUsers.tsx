@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -445,9 +445,8 @@ const AdminUsers = () => {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <>
+                    <React.Fragment key={user.user_id}>
                       <tr 
-                        key={user.user_id} 
                         className="border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer"
                         onClick={() => toggleRow(user.user_id)}
                       >
@@ -506,7 +505,7 @@ const AdminUsers = () => {
                       </tr>
                       {/* Expanded Row Details */}
                       {expandedRows.has(user.user_id) && (
-                        <tr key={`${user.user_id}-expanded`}>
+                        <tr>
                           <td colSpan={7} className="bg-muted/10 px-4 py-3 border-b border-border/50">
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
                               <div>
@@ -561,7 +560,7 @@ const AdminUsers = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
