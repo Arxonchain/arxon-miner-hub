@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastAutoXSyncUserId = useRef<string | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -37,6 +38,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Auto-sync X rewards/boosts on login (no URL submission required)
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    if (lastAutoXSyncUserId.current === userId) return;
+    lastAutoXSyncUserId.current = userId;
+
+    (async () => {
+      try {
+        const { data: xProfile } = await supabase
+          .from('x_profiles')
+          .select('username, profile_url, last_scanned_at, historical_scanned')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!xProfile?.username) return;
+
+        const last = xProfile.last_scanned_at ? new Date(xProfile.last_scanned_at).getTime() : 0;
+        const shouldRefresh = !last || Date.now() - last > 60 * 60 * 1000; // 1h throttle
+        if (!shouldRefresh) return;
+
+        await supabase.functions.invoke('scan-x-profile', {
+          body: {
+            username: xProfile.username,
+            profileUrl: xProfile.profile_url,
+            isInitialConnect: false,
+            forceHistorical: !xProfile.historical_scanned,
+          },
+        });
+      } catch (e) {
+        console.warn('Auto X sync failed:', e);
+      }
+    })();
+  }, [session?.user?.id]);
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
