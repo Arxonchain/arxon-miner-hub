@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Shield } from "lucide-react";
+import { validatePassword } from "@/lib/passwordValidation";
+import PasswordStrengthMeter from "@/components/auth/PasswordStrengthMeter";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -18,6 +20,20 @@ const AdminLogin = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate password strength for signup
+    if (isSignUp) {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        toast({
+          title: "Weak Password",
+          description: passwordValidation.errors[0],
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -134,11 +150,11 @@ const AdminLogin = () => {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder={isSignUp ? "Create a strong password" : "••••••••"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={isSignUp ? 12 : 6}
                   className="bg-muted/50 pr-10"
                 />
                 <button
@@ -149,6 +165,8 @@ const AdminLogin = () => {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {/* Password strength meter for signup */}
+              {isSignUp && <PasswordStrengthMeter password={password} />}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
