@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Power, Coins, RefreshCw, Megaphone, AlertTriangle, Swords } from "lucide-react";
+import { Power, Megaphone, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -12,8 +12,6 @@ const AdminControls = () => {
   const [settings, setSettings] = useState({
     publicMiningEnabled: true,
     claimingEnabled: false,
-    blockReward: 1000,
-    consensusMode: "PoW" as "PoW" | "PoS",
     arenaPublicAccess: false,
   });
   const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -38,8 +36,6 @@ const AdminControls = () => {
         setSettings({
           publicMiningEnabled: data.public_mining_enabled,
           claimingEnabled: data.claiming_enabled,
-          blockReward: data.block_reward,
-          consensusMode: data.consensus_mode as "PoW" | "PoS",
           arenaPublicAccess: (data as any).arena_public_access ?? false,
         });
       }
@@ -55,8 +51,6 @@ const AdminControls = () => {
       const columnMap: Record<string, string> = {
         publicMiningEnabled: "public_mining_enabled",
         claimingEnabled: "claiming_enabled",
-        blockReward: "block_reward",
-        consensusMode: "consensus_mode",
         arenaPublicAccess: "arena_public_access",
       };
 
@@ -106,8 +100,6 @@ const AdminControls = () => {
       const friendlyNames: Record<string, string> = {
         publicMiningEnabled: "Public Mining",
         claimingEnabled: "$ARX Token Claiming",
-        blockReward: "Block Reward",
-        consensusMode: "Consensus Mode",
         arenaPublicAccess: "Arena Public Access",
       };
       
@@ -175,7 +167,7 @@ const AdminControls = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
         {/* Toggle Controls */}
         <div className="glass-card p-4 md:p-6 space-y-4 md:space-y-6">
           <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
@@ -221,90 +213,6 @@ const AdminControls = () => {
                 checked={settings.arenaPublicAccess}
                 onCheckedChange={(checked) => updateSetting("arenaPublicAccess", checked)}
               />
-            </div>
-
-            {/* Consensus Mode */}
-            <div className="p-3 md:p-4 bg-muted/30 rounded-lg space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm md:text-base text-foreground">Consensus Mode</p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Switch between PoW and PoS</p>
-                </div>
-                <span className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium shrink-0 ${
-                  settings.consensusMode === "PoW" 
-                    ? "bg-primary/10 text-primary" 
-                    : "bg-accent/10 text-accent"
-                }`}>
-                  {settings.consensusMode}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={settings.consensusMode === "PoW" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => updateSetting("consensusMode", "PoW")}
-                  className="flex-1 text-xs md:text-sm"
-                >
-                  Proof of Work
-                </Button>
-                <Button
-                  variant={settings.consensusMode === "PoS" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => updateSetting("consensusMode", "PoS")}
-                  className="flex-1 text-xs md:text-sm"
-                >
-                  Proof of Stake
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Block Reward */}
-        <div className="glass-card p-4 md:p-6 space-y-4 md:space-y-6">
-          <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
-            <Coins className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-            Mining Reward Settings
-          </h3>
-
-          <div className="space-y-3 md:space-y-4">
-            <div className="p-3 md:p-4 bg-muted/30 rounded-lg space-y-3 md:space-y-4">
-              <div>
-                <Label htmlFor="blockReward" className="text-sm md:text-base">Block Reward (ARX-P)</Label>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    id="blockReward"
-                    type="number"
-                    value={settings.blockReward}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, blockReward: parseInt(e.target.value) || 0 }))}
-                    className="bg-background text-sm"
-                  />
-                  <Button onClick={() => updateSetting("blockReward", settings.blockReward)} size="sm">
-                    Update
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2 p-2 md:p-3 bg-yellow-500/10 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-yellow-500">
-                  Changing block rewards affects all active miners immediately.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {[500, 750, 1000].map((value) => (
-                <Button
-                  key={value}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => updateSetting("blockReward", value)}
-                  className={`text-xs md:text-sm ${settings.blockReward === value ? "border-primary" : ""}`}
-                >
-                  {value} ARX-P
-                </Button>
-              ))}
             </div>
           </div>
         </div>
