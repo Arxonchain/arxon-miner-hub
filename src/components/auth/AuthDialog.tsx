@@ -11,9 +11,9 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { validatePassword } from "@/lib/passwordValidation";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
-// reCAPTCHA is currently disabled - set a valid site key to enable
-const RECAPTCHA_SITE_KEY = "";
-const CAPTCHA_ENABLED = false;
+// reCAPTCHA configuration
+const RECAPTCHA_SITE_KEY = "6LfypzosAAAAABp_534W20pZyWRCzsRFD0CN62fd";
+const CAPTCHA_ENABLED = true;
 
 interface AuthDialogProps {
   open: boolean;
