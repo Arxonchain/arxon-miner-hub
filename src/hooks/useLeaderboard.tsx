@@ -13,8 +13,14 @@ interface LeaderboardEntry {
 
 export type TimeFilter = 'all' | 'month' | 'week' | '7days';
 
+interface LeaderboardTotals {
+  totalPoints: number;
+  totalMiners: number;
+}
+
 export const useLeaderboard = (limit: number = 100, timeFilter: TimeFilter = 'all') => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [totals, setTotals] = useState<LeaderboardTotals>({ totalPoints: 0, totalMiners: 0 });
   const [loading, setLoading] = useState(true);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -62,9 +68,17 @@ export const useLeaderboard = (limit: number = 100, timeFilter: TimeFilter = 'al
 
       if (!pointsData || pointsData.length === 0) {
         setLeaderboard([]);
+        setTotals({ totalPoints: 0, totalMiners: 0 });
         setLoading(false);
         return;
       }
+
+      // Calculate totals for the period
+      const periodTotals = {
+        totalPoints: pointsData.reduce((sum, p) => sum + Number(p.total_points || 0), 0),
+        totalMiners: pointsData.length,
+      };
+      setTotals(periodTotals);
 
       // Fetch profiles for usernames and avatars
       const userIds = pointsData.map(p => p.user_id);
@@ -124,5 +138,5 @@ export const useLeaderboard = (limit: number = 100, timeFilter: TimeFilter = 'al
     };
   }, [fetchLeaderboard]);
 
-  return { leaderboard, loading, refreshLeaderboard: fetchLeaderboard };
+  return { leaderboard, totals, loading, refreshLeaderboard: fetchLeaderboard };
 };
