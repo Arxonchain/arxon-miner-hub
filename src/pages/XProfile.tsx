@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const XProfilePage = () => {
   const { user } = useAuth();
-  const { pointsPerHour, totalBoostPercentage } = useMining();
+  const { pointsPerHour, totalBoostPercentage, referralBonus, xProfileBoost } = useMining();
   const { 
     xProfile, 
     postRewards,
@@ -164,31 +164,46 @@ const XProfilePage = () => {
             </div>
           </div>
 
-          {/* Boost Stats */}
+          {/* Boost Stats with Breakdown */}
           <div className="glass-card p-3 sm:p-4 md:p-6 border-yellow-500/30 bg-yellow-500/5">
             <div className="flex items-center gap-2 mb-3">
               <Zap className="h-5 w-5 text-yellow-400" />
-              <h3 className="font-medium text-sm sm:text-base text-foreground">Your Boost Stats</h3>
+              <h3 className="font-medium text-sm sm:text-base text-foreground">Your Boost Breakdown</h3>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                <p className="text-xl sm:text-2xl font-bold text-yellow-400">{xProfile.boost_percentage}%</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Current Boost</p>
+            {/* Boost Sources */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="text-center p-2 sm:p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <p className="text-xl sm:text-2xl font-bold text-blue-400">{xProfile.boost_percentage}%</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">X Scan Boost</p>
               </div>
-              <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                <p className="text-xl sm:text-2xl font-bold text-foreground">{xProfile.qualified_posts_today}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Posts Today</p>
+              <div className="text-center p-2 sm:p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                <p className="text-xl sm:text-2xl font-bold text-purple-400">{Math.max(0, (totalBoostPercentage - xProfile.boost_percentage) - referralBonus)}%</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">X Post Boost</p>
               </div>
-              <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                <p className="text-xl sm:text-2xl font-bold text-foreground">{xProfile.average_engagement}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Avg Engagement</p>
+              <div className="text-center p-2 sm:p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                <p className="text-xl sm:text-2xl font-bold text-green-400">{referralBonus}%</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Referral Boost</p>
               </div>
-              <div className="text-center p-2 sm:p-3 bg-background/50 rounded-lg">
-                <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {xProfile.viral_bonus ? '🔥' : '—'}
-                </p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Viral Bonus</p>
+              <div className="text-center p-2 sm:p-3 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                <p className="text-xl sm:text-2xl font-bold text-yellow-400">{totalBoostPercentage}%</p>
+                <p className="text-[10px] sm:text-xs text-yellow-400 font-medium">TOTAL BOOST</p>
+              </div>
+            </div>
+            
+            {/* X Profile Quick Stats */}
+            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border/50">
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{xProfile.qualified_posts_today}</p>
+                <p className="text-[10px] text-muted-foreground">Posts Today</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{xProfile.average_engagement}</p>
+                <p className="text-[10px] text-muted-foreground">Avg Engagement</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{xProfile.viral_bonus ? '🔥' : '—'}</p>
+                <p className="text-[10px] text-muted-foreground">Viral Bonus</p>
               </div>
             </div>
 
