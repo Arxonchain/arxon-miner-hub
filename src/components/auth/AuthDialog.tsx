@@ -271,7 +271,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent className="sm:max-w-md border-border/50 bg-card/95 backdrop-blur-xl overflow-hidden p-0">
         <DialogDescription className="sr-only">
           Sign in or create an account to access ARXON mining features
