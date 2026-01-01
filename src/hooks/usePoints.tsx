@@ -13,7 +13,8 @@ interface UserPoints {
   task_points: number;
   social_points: number;
   referral_points: number;
-  referral_bonus_percentage: number;
+  referral_bonus_percentage: number; // Boost from referrals only
+  x_post_boost_percentage: number;   // Boost from X post submissions (social yapping)
 }
 
 export const usePoints = () => {

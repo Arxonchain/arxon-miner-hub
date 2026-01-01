@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const XProfilePage = () => {
   const { user } = useAuth();
-  const { pointsPerHour, totalBoostPercentage, referralBonus, xProfileBoost } = useMining();
+  const { pointsPerHour, totalBoostPercentage, referralBonus, xProfileBoost, xPostBoost, totalArenaBoost } = useMining();
   const { 
     xProfile, 
     postRewards,
@@ -172,20 +172,24 @@ const XProfilePage = () => {
             </div>
             
             {/* Boost Sources */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
               <div className="text-center p-2 sm:p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <p className="text-xl sm:text-2xl font-bold text-blue-400">{xProfile.boost_percentage}%</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-400">{xProfileBoost}%</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">X Scan Boost</p>
               </div>
               <div className="text-center p-2 sm:p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                <p className="text-xl sm:text-2xl font-bold text-purple-400">{Math.max(0, (totalBoostPercentage - xProfile.boost_percentage) - referralBonus)}%</p>
+                <p className="text-xl sm:text-2xl font-bold text-purple-400">{xPostBoost}%</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">X Post Boost</p>
               </div>
               <div className="text-center p-2 sm:p-3 bg-green-500/10 rounded-lg border border-green-500/20">
                 <p className="text-xl sm:text-2xl font-bold text-green-400">{referralBonus}%</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">Referral Boost</p>
               </div>
-              <div className="text-center p-2 sm:p-3 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+              <div className="text-center p-2 sm:p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                <p className="text-xl sm:text-2xl font-bold text-orange-400">{totalArenaBoost}%</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Arena Boost</p>
+              </div>
+              <div className="text-center p-2 sm:p-3 bg-yellow-500/20 rounded-lg border border-yellow-500/30 col-span-2 sm:col-span-1">
                 <p className="text-xl sm:text-2xl font-bold text-yellow-400">{totalBoostPercentage}%</p>
                 <p className="text-[10px] sm:text-xs text-yellow-400 font-medium">TOTAL BOOST</p>
               </div>

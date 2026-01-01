@@ -83,10 +83,16 @@ export const useMining = () => {
     }
   }, [user]);
 
-  // Calculate all boost sources
-  const referralBonus = points?.referral_bonus_percentage || 0; // Includes social task boosts
+  // Calculate all boost sources separately
+  const referralBonus = points?.referral_bonus_percentage || 0; // Only from referrals
+  const xPostBoost = (points as any)?.x_post_boost_percentage || 0; // From X social submissions
   const totalArenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
-  const totalBoostPercentage = referralBonus + xProfileBoost + totalArenaBoost;
+  
+  // X profile scan boost is tracked separately in x_profiles table
+  // xProfileBoost comes from the scan-x-profile edge function
+  
+  // Total boost = referral + X scan + X posts + arena
+  const totalBoostPercentage = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost;
   
   // Calculate effective points per hour with ALL boosts
   const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + totalBoostPercentage / 100);
@@ -99,12 +105,13 @@ export const useMining = () => {
     console.log('Mining rate updated:', { 
       referralBonus, 
       xProfileBoost, 
+      xPostBoost,
       totalArenaBoost, 
       totalBoostPercentage,
       pointsPerHour, 
       pointsPerSecond 
     });
-  }, [referralBonus, xProfileBoost, totalArenaBoost, totalBoostPercentage, pointsPerHour, pointsPerSecond]);
+  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, totalBoostPercentage, pointsPerHour, pointsPerSecond]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -569,8 +576,9 @@ export const useMining = () => {
     claimPoints,
     formatTime,
     // Boost breakdown for UI display
-    referralBonus,
-    xProfileBoost,
+    referralBonus,       // From referrals only
+    xProfileBoost,       // From X profile scan (hashtag posts)
+    xPostBoost,          // From X post submissions (social yapping)
     totalArenaBoost,
     totalBoostPercentage,
     // Unified rate
