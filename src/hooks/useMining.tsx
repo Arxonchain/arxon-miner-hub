@@ -149,34 +149,52 @@ export const useMining = () => {
     }
 
     try {
-      const { data, error } = await supabase
+      // Fetch ALL active sessions for this user, order by most recent
+      const { data: sessions, error } = await supabase
         .from('mining_sessions')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .maybeSingle();
+        .order('started_at', { ascending: false });
 
       if (error) throw error;
 
-      if (data) {
-        const startTime = new Date(data.started_at).getTime();
+      if (sessions && sessions.length > 0) {
+        // Use the most recent session
+        const latestSession = sessions[0];
+        
+        // Close any duplicate sessions (should only have one active)
+        if (sessions.length > 1) {
+          console.log(`Found ${sessions.length} active sessions, closing duplicates...`);
+          const duplicateIds = sessions.slice(1).map(s => s.id);
+          await supabase
+            .from('mining_sessions')
+            .update({ is_active: false, ended_at: new Date().toISOString() })
+            .in('id', duplicateIds);
+        }
+        
+        const startTime = new Date(latestSession.started_at).getTime();
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         
         if (elapsed >= maxTimeSeconds) {
-          // Session expired, end it - use BASE_POINTS_PER_HOUR for consistency
-          await endSession(data.id, data.arx_mined);
+          // Session expired, end it
+          await endSession(latestSession.id, latestSession.arx_mined);
         } else {
-          // Resume session - use arx_mined from DB as base, then calculate additional
-          // This ensures session persists correctly across navigation
-          const dbPoints = data.arx_mined || 0;
-          setSessionId(data.id);
+          // Resume session - use arx_mined from DB to ensure points persist across navigation
+          const dbPoints = latestSession.arx_mined || 0;
+          setSessionId(latestSession.id);
           setIsMining(true);
           setElapsedTime(elapsed);
-          // Use stored points from DB to ensure consistency
           setEarnedPoints(dbPoints);
           lastDbPointsRef.current = Math.floor(dbPoints);
           sessionStartTimeRef.current = startTime;
-          console.log('Resumed mining session:', { sessionId: data.id, elapsed, dbPoints, startTime });
+          console.log('Resumed mining session:', { 
+            sessionId: latestSession.id, 
+            elapsed, 
+            dbPoints, 
+            startTime,
+            closedDuplicates: sessions.length - 1 
+          });
         }
       }
     } catch (error) {
@@ -226,6 +244,14 @@ export const useMining = () => {
     }
 
     try {
+      // First, close any existing active sessions for this user (prevent duplicates)
+      await supabase
+        .from('mining_sessions')
+        .update({ is_active: false, ended_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      // Now create a fresh session
       const { data, error } = await supabase
         .from('mining_sessions')
         .insert({
