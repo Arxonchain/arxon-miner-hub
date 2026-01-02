@@ -163,17 +163,20 @@ export const useMining = () => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         
         if (elapsed >= maxTimeSeconds) {
-          // Session expired, end it
+          // Session expired, end it - use BASE_POINTS_PER_HOUR for consistency
           await endSession(data.id, data.arx_mined);
         } else {
-          // Resume session - calculate fractional points based on elapsed time
-          const fractionalPoints = (elapsed / 3600) * pointsPerHour;
+          // Resume session - use arx_mined from DB as base, then calculate additional
+          // This ensures session persists correctly across navigation
+          const dbPoints = data.arx_mined || 0;
           setSessionId(data.id);
           setIsMining(true);
           setElapsedTime(elapsed);
-          setEarnedPoints(fractionalPoints);
-          lastDbPointsRef.current = Math.floor(fractionalPoints);
+          // Use stored points from DB to ensure consistency
+          setEarnedPoints(dbPoints);
+          lastDbPointsRef.current = Math.floor(dbPoints);
           sessionStartTimeRef.current = startTime;
+          console.log('Resumed mining session:', { sessionId: data.id, elapsed, dbPoints, startTime });
         }
       }
     } catch (error) {

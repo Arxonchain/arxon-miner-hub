@@ -80,7 +80,7 @@ export const usePoints = () => {
   }, [user]);
 
   const addPoints = useCallback(async (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => {
-    if (!user || !points) return;
+    if (!user) return;
 
     const columnMap = {
       mining: 'mining_points',
@@ -90,8 +90,24 @@ export const usePoints = () => {
     };
 
     const column = columnMap[type];
-    const newTotal = points.total_points + amount;
-    const newTypePoints = (points as any)[column] + amount;
+
+    // Use atomic operation: always fetch current values from DB to prevent race conditions
+    // This fixes the issue where claiming from multiple devices causes balance decreases
+    const { data: currentData, error: fetchError } = await supabase
+      .from('user_points')
+      .select('total_points, mining_points, task_points, social_points, referral_points')
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !currentData) {
+      console.error('Error fetching current points for atomic update:', fetchError);
+      return;
+    }
+
+    const currentTotal = currentData.total_points;
+    const currentTypePoints = (currentData as any)[column];
+    const newTotal = currentTotal + amount;
+    const newTypePoints = currentTypePoints + amount;
 
     const { error } = await supabase
       .from('user_points')
@@ -115,7 +131,7 @@ export const usePoints = () => {
         triggerConfetti();
       }
     }
-  }, [user, points]);
+  }, [user]);
 
   // Initial fetch
   useEffect(() => {
