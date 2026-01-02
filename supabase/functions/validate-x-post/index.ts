@@ -199,53 +199,81 @@ Deno.serve(async (req) => {
           
           console.log('Tweet content fetched and ownership verified:', tweetText);
         } else {
-          console.error('Twitter API error:', await tweetResponse.text());
+          const errorText = await tweetResponse.text();
+          console.error('Twitter API error:', errorText);
+          
+          // Check if rate limited - if so, we'll trust URL ownership verification
+          if (tweetResponse.status === 429) {
+            console.log('Twitter API rate limited, trusting URL ownership verification');
+          }
         }
       } catch (error) {
         console.error('Error fetching tweet:', error);
       }
     }
 
-    // If we couldn't fetch the tweet, check the URL itself for hints
-    const textToCheck = fetchSuccess ? tweetText.toLowerCase() : postUrl.toLowerCase();
-
-    // Check if the content contains any required terms
-    const hasRequiredTerm = REQUIRED_TERMS.some(term => 
-      textToCheck.includes(term.toLowerCase())
-    );
-
-    if (hasRequiredTerm) {
-      // Qualified - update submission as approved
-      await supabase
-        .from('social_submissions')
-        .update({ status: 'approved' })
-        .eq('id', submissionId);
-
-      return new Response(
-        JSON.stringify({ 
-          qualified: true, 
-          message: 'Post qualifies for ARXON rewards!',
-          verified: fetchSuccess,
-          ownershipVerified: true
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // If we successfully fetched tweet content, verify it contains required terms
+    if (fetchSuccess && tweetText) {
+      const textToCheck = tweetText.toLowerCase();
+      const hasRequiredTerm = REQUIRED_TERMS.some(term => 
+        textToCheck.includes(term.toLowerCase())
       );
-    } else {
-      // Not qualified - update submission as rejected
-      await supabase
-        .from('social_submissions')
-        .update({ status: 'rejected' })
-        .eq('id', submissionId);
 
-      return new Response(
-        JSON.stringify({ 
-          qualified: false, 
-          reason: 'Post must mention @arxonarx, #arxon, #arxonmining, or #arxonchain to qualify for rewards',
-          verified: fetchSuccess
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (hasRequiredTerm) {
+        // Qualified - update submission as approved
+        await supabase
+          .from('social_submissions')
+          .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+          .eq('id', submissionId);
+
+        console.log('Post approved with verified content containing keywords');
+        return new Response(
+          JSON.stringify({ 
+            qualified: true, 
+            message: 'Post qualifies for ARXON rewards!',
+            verified: true,
+            ownershipVerified: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Content verified but no keywords found
+        await supabase
+          .from('social_submissions')
+          .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+          .eq('id', submissionId);
+
+        console.log('Post rejected - no required keywords found in verified content');
+        return new Response(
+          JSON.stringify({ 
+            qualified: false, 
+            reason: 'Post must mention @arxonarx, #arxon, #arxonmining, or #arxonchain to qualify for rewards',
+            verified: true
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
+
+    // FALLBACK: If we couldn't fetch tweet content (rate limited, no token, etc.)
+    // But we verified URL ownership matches connected account - APPROVE with trust
+    // This prevents rejections due to API rate limits
+    console.log(`Approving post with URL ownership verification only (API unavailable). User: @${connectedUsername}`);
+    
+    await supabase
+      .from('social_submissions')
+      .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+      .eq('id', submissionId);
+
+    return new Response(
+      JSON.stringify({ 
+        qualified: true, 
+        message: 'Post approved! Ownership verified.',
+        verified: false,
+        ownershipVerified: true
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Error validating post:', error);
