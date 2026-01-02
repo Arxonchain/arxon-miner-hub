@@ -149,7 +149,7 @@ const Landing = () => {
               Why Mine with ARXON?
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              The easiest way to earn crypto rewards without expensive hardware
+              The easiest way to earn $ARX rewards without expensive hardware
             </p>
           </div>
 

@@ -15,10 +15,24 @@ const REQUIRED_TERMS = [
 ];
 
 // Extract username from X/Twitter URL
+// Returns null for special paths like /i/status which don't contain the real username
 const extractUsernameFromUrl = (url: string): string | null => {
   // Pattern: https://x.com/username/status/... or https://twitter.com/username/status/...
   const match = url.match(/(?:x\.com|twitter\.com)\/([^\/]+)\/status/i);
-  return match ? match[1].toLowerCase() : null;
+  if (!match) return null;
+  
+  const username = match[1].toLowerCase();
+  
+  // Handle special X paths that don't contain actual usernames:
+  // - /i/status/... (logged-in user view, no username in URL)
+  // - /intent/... (intent links)
+  // - /share/... (share links)
+  const specialPaths = ['i', 'intent', 'share', 'home', 'explore', 'search', 'notifications', 'messages'];
+  if (specialPaths.includes(username)) {
+    return null; // Will require API verification instead
+  }
+  
+  return username;
 };
 
 Deno.serve(async (req) => {
@@ -113,20 +127,11 @@ Deno.serve(async (req) => {
     // Check 3: Extract username from post URL and verify ownership
     const postUsername = extractUsernameFromUrl(postUrl);
     
-    if (!postUsername) {
-      await supabase
-        .from('social_submissions')
-        .update({ status: 'rejected' })
-        .eq('id', submissionId);
-
-      return new Response(
-        JSON.stringify({ qualified: false, reason: 'Invalid post URL format' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify the post is from the user's connected X account
-    if (postUsername !== connectedUsername) {
+    // If URL uses special path (like x.com/i/status/...), we'll verify via API instead
+    const needsApiVerification = !postUsername;
+    
+    // If we got a username from URL, verify it matches the connected account
+    if (postUsername && postUsername !== connectedUsername) {
       await supabase
         .from('social_submissions')
         .update({ status: 'rejected' })
@@ -256,8 +261,26 @@ Deno.serve(async (req) => {
     }
 
     // FALLBACK: If we couldn't fetch tweet content (rate limited, no token, etc.)
-    // But we verified URL ownership matches connected account - APPROVE with trust
-    // This prevents rejections due to API rate limits
+    // Check if URL ownership was verified or if we need API verification
+    if (needsApiVerification) {
+      // URL didn't contain username (e.g., x.com/i/status/...) and API failed
+      // We cannot verify ownership, so reject with helpful message
+      await supabase
+        .from('social_submissions')
+        .update({ status: 'rejected' })
+        .eq('id', submissionId);
+
+      console.log(`Cannot verify ownership for special URL format: ${postUrl}`);
+      return new Response(
+        JSON.stringify({ 
+          qualified: false, 
+          reason: 'Could not verify post ownership. Please use a direct post link (e.g., x.com/yourusername/status/...) instead of the shortened URL.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // URL ownership matched connected account - APPROVE with trust
     console.log(`Approving post with URL ownership verification only (API unavailable). User: @${connectedUsername}`);
     
     await supabase
