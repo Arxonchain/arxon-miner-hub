@@ -393,21 +393,15 @@ export const useArena = () => {
       return false;
     }
 
+    if (powerAmount > 1000000) {
+      toast.error('Maximum vote is 1,000,000 ARX-P');
+      return false;
+    }
+
     setVoting(true);
 
     try {
-      // Deduct points first
-      const { error: pointsError } = await supabase
-        .from('user_points')
-        .update({
-          total_points: points.total_points - powerAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-
-      if (pointsError) throw pointsError;
-
-      // Cast vote
+      // Cast vote - server-side trigger handles point validation and deduction atomically
       const { error: voteError } = await supabase
         .from('arena_votes')
         .insert({
@@ -417,17 +411,7 @@ export const useArena = () => {
           power_spent: powerAmount,
         });
 
-      if (voteError) {
-        // Refund points if vote fails
-        await supabase
-          .from('user_points')
-          .update({
-            total_points: points.total_points,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', user.id);
-        throw voteError;
-      }
+      if (voteError) throw voteError;
 
       toast.success('Points staked successfully!');
       
@@ -443,7 +427,14 @@ export const useArena = () => {
       return true;
     } catch (error: any) {
       console.error('Error casting vote:', error);
-      toast.error(error.message || 'Failed to cast vote');
+      // Handle specific error messages from trigger
+      if (error.message?.includes('Insufficient points')) {
+        toast.error('Insufficient ARX-P points');
+      } else if (error.message?.includes('Minimum stake')) {
+        toast.error('Minimum stake is 100 ARX-P');
+      } else {
+        toast.error(error.message || 'Failed to cast vote');
+      }
       return false;
     } finally {
       setVoting(false);
