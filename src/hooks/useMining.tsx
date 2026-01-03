@@ -92,13 +92,19 @@ export const useMining = () => {
   // xProfileBoost comes from the scan-x-profile edge function
   
   // Total boost = referral + X scan + X posts + arena
-  const totalBoostPercentage = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost;
+  // CAP total boost at 500% to prevent exploits
+  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost;
+  const totalBoostPercentage = Math.min(rawTotalBoost, 500);
   
   // Calculate effective points per hour with ALL boosts
+  // Max: 10 base * (1 + 5) = 60 points/hour maximum
   const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + totalBoostPercentage / 100);
   
+  // CAP points per hour at 60 (10 base + 500% boost max)
+  const cappedPointsPerHour = Math.min(pointsPerHour, 60);
+  
   // Points per second for real-time display
-  const pointsPerSecond = pointsPerHour / 3600;
+  const pointsPerSecond = cappedPointsPerHour / 3600;
   
   // Log when mining rate changes for debugging
   useEffect(() => {
@@ -107,11 +113,12 @@ export const useMining = () => {
       xProfileBoost, 
       xPostBoost,
       totalArenaBoost, 
+      rawTotalBoost,
       totalBoostPercentage,
-      pointsPerHour, 
+      cappedPointsPerHour, 
       pointsPerSecond 
     });
-  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, totalBoostPercentage, pointsPerHour, pointsPerSecond]);
+  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, rawTotalBoost, totalBoostPercentage, cappedPointsPerHour, pointsPerSecond]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -392,7 +399,8 @@ export const useMining = () => {
       
       // Check if max time reached
       if (newElapsed >= maxTimeSeconds) {
-        const finalPoints = Math.floor((newElapsed / 3600) * pointsPerHour);
+        // Use capped rate to prevent exploits - MAX 480 points in 8 hours (60/hr * 8hr)
+        const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
         endSession(sessionId, finalPoints);
         return;
       }
@@ -400,12 +408,14 @@ export const useMining = () => {
       setElapsedTime(newElapsed);
 
       // Calculate fractional points for real-time display - always positive, start from 0
+      // Use capped rate to prevent exploits
       const secondsElapsed = elapsedMs / 1000;
-      const fractionalPoints = Math.max(0, (secondsElapsed / 3600) * pointsPerHour);
+      const fractionalPoints = Math.max(0, Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour));
       setEarnedPoints(fractionalPoints);
       
       // Only update database when whole points change (to avoid excessive writes)
-      const wholePoints = Math.floor(fractionalPoints);
+      // Double-check cap before saving
+      const wholePoints = Math.min(480, Math.floor(fractionalPoints));
       if (wholePoints > lastDbPointsRef.current) {
         lastDbPointsRef.current = wholePoints;
         supabase
@@ -420,7 +430,7 @@ export const useMining = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isMining, sessionId, maxTimeSeconds, pointsPerHour]);
+  }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour]);
 
   // Initial fetch - including all boost sources
   useEffect(() => {
@@ -609,9 +619,9 @@ export const useMining = () => {
     xProfileBoost,       // From X profile scan (hashtag posts)
     xPostBoost,          // From X post submissions (social yapping)
     totalArenaBoost,
-    totalBoostPercentage,
-    // Unified rate
-    pointsPerHour,
+    totalBoostPercentage, // Capped at 500%
+    // Unified rate (capped at 60/hr max)
+    pointsPerHour: cappedPointsPerHour,
     pointsPerSecond,
     miningSettings
   };
