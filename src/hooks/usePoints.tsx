@@ -82,56 +82,36 @@ export const usePoints = () => {
   const addPoints = useCallback(async (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => {
     if (!user) return;
 
-    const columnMap = {
-      mining: 'mining_points',
-      task: 'task_points',
-      social: 'social_points',
-      referral: 'referral_points'
-    };
+    // Validate amount client-side first
+    const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 10000);
+    if (safeAmount <= 0) return;
 
-    const column = columnMap[type];
+    try {
+      // Use server-side RPC for atomic, safe point increments
+      const { data, error } = await supabase.rpc('increment_user_points', {
+        p_user_id: user.id,
+        p_amount: safeAmount,
+        p_type: type
+      });
 
-    // Use atomic operation: always fetch current values from DB to prevent race conditions
-    // This fixes the issue where claiming from multiple devices causes balance decreases
-    const { data: currentData, error: fetchError } = await supabase
-      .from('user_points')
-      .select('total_points, mining_points, task_points, social_points, referral_points')
-      .eq('user_id', user.id)
-      .single();
+      if (error) {
+        console.error('Error adding points via RPC:', error);
+        return;
+      }
 
-    if (fetchError || !currentData) {
-      console.error('Error fetching current points for atomic update:', fetchError);
-      return;
-    }
+      // Update local state from returned row
+      if (data) {
+        setPoints(data as UserPoints);
+      }
 
-    const currentTotal = currentData.total_points;
-    const currentTypePoints = (currentData as any)[column];
-    const newTotal = currentTotal + amount;
-    const newTypePoints = currentTypePoints + amount;
-
-    const { error } = await supabase
-      .from('user_points')
-      .update({
-        total_points: newTotal,
-        [column]: newTypePoints,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id);
-
-    if (!error) {
-      // Update local state immediately for instant UI reflection
-      setPoints(prev => prev ? {
-        ...prev,
-        total_points: newTotal,
-        [column]: newTypePoints
-      } : null);
-      
       // Trigger confetti for significant rewards
-      if (amount >= 10) {
+      if (safeAmount >= 10) {
         triggerConfetti();
       }
+    } catch (err) {
+      console.error('Error adding points:', err);
     }
-  }, [user]);
+  }, [user, triggerConfetti]);
 
   // Initial fetch
   useEffect(() => {
