@@ -6,7 +6,7 @@ import { toast } from '@/hooks/use-toast';
 
 const SOCIAL_POST_POINTS = 50; // Points per quality post
 const SOCIAL_MINING_BOOST = 5; // +5 ARX-P/HR per quality post
-const MAX_QUALITY_POSTS = 5; // Maximum quality posts allowed
+const MAX_QUALITY_POSTS = 2; // Maximum quality posts allowed per day
 
 // Required hashtags/mentions for a qualified post
 const REQUIRED_TERMS = [
