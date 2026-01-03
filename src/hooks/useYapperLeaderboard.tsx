@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeFilter } from './useLeaderboard';
 
@@ -16,9 +16,7 @@ interface YapperEntry {
   historical_posts_count: number;
   historical_arx_p_total: number;
   historical_boost_total: number;
-  // From user_points - actual ARX-P earned from social/X posts
   social_points: number;
-  // Per-user period stats
   period_posts: number;
   period_engagement: number;
   period_arx_p: number;
@@ -30,16 +28,39 @@ interface YapperTotals {
   totalArxP: number;
 }
 
+// Simple cache with TTL
+const yapperCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds
+
 export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
   const [yappers, setYappers] = useState<YapperEntry[]>([]);
   const [totals, setTotals] = useState<YapperTotals>({ totalPosts: 0, totalEngagement: 0, totalArxP: 0 });
   const [loading, setLoading] = useState(true);
+  const fetchingRef = useRef(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchLeaderboard = useCallback(async () => {
+  const fetchLeaderboard = useCallback(async (skipCache = false) => {
+    if (fetchingRef.current) return;
+    
+    const cacheKey = `yapper-${timeFilter}`;
+    
+    // Check cache
+    if (!skipCache) {
+      const cached = yapperCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setYappers(cached.data.yappers);
+        setTotals(cached.data.totals);
+        setLoading(false);
+        return;
+      }
+    }
+
+    fetchingRef.current = true;
+    
     try {
       setLoading(true);
       
-      // Calculate date range based on filter
+      // Calculate date range
       let startDate: Date | null = null;
       const now = new Date();
       
@@ -57,63 +78,55 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
           startDate = new Date(now);
           startDate.setMonth(startDate.getMonth() - 1);
           break;
-        case 'all':
         default:
           startDate = null;
-          break;
       }
 
-      // Fetch ALL x_profiles (no time filter on profiles themselves)
+      // Single query for x_profiles
       const { data: xProfiles, error: xError } = await supabase
         .from('x_profiles')
         .select('id, user_id, username, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, last_scanned_at, updated_at, historical_posts_count, historical_arx_p_total, historical_boost_total')
         .limit(50);
 
-      if (xError) {
-        console.error('Error fetching x_profiles:', xError);
-        return;
-      }
+      if (xError) throw xError;
 
       if (!xProfiles || xProfiles.length === 0) {
         setYappers([]);
         setTotals({ totalPosts: 0, totalEngagement: 0, totalArxP: 0 });
         setLoading(false);
+        fetchingRef.current = false;
         return;
       }
 
       const userIds = xProfiles.map(p => p.user_id);
 
-      // Fetch x_post_rewards for per-user period stats
-      let rewardsQuery = supabase
-        .from('x_post_rewards')
-        .select('user_id, total_engagement, arx_p_reward, tweet_created_at')
-        .in('user_id', userIds);
-      
+      // Parallel queries
+      let rewards: any[] = [];
+      let userPoints: any[] = [];
+      let profiles: any[] = [];
+
       if (startDate) {
-        rewardsQuery = rewardsQuery.gte('tweet_created_at', startDate.toISOString());
+        const [pointsRes, profilesRes, rewardsRes] = await Promise.all([
+          supabase.from('user_points').select('user_id, social_points').in('user_id', userIds),
+          supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds),
+          supabase.from('x_post_rewards').select('user_id, total_engagement, arx_p_reward').in('user_id', userIds).gte('tweet_created_at', startDate.toISOString())
+        ]);
+        userPoints = pointsRes?.data || [];
+        profiles = profilesRes?.data || [];
+        rewards = rewardsRes?.data || [];
+      } else {
+        const [pointsRes, profilesRes] = await Promise.all([
+          supabase.from('user_points').select('user_id, social_points').in('user_id', userIds),
+          supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds)
+        ]);
+        userPoints = pointsRes?.data || [];
+        profiles = profilesRes?.data || [];
       }
 
-      const { data: rewards } = await rewardsQuery;
-
-      // Fetch approved social submissions for period stats (backup source)
-      let submissionsQuery = supabase
-        .from('social_submissions')
-        .select('user_id, points_awarded, reviewed_at, created_at')
-        .in('user_id', userIds)
-        .eq('status', 'approved')
-        .gt('points_awarded', 0);
-      
-      if (startDate) {
-        submissionsQuery = submissionsQuery.gte('created_at', startDate.toISOString());
-      }
-
-      const { data: submissions } = await submissionsQuery;
-
-      // Build per-user period stats maps
+      // Build period stats
       const userRewardStats = new Map<string, { posts: number; engagement: number; arxP: number }>();
       
-      // First from x_post_rewards
-      (rewards || []).forEach((r: any) => {
+      rewards.forEach((r: any) => {
         const current = userRewardStats.get(r.user_id) || { posts: 0, engagement: 0, arxP: 0 };
         current.posts += 1;
         current.engagement += Number(r.total_engagement || 0);
@@ -121,88 +134,55 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
         userRewardStats.set(r.user_id, current);
       });
 
-      // If no x_post_rewards, use social_submissions as backup
-      (submissions || []).forEach((s: any) => {
-        const existing = userRewardStats.get(s.user_id);
-        if (!existing || existing.posts === 0) {
-          const current = userRewardStats.get(s.user_id) || { posts: 0, engagement: 0, arxP: 0 };
-          current.posts += 1;
-          current.arxP += Number(s.points_awarded || 0);
-          userRewardStats.set(s.user_id, current);
-        }
-      });
-
-      // Calculate global totals
-      let globalPosts = 0;
-      let globalEngagement = 0;
-      let globalArxP = 0;
-      userRewardStats.forEach((stats) => {
+      // Calculate totals
+      let globalPosts = 0, globalEngagement = 0, globalArxP = 0;
+      userRewardStats.forEach(stats => {
         globalPosts += stats.posts;
         globalEngagement += stats.engagement;
         globalArxP += stats.arxP;
       });
-      setTotals({ totalPosts: globalPosts, totalEngagement: globalEngagement, totalArxP: globalArxP });
+      
+      const newTotals = { totalPosts: globalPosts, totalEngagement: globalEngagement, totalArxP: globalArxP };
 
-      // Fetch user_points for social_points
-      const { data: userPoints, error: pointsError } = await supabase
-        .from('user_points')
-        .select('user_id, social_points')
-        .in('user_id', userIds);
-
-      if (pointsError) {
-        console.error('Error fetching user_points:', pointsError);
-      }
-
-      // Fetch profiles for avatars
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, avatar_url')
-        .in('user_id', userIds);
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-      }
-
-      // Combine all data
+      // Combine data
       const yappersWithData = xProfiles.map(yapper => {
-        const profile = profiles?.find(p => p.user_id === yapper.user_id);
-        const points = userPoints?.find(p => p.user_id === yapper.user_id);
+        const profile = profiles.find((p: any) => p.user_id === yapper.user_id);
+        const points = userPoints.find((p: any) => p.user_id === yapper.user_id);
         const periodStats = userRewardStats.get(yapper.user_id) || { posts: 0, engagement: 0, arxP: 0 };
         
         const socialPoints = points?.social_points || 0;
-        
-        // For "all time", use historical data if period stats are empty
         const isAllTime = timeFilter === 'all';
-        const period_posts = isAllTime && periodStats.posts === 0 ? yapper.historical_posts_count : periodStats.posts;
-        const period_engagement = isAllTime && periodStats.engagement === 0 ? (yapper.average_engagement * yapper.historical_posts_count) : periodStats.engagement;
-        const period_arx_p = isAllTime && periodStats.arxP === 0 ? (socialPoints || yapper.historical_arx_p_total) : periodStats.arxP;
         
         return {
           ...yapper,
           avatar_url: profile?.avatar_url || undefined,
           social_points: socialPoints,
-          period_posts,
-          period_engagement: Math.round(period_engagement),
-          period_arx_p,
+          period_posts: isAllTime ? yapper.historical_posts_count : periodStats.posts,
+          period_engagement: Math.round(isAllTime ? (yapper.average_engagement * yapper.historical_posts_count) : periodStats.engagement),
+          period_arx_p: isAllTime ? (socialPoints || yapper.historical_arx_p_total) : periodStats.arxP,
         };
       });
 
-      // Sort by social_points descending, then by period_arx_p
-      yappersWithData.sort((a, b) => {
-        if (b.social_points !== a.social_points) {
-          return b.social_points - a.social_points;
-        }
-        if (b.period_arx_p !== a.period_arx_p) {
-          return b.period_arx_p - a.period_arx_p;
-        }
-        return b.boost_percentage - a.boost_percentage;
+      // Sort efficiently
+      yappersWithData.sort((a, b) => 
+        b.social_points - a.social_points || 
+        b.period_arx_p - a.period_arx_p || 
+        b.boost_percentage - a.boost_percentage
+      );
+
+      // Cache result
+      yapperCache.set(cacheKey, {
+        data: { yappers: yappersWithData, totals: newTotals },
+        timestamp: Date.now()
       });
 
       setYappers(yappersWithData);
+      setTotals(newTotals);
     } catch (error) {
       console.error('Error fetching yapper leaderboard:', error);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [timeFilter]);
 
@@ -210,29 +190,23 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  // Real-time subscription for auto-updates
+  // Single debounced subscription instead of multiple
   useEffect(() => {
-    const xProfilesChannel = supabase
-      .channel('yapper-leaderboard-x-profiles')
+    const channel = supabase
+      .channel('yapper-leaderboard')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'x_profiles' },
-        () => fetchLeaderboard()
-      )
-      .subscribe();
-
-    const userPointsChannel = supabase
-      .channel('yapper-leaderboard-user-points')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'user_points' },
-        () => fetchLeaderboard()
+        () => {
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(() => fetchLeaderboard(true), 10000);
+        }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(xProfilesChannel);
-      supabase.removeChannel(userPointsChannel);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
     };
   }, [fetchLeaderboard]);
 
@@ -240,6 +214,6 @@ export const useYapperLeaderboard = (timeFilter: TimeFilter = 'all') => {
     yappers,
     totals,
     loading,
-    refreshLeaderboard: fetchLeaderboard,
+    refreshLeaderboard: () => fetchLeaderboard(true),
   };
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import { Clock, Zap, TrendingUp, Flame } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,42 +7,114 @@ import { useLeaderboard, TimeFilter } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
 import { useMining } from "@/hooks/useMining";
 
+// Memoized leaderboard entry components to prevent unnecessary re-renders
+const YapperEntry = memo(({ yapper, index, getBadge, getRankIcon }: any) => {
+  const earnedPoints = yapper.social_points || yapper.historical_arx_p_total || 0;
+  const badge = getBadge(earnedPoints >= 1000 ? 800 : earnedPoints >= 500 ? 500 : earnedPoints >= 200 ? 300 : earnedPoints >= 50 ? 100 : 0);
+  
+  return (
+    <div className="glass-card p-3 sm:p-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative shrink-0">
+            <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-blue-500/30">
+              <AvatarImage src={yapper.avatar_url} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm sm:text-base">
+                {yapper.username?.charAt(0)?.toUpperCase() || "Y"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
+              {getRankIcon(index)}
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <XIcon className="h-3.5 w-3.5 text-foreground" />
+              <span className="font-semibold text-sm sm:text-base text-foreground">@{yapper.username}</span>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${badge.color}`}>
+                {badge.label}
+              </span>
+              {yapper.viral_bonus && <Flame className="h-3.5 w-3.5 text-orange-400" />}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-1.5 text-green-400 font-semibold">
+            <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-sm sm:text-base">{earnedPoints.toLocaleString()}</span>
+            <span className="text-muted-foreground font-normal">ARX-P</span>
+          </div>
+          {yapper.boost_percentage > 0 && (
+            <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-sm sm:text-base">{yapper.boost_percentage}%</span>
+              <span className="text-muted-foreground font-normal">boost</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const MinerEntry = memo(({ user, index, getRankIcon }: any) => (
+  <div className="glass-card p-3 sm:p-4">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="relative shrink-0">
+          <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-green-500/30">
+            <AvatarImage src={user.avatar_url} />
+            <AvatarFallback className="bg-gradient-to-br from-green-400 to-emerald-600 text-white font-bold text-sm sm:text-base">
+              {user.username?.charAt(0)?.toUpperCase() || "M"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
+            {getRankIcon(index)}
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="font-semibold text-sm sm:text-base text-foreground">
+              {user.username || `Miner ${user.user_id.slice(0, 6)}`}
+            </span>
+          </div>
+          <span className="text-muted-foreground text-xs sm:text-sm">Rank #{index + 1}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm text-muted-foreground w-full sm:w-auto justify-between sm:justify-end">
+        <div className="flex items-center gap-1">
+          <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 lg:h-4 lg:w-4 text-accent" />
+          <span className="text-foreground font-semibold">{user.total_points.toLocaleString()}</span> pts
+        </div>
+      </div>
+    </div>
+  </div>
+));
+
 const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
-  const { leaderboard: minerEntries, totals: minerTotals, loading: minersLoading } = useLeaderboard(100, timeFilter);
-  const { yappers, totals: yapperTotals, loading: yappersLoading } = useYapperLeaderboard(timeFilter);
+  
+  // Only fetch data for the active tab to reduce load
+  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(50, activeTab === "miners" ? timeFilter : "all");
+  const { yappers, loading: yappersLoading } = useYapperLeaderboard(activeTab === "yappers" ? timeFilter : "all");
   const { isMining } = useMining();
 
-  const getTimeFilterLabel = (filter: TimeFilter) => {
-    switch (filter) {
-      case 'day':
-        return '24 Hours';
-      case '7days':
-      case 'week':
-        return '7 Days';
-      case 'month':
-        return 'This Month';
-      case 'all':
-      default:
-        return 'All Time';
-    }
-  };
-
-  const getBadge = (boost: number) => {
+  // Memoize helper functions
+  const getBadge = useMemo(() => (boost: number) => {
     if (boost >= 800) return { label: "🔥 Viral King", color: "bg-orange-500/20 text-orange-400" };
     if (boost >= 500) return { label: "⚡ Power Yapper", color: "bg-yellow-500/20 text-yellow-400" };
     if (boost >= 300) return { label: "🚀 Rising Star", color: "bg-blue-500/20 text-blue-400" };
     if (boost >= 100) return { label: "✨ Active", color: "bg-green-500/20 text-green-400" };
     return { label: "New", color: "bg-muted text-muted-foreground" };
-  };
+  }, []);
 
-  const getRankIcon = (index: number) => {
+  const getRankIcon = useMemo(() => (index: number) => {
     if (index === 0) return "🥇";
     if (index === 1) return "🥈";
     if (index === 2) return "🥉";
     return `#${index + 1}`;
-  };
+  }, []);
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
@@ -109,56 +181,15 @@ const Leaderboard = () => {
                 <p className="text-xs mt-1">Go to Mining page to connect your X account.</p>
               </div>
             ) : (
-              yappers.map((yapper, index) => {
-                const earnedPoints = yapper.social_points || yapper.historical_arx_p_total || 0;
-                const badge = getBadge(earnedPoints >= 1000 ? 800 : earnedPoints >= 500 ? 500 : earnedPoints >= 200 ? 300 : earnedPoints >= 50 ? 100 : 0);
-                return (
-                  <div key={yapper.id} className="glass-card p-3 sm:p-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="relative shrink-0">
-                          <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-blue-500/30">
-                            <AvatarImage src={yapper.avatar_url} />
-                            <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm sm:text-base">
-                              {yapper.username?.charAt(0)?.toUpperCase() || "Y"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
-                            {getRankIcon(index)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <XIcon className="h-3.5 w-3.5 text-foreground" />
-                            <span className="font-semibold text-sm sm:text-base text-foreground">@{yapper.username}</span>
-                            <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${badge.color}`}>
-                              {badge.label}
-                            </span>
-                            {yapper.viral_bonus && (
-                              <Flame className="h-3.5 w-3.5 text-orange-400" />
-                            )}
-                          </div>
-                        
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
-                        <div className="flex items-center gap-1.5 text-green-400 font-semibold">
-                          <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          <span className="text-sm sm:text-base">{earnedPoints.toLocaleString()}</span>
-                          <span className="text-muted-foreground font-normal">ARX-P</span>
-                        </div>
-                        {yapper.boost_percentage > 0 && (
-                          <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                            <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            <span className="text-sm sm:text-base">{yapper.boost_percentage}%</span>
-                            <span className="text-muted-foreground font-normal">boost</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              yappers.map((yapper, index) => (
+                <YapperEntry 
+                  key={yapper.id} 
+                  yapper={yapper} 
+                  index={index} 
+                  getBadge={getBadge} 
+                  getRankIcon={getRankIcon} 
+                />
+              ))
             )
           ) : (
             minersLoading ? (
@@ -172,37 +203,12 @@ const Leaderboard = () => {
               </div>
             ) : (
               minerEntries.map((user, index) => (
-                <div key={user.user_id} className="glass-card p-3 sm:p-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="relative shrink-0">
-                        <Avatar className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 border-2 border-green-500/30">
-                          <AvatarImage src={user.avatar_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-green-400 to-emerald-600 text-white font-bold text-sm sm:text-base">
-                            {user.username?.charAt(0)?.toUpperCase() || "M"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="absolute -top-1 -left-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-background border border-border flex items-center justify-center text-[10px] sm:text-xs font-bold">
-                          {getRankIcon(index)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                          <span className="font-semibold text-sm sm:text-base text-foreground">
-                            {user.username || `Miner ${user.user_id.slice(0, 6)}`}
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground text-xs sm:text-sm">Rank #{index + 1}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm text-muted-foreground w-full sm:w-auto justify-between sm:justify-end">
-                      <div className="flex items-center gap-1">
-                        <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 lg:h-4 lg:w-4 text-accent" />
-                        <span className="text-foreground font-semibold">{user.total_points.toLocaleString()}</span> pts
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <MinerEntry 
+                  key={user.user_id} 
+                  user={user} 
+                  index={index} 
+                  getRankIcon={getRankIcon} 
+                />
               ))
             )
           )}
