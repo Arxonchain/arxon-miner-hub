@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, memo, useMemo } from "react";
 import { Clock, Zap, TrendingUp, Flame } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +20,16 @@ const getBadge = (points: number) => {
   if (points >= 200) return { label: "🚀 Rising Star", color: "bg-blue-500/20 text-blue-400" };
   if (points >= 50) return { label: "✨ Active", color: "bg-green-500/20 text-green-400" };
   return { label: "New", color: "bg-muted text-muted-foreground" };
+};
+
+// Format large numbers safely (prevents freeze on huge string numbers)
+const formatPoints = (value: number | string | undefined | null): string => {
+  if (value === undefined || value === null) return "0";
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (!isFinite(num) || isNaN(num)) return "0";
+  // Cap display at 1 billion to prevent rendering giant strings
+  const capped = Math.min(Math.max(num, 0), 1_000_000_000);
+  return capped.toLocaleString();
 };
 
 const YapperEntry = memo(({ yapper, index }: { yapper: any; index: number }) => {
@@ -55,7 +65,7 @@ const YapperEntry = memo(({ yapper, index }: { yapper: any; index: number }) => 
         <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm w-full sm:w-auto justify-between sm:justify-end">
           <div className="flex items-center gap-1.5 text-green-400 font-semibold">
             <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="text-sm sm:text-base">{earnedPoints.toLocaleString()}</span>
+            <span className="text-sm sm:text-base">{formatPoints(earnedPoints)}</span>
             <span className="text-muted-foreground font-normal">ARX-P</span>
           </div>
           {yapper.boost_percentage > 0 && (
@@ -70,6 +80,7 @@ const YapperEntry = memo(({ yapper, index }: { yapper: any; index: number }) => 
     </div>
   );
 });
+YapperEntry.displayName = "YapperEntry";
 
 const MinerEntry = memo(({ user, index }: { user: any; index: number }) => (
   <div className="glass-card p-3 sm:p-4">
@@ -98,12 +109,13 @@ const MinerEntry = memo(({ user, index }: { user: any; index: number }) => (
       <div className="flex items-center gap-4 sm:gap-6 text-[10px] sm:text-xs lg:text-sm text-muted-foreground w-full sm:w-auto justify-between sm:justify-end">
         <div className="flex items-center gap-1">
           <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 lg:h-4 lg:w-4 text-accent" />
-          <span className="text-foreground font-semibold">{user.total_points.toLocaleString()}</span> pts
+          <span className="text-foreground font-semibold">{formatPoints(user.total_points)}</span> pts
         </div>
       </div>
     </div>
   </div>
 ));
+MinerEntry.displayName = "MinerEntry";
 
 const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
