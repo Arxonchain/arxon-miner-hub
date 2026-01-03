@@ -6,104 +6,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Shield } from "lucide-react";
-import { validatePassword } from "@/lib/passwordValidation";
-import PasswordStrengthMeter from "@/components/auth/PasswordStrengthMeter";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validate password strength for signup
-    if (isSignUp) {
-      const passwordValidation = validatePassword(password);
-      if (!passwordValidation.isValid) {
-        toast({
-          title: "Weak Password",
-          description: passwordValidation.errors[0],
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        // Sign up flow
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/admin`,
-          },
-        });
+      // Sign in only - no signup allowed
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (authError) throw authError;
+      if (authError) throw authError;
 
-        if (authData.user) {
-          // Add admin role for this user
-          const { error: roleError } = await supabase
-            .from("user_roles")
-            .insert({ user_id: authData.user.id, role: "admin" });
+      // Check if user has admin role
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", authData.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
 
-          if (roleError) {
-            console.error("Role assignment error:", roleError);
-            // Continue anyway - role might need to be assigned manually
-          }
+      if (roleError) throw roleError;
 
-          toast({
-            title: "Account Created!",
-            description: "You can now sign in with your credentials.",
-          });
-          setIsSignUp(false);
-        }
-      } else {
-        // Sign in flow
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (authError) throw authError;
-
-        // Check if user has admin role
-        const { data: roleData, error: roleError } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", authData.user.id)
-          .eq("role", "admin")
-          .maybeSingle();
-
-        if (roleError) throw roleError;
-
-        if (!roleData) {
-          await supabase.auth.signOut();
-          toast({
-            title: "Access Denied",
-            description: "You don't have admin privileges.",
-            variant: "destructive",
-          });
-          return;
-        }
-
+      if (!roleData) {
+        await supabase.auth.signOut();
         toast({
-          title: "Welcome back!",
-          description: "Successfully logged into admin dashboard.",
+          title: "Access Denied",
+          description: "You don't have admin privileges.",
+          variant: "destructive",
         });
-        navigate("/admin");
+        return;
       }
+
+      toast({
+        title: "Welcome back!",
+        description: "Successfully logged into admin dashboard.",
+      });
+      navigate("/admin");
     } catch (error: any) {
       toast({
-        title: isSignUp ? "Sign Up Failed" : "Login Failed",
+        title: "Login Failed",
         description: error.message || "Invalid credentials",
         variant: "destructive",
       });
@@ -121,16 +73,14 @@ const AdminLogin = () => {
             <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Shield className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isSignUp ? "Create Admin Account" : "Admin Login"}
-            </h1>
+            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
             <p className="text-muted-foreground text-sm">
-              {isSignUp ? "Set up your admin credentials" : "Access the ARXON admin dashboard"}
+              Access the ARXON admin dashboard
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleAuth} className="space-y-4">
+          {/* Form - Login Only */}
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -150,11 +100,11 @@ const AdminLogin = () => {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder={isSignUp ? "Create a strong password" : "••••••••"}
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={isSignUp ? 12 : 6}
+                  minLength={6}
                   className="bg-muted/50 pr-10"
                 />
                 <button
@@ -165,27 +115,15 @@ const AdminLogin = () => {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {/* Password strength meter for signup */}
-              {isSignUp && <PasswordStrengthMeter password={password} />}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (isSignUp ? "Creating Account..." : "Signing in...") : (isSignUp ? "Create Account" : "Sign In")}
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-primary hover:underline"
-            >
-              {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
-            </button>
-          </div>
-
           <p className="text-center text-xs text-muted-foreground">
-            Secured admin access • arxon.io/admin
+            Secured admin access • Contact system administrator for access
           </p>
         </div>
       </div>
