@@ -23,41 +23,31 @@ export const useYapperLeaderboard = () => {
 
     const fetchLeaderboard = async () => {
       try {
-        // Simple single query for x_profiles
-        const { data: xProfiles, error: xError } = await supabase
-          .from('x_profiles')
-          .select('id, user_id, username, boost_percentage, qualified_posts_today, average_engagement, viral_bonus')
+        // Use secure yapper leaderboard view that only exposes minimal data
+        const { data, error } = await supabase
+          .from('yapper_leaderboard_view')
+          .select('user_id, username, avatar_url, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, social_points')
           .limit(50);
 
-        if (xError || !mountedRef.current) return;
+        if (error || !mountedRef.current) return;
 
-        if (!xProfiles || xProfiles.length === 0) {
+        if (!data || data.length === 0) {
           setYappers([]);
           setLoading(false);
           return;
         }
 
-        const userIds = xProfiles.map(p => p.user_id);
-
-        // Single parallel query
-        const [pointsRes, profilesRes] = await Promise.all([
-          supabase.from('user_points').select('user_id, social_points').in('user_id', userIds),
-          supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds)
-        ]);
-
-        if (!mountedRef.current) return;
-
-        const pointsMap = new Map((pointsRes.data || []).map(p => [p.user_id, p.social_points]));
-        const profileMap = new Map((profilesRes.data || []).map(p => [p.user_id, p.avatar_url]));
-
-        const yappersWithData = xProfiles.map(yapper => ({
-          ...yapper,
-          avatar_url: profileMap.get(yapper.user_id) || undefined,
-          social_points: pointsMap.get(yapper.user_id) || 0,
+        const yappersWithData = data.map(yapper => ({
+          id: yapper.user_id,
+          user_id: yapper.user_id,
+          username: yapper.username || `Yapper${yapper.user_id.slice(0, 4)}`,
+          avatar_url: yapper.avatar_url || undefined,
+          boost_percentage: yapper.boost_percentage || 0,
+          qualified_posts_today: yapper.qualified_posts_today || 0,
+          average_engagement: yapper.average_engagement || 0,
+          viral_bonus: yapper.viral_bonus || false,
+          social_points: yapper.social_points || 0,
         }));
-
-        // Sort by social points
-        yappersWithData.sort((a, b) => b.social_points - a.social_points);
 
         setYappers(yappersWithData);
       } catch (error) {

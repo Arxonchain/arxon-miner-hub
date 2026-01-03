@@ -771,7 +771,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard_view: {
+        Row: {
+          avatar_url: string | null
+          daily_streak: number | null
+          total_points: number | null
+          user_id: string | null
+          username: string | null
+        }
+        Relationships: []
+      }
+      yapper_leaderboard_view: {
+        Row: {
+          avatar_url: string | null
+          average_engagement: number | null
+          boost_percentage: number | null
+          qualified_posts_today: number | null
+          social_points: number | null
+          user_id: string | null
+          username: string | null
+          viral_bonus: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_referral_code: { Args: never; Returns: string }
