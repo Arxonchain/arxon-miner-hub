@@ -26,6 +26,7 @@ export const useLeaderboard = (limit: number = 50) => {
         const { data, error } = await supabase
           .from('leaderboard_view')
           .select('user_id, username, avatar_url, total_points, daily_streak')
+          .order('total_points', { ascending: false })
           .limit(limit);
 
         if (error || !mountedRef.current) return;
