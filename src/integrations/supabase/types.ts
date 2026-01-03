@@ -793,6 +793,30 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_user_points: {
+        Args: { p_amount: number; p_type: string; p_user_id: string }
+        Returns: {
+          created_at: string
+          daily_streak: number
+          id: string
+          last_checkin_date: string | null
+          mining_points: number
+          referral_bonus_percentage: number
+          referral_points: number
+          social_points: number
+          task_points: number
+          total_points: number
+          updated_at: string
+          user_id: string
+          x_post_boost_percentage: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_points"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
