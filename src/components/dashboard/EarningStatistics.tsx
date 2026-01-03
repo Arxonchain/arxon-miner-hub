@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,10 +13,11 @@ interface DayEarning {
   checkin: number;
 }
 
-const EarningStatistics = () => {
+const EarningStatistics = memo(() => {
   const { user } = useAuth();
   const [earningData, setEarningData] = useState<DayEarning[]>([]);
   const [loading, setLoading] = useState(true);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchEarnings = useCallback(async () => {
     if (!user) {
@@ -25,7 +26,6 @@ const EarningStatistics = () => {
     }
 
     try {
-      // Get last 7 days
       const days: DayEarning[] = [];
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       
@@ -46,72 +46,69 @@ const EarningStatistics = () => {
       const startDate = days[0].date;
       const endDate = days[6].date + 'T23:59:59';
 
-      // Fetch mining sessions for the last 7 days
-      const { data: miningData } = await supabase
-        .from('mining_sessions')
-        .select('started_at, arx_mined')
-        .eq('user_id', user.id)
-        .gte('started_at', startDate)
-        .lte('started_at', endDate);
-
-      // Fetch daily checkins
-      const { data: checkinData } = await supabase
-        .from('daily_checkins')
-        .select('checkin_date, points_awarded')
-        .eq('user_id', user.id)
-        .gte('checkin_date', startDate)
-        .lte('checkin_date', endDate);
-
-      // Fetch completed tasks
-      const { data: taskData } = await supabase
-        .from('user_tasks')
-        .select('completed_at, points_awarded')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .gte('completed_at', startDate)
-        .lte('completed_at', endDate);
-
-      // Fetch approved social submissions
-      const { data: socialData } = await supabase
-        .from('social_submissions')
-        .select('reviewed_at, points_awarded')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-        .gte('reviewed_at', startDate)
-        .lte('reviewed_at', endDate);
+      // Parallel fetch all data
+      const [miningRes, checkinRes, taskRes, socialRes] = await Promise.all([
+        supabase
+          .from('mining_sessions')
+          .select('started_at, arx_mined')
+          .eq('user_id', user.id)
+          .gte('started_at', startDate)
+          .lte('started_at', endDate),
+        supabase
+          .from('daily_checkins')
+          .select('checkin_date, points_awarded')
+          .eq('user_id', user.id)
+          .gte('checkin_date', startDate)
+          .lte('checkin_date', endDate),
+        supabase
+          .from('user_tasks')
+          .select('completed_at, points_awarded')
+          .eq('user_id', user.id)
+          .eq('status', 'completed')
+          .gte('completed_at', startDate)
+          .lte('completed_at', endDate),
+        supabase
+          .from('social_submissions')
+          .select('reviewed_at, points_awarded')
+          .eq('user_id', user.id)
+          .eq('status', 'approved')
+          .gte('reviewed_at', startDate)
+          .lte('reviewed_at', endDate)
+      ]);
 
       // Aggregate by day
-      miningData?.forEach(session => {
+      miningRes.data?.forEach(session => {
         const sessionDate = session.started_at.split('T')[0];
         const dayEntry = days.find(d => d.date === sessionDate);
         if (dayEntry) {
-          dayEntry.mining += Number(session.arx_mined);
+          // Cap each session's arx_mined at 480 for display
+          dayEntry.mining += Math.min(Number(session.arx_mined) || 0, 480);
         }
       });
 
-      checkinData?.forEach(checkin => {
+      checkinRes.data?.forEach(checkin => {
         const dayEntry = days.find(d => d.date === checkin.checkin_date);
         if (dayEntry) {
-          dayEntry.checkin += Number(checkin.points_awarded);
+          dayEntry.checkin += Number(checkin.points_awarded) || 0;
         }
       });
 
-      taskData?.forEach(task => {
+      taskRes.data?.forEach(task => {
         if (task.completed_at) {
           const taskDate = task.completed_at.split('T')[0];
           const dayEntry = days.find(d => d.date === taskDate);
           if (dayEntry) {
-            dayEntry.tasks += Number(task.points_awarded);
+            dayEntry.tasks += Number(task.points_awarded) || 0;
           }
         }
       });
 
-      socialData?.forEach(submission => {
+      socialRes.data?.forEach(submission => {
         if (submission.reviewed_at) {
           const subDate = submission.reviewed_at.split('T')[0];
           const dayEntry = days.find(d => d.date === subDate);
           if (dayEntry) {
-            dayEntry.social += Number(submission.points_awarded);
+            dayEntry.social += Number(submission.points_awarded) || 0;
           }
         }
       });
@@ -124,12 +121,27 @@ const EarningStatistics = () => {
     }
   }, [user]);
 
+  // Debounced fetch for real-time updates
+  const debouncedFetch = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      fetchEarnings();
+    }, 2000); // 2 second debounce for real-time updates
+  }, [fetchEarnings]);
+
   // Initial fetch
   useEffect(() => {
     fetchEarnings();
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
   }, [fetchEarnings]);
 
-  // Single consolidated real-time subscription
+  // Single consolidated real-time subscription with debounce
   useEffect(() => {
     if (!user) return;
 
@@ -140,41 +152,44 @@ const EarningStatistics = () => {
         schema: 'public',
         table: 'mining_sessions',
         filter: `user_id=eq.${user.id}`
-      }, () => fetchEarnings())
+      }, debouncedFetch)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'daily_checkins',
         filter: `user_id=eq.${user.id}`
-      }, () => fetchEarnings())
+      }, debouncedFetch)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'user_tasks',
         filter: `user_id=eq.${user.id}`
-      }, () => fetchEarnings())
+      }, debouncedFetch)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'social_submissions',
         filter: `user_id=eq.${user.id}`
-      }, () => fetchEarnings())
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'user_points',
-        filter: `user_id=eq.${user.id}`
-      }, () => fetchEarnings())
+      }, debouncedFetch)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchEarnings]);
+  }, [user, debouncedFetch]);
 
-  const totalMining = earningData.reduce((sum, d) => sum + d.mining, 0);
-  const totalTasks = earningData.reduce((sum, d) => sum + d.tasks + d.checkin, 0);
-  const totalSocial = earningData.reduce((sum, d) => sum + d.social, 0);
+  // Memoize computed values
+  const { totalMining, totalTasks, totalSocial, chartData } = useMemo(() => {
+    const mining = earningData.reduce((sum, d) => sum + d.mining, 0);
+    const tasks = earningData.reduce((sum, d) => sum + d.tasks + d.checkin, 0);
+    const social = earningData.reduce((sum, d) => sum + d.social, 0);
+    const data = earningData.map(d => ({
+      day: d.day,
+      mining: d.mining,
+      activities: d.tasks + d.checkin + d.social
+    }));
+    return { totalMining: mining, totalTasks: tasks, totalSocial: social, chartData: data };
+  }, [earningData]);
 
   if (loading) {
     return (
@@ -193,13 +208,6 @@ const EarningStatistics = () => {
       </div>
     );
   }
-
-  // Transform data for chart - combine tasks and checkin as "activities"
-  const chartData = earningData.map(d => ({
-    day: d.day,
-    mining: d.mining,
-    activities: d.tasks + d.checkin + d.social
-  }));
 
   return (
     <div className="glass-card p-3 sm:p-4 md:p-5 lg:p-6 space-y-3 sm:space-y-4">
@@ -268,6 +276,7 @@ const EarningStatistics = () => {
               stroke="hsl(217 91% 60%)"
               strokeWidth={1.5}
               fill="url(#miningGradient)"
+              isAnimationActive={false}
             />
             <Area
               type="monotone"
@@ -276,12 +285,15 @@ const EarningStatistics = () => {
               stroke="hsl(142 76% 36%)"
               strokeWidth={1.5}
               fill="url(#activitiesGradient)"
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
   );
-};
+});
+
+EarningStatistics.displayName = "EarningStatistics";
 
 export default EarningStatistics;

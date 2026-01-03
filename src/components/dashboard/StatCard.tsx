@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, memo } from "react";
 
 interface StatCardProps {
   label: string;
@@ -7,7 +7,7 @@ interface StatCardProps {
   icon?: ReactNode;
 }
 
-const StatCard = ({ label, value, suffix, icon }: StatCardProps) => {
+const StatCard = memo(({ label, value, suffix, icon }: StatCardProps) => {
   return (
     <div className="stat-card p-3 sm:p-4 md:p-5 lg:p-6">
       <div className="flex items-center justify-between mb-1 sm:mb-2">
@@ -20,6 +20,8 @@ const StatCard = ({ label, value, suffix, icon }: StatCardProps) => {
       </p>
     </div>
   );
-};
+});
+
+StatCard.displayName = "StatCard";
 
 export default StatCard;
