@@ -1,6 +1,6 @@
+import { memo, useState, useCallback } from "react";
 import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Menu, Swords } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
-import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import XIcon from "@/components/icons/XIcon";
@@ -17,14 +17,16 @@ const navItems = [
 
 const xProfileItem = { label: "X Profile", path: "/x-profile" };
 
-const MobileNav = () => {
+const MobileNav = memo(() => {
   const [open, setOpen] = useState(false);
   const { user, signOut } = useAuth();
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await signOut();
     setOpen(false);
-  };
+  }, [signOut]);
+
+  const handleClose = useCallback(() => setOpen(false), []);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -40,7 +42,7 @@ const MobileNav = () => {
               <RouterNavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className={({ isActive }) =>
                   `nav-item ${isActive ? "nav-item-active" : ""}`
                 }
@@ -51,7 +53,7 @@ const MobileNav = () => {
             ))}
             <RouterNavLink
               to={xProfileItem.path}
-              onClick={() => setOpen(false)}
+              onClick={handleClose}
               className={({ isActive }) =>
                 `nav-item ${isActive ? "nav-item-active" : ""}`
               }
@@ -76,6 +78,8 @@ const MobileNav = () => {
       </SheetContent>
     </Sheet>
   );
-};
+});
+
+MobileNav.displayName = "MobileNav";
 
 export default MobileNav;

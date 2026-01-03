@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Swords } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +19,7 @@ const bottomItems = [
 
 const xProfileItem = { label: "X Profile", path: "/x-profile" };
 
-const Sidebar = () => {
+const Sidebar = memo(() => {
   const { user, signOut } = useAuth();
   return (
     <aside className="hidden lg:flex w-48 xl:w-56 min-h-screen bg-sidebar border-r border-border/50 py-4 xl:py-6 flex-col">
@@ -73,6 +74,8 @@ const Sidebar = () => {
       </div>
     </aside>
   );
-};
+});
+
+Sidebar.displayName = "Sidebar";
 
 export default Sidebar;
