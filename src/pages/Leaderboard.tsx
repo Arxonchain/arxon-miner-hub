@@ -121,7 +121,7 @@ const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<"miners" | "yappers">("yappers");
   
   // Fetch both on mount - no conditional fetching that causes re-renders
-  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(50);
+  const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(100);
   const { yappers, loading: yappersLoading } = useYapperLeaderboard();
   const { isMining } = useMining();
 

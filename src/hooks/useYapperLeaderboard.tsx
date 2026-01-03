@@ -28,7 +28,7 @@ export const useYapperLeaderboard = () => {
           .from('yapper_leaderboard_view')
           .select('user_id, username, avatar_url, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, social_points')
           .order('social_points', { ascending: false, nullsFirst: false })
-          .limit(50);
+          .limit(100);
 
         if (error || !mountedRef.current) return;
 
