@@ -49,27 +49,34 @@ export const usePoints = () => {
       if (error) throw error;
 
       if (!data) {
-        // Create initial points record
-        const { data: newPoints, error: createError } = await supabase
+        // Ensure an initial row exists without race-condition unique errors
+        const { error: ensureError } = await supabase
           .from('user_points')
-          .insert({ user_id: user.id })
-          .select()
-          .single();
+          .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true });
 
-        if (createError) throw createError;
-        setPoints(newPoints);
+        if (ensureError) throw ensureError;
+
+        const { data: ensured, error: ensuredError } = await supabase
+          .from('user_points')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (ensuredError) throw ensuredError;
+        setPoints(ensured ?? null);
       } else {
         setPoints(data);
       }
 
-      // Fetch rank
-      const { data: allPoints } = await supabase
-        .from('user_points')
-        .select('user_id, total_points')
-        .order('total_points', { ascending: false });
+      // Fetch rank from the secure leaderboard view (user_points is private by RLS)
+      const { data: leaderboardRows } = await supabase
+        .from('leaderboard_view')
+        .select('user_id')
+        .order('total_points', { ascending: false })
+        .limit(1000);
 
-      if (allPoints) {
-        const userRank = allPoints.findIndex(p => p.user_id === user.id) + 1;
+      if (leaderboardRows) {
+        const userRank = leaderboardRows.findIndex((p) => p.user_id === user.id) + 1;
         setRank(userRank > 0 ? userRank : null);
       }
     } catch (error) {
