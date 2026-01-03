@@ -98,7 +98,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check 2: Get user's connected X profile username
+    // Check 2: Daily limit - max 2 qualified posts per user per day
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const { data: todayApproved, error: dailyLimitError } = await supabase
+      .from('social_submissions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'approved')
+      .gte('created_at', todayStart.toISOString());
+
+    if (!dailyLimitError && todayApproved && todayApproved.length >= 2) {
+      await supabase
+        .from('social_submissions')
+        .update({ status: 'rejected' })
+        .eq('id', submissionId);
+
+      console.log(`Daily limit reached for user ${userId}: ${todayApproved.length} approved posts today`);
+      return new Response(
+        JSON.stringify({ 
+          qualified: false, 
+          reason: 'You have reached the daily limit of 2 qualified posts. Try again tomorrow!'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check 3: Get user's connected X profile username
     const { data: xProfile, error: xProfileError } = await supabase
       .from('x_profiles')
       .select('username')
