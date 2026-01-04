@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cacheGet, cacheSet } from '@/lib/localCache';
 
 interface YapperEntry {
   id: string;
@@ -21,9 +22,15 @@ export const useYapperLeaderboard = () => {
   useEffect(() => {
     mountedRef.current = true;
 
+    const cacheKey = `arxon:leaderboard:yappers:v1:100`;
+    const cached = cacheGet<YapperEntry[]>(cacheKey, { maxAgeMs: 5 * 60_000 });
+    if (cached?.data?.length) {
+      setYappers(cached.data);
+      setLoading(false);
+    }
+
     const fetchLeaderboard = async () => {
       try {
-        // Use secure yapper leaderboard view that only exposes minimal data
         const { data, error } = await supabase
           .from('yapper_leaderboard_view')
           .select('user_id, username, avatar_url, boost_percentage, qualified_posts_today, average_engagement, viral_bonus, social_points')
@@ -38,7 +45,7 @@ export const useYapperLeaderboard = () => {
           return;
         }
 
-        const yappersWithData = data.map(yapper => ({
+        const yappersWithData: YapperEntry[] = data.map((yapper) => ({
           id: yapper.user_id,
           user_id: yapper.user_id,
           username: yapper.username || `Yapper${yapper.user_id.slice(0, 4)}`,
@@ -51,6 +58,7 @@ export const useYapperLeaderboard = () => {
         }));
 
         setYappers(yappersWithData);
+        cacheSet(cacheKey, yappersWithData);
       } catch (error) {
         console.error('Error fetching yapper leaderboard:', error);
       } finally {
@@ -67,3 +75,4 @@ export const useYapperLeaderboard = () => {
 
   return { yappers, loading };
 };
+

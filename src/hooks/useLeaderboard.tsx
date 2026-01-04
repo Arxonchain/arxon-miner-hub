@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cacheGet, cacheSet } from '@/lib/localCache';
 
 interface LeaderboardEntry {
   user_id: string;
@@ -19,10 +20,16 @@ export const useLeaderboard = (limit: number = 50) => {
 
   useEffect(() => {
     mountedRef.current = true;
-    
+
+    const cacheKey = `arxon:leaderboard:miners:v1:${limit}`;
+    const cached = cacheGet<LeaderboardEntry[]>(cacheKey, { maxAgeMs: 5 * 60_000 });
+    if (cached?.data?.length) {
+      setLeaderboard(cached.data);
+      setLoading(false);
+    }
+
     const fetchLeaderboard = async () => {
       try {
-        // Use secure leaderboard view that only exposes minimal data
         const { data, error } = await supabase
           .from('leaderboard_view')
           .select('user_id, username, avatar_url, total_points, daily_streak')
@@ -47,6 +54,7 @@ export const useLeaderboard = (limit: number = 50) => {
         }));
 
         setLeaderboard(leaderboardWithRanks);
+        cacheSet(cacheKey, leaderboardWithRanks);
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       } finally {
@@ -63,3 +71,4 @@ export const useLeaderboard = (limit: number = 50) => {
 
   return { leaderboard, loading };
 };
+
