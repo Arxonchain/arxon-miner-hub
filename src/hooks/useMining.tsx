@@ -30,6 +30,31 @@ const miningSettingsCacheKey = 'arxon:mining_settings:v1';
 const xProfileBoostCacheKey = (userId: string) => `arxon:x_profile_boost:v1:${userId}`;
 const arenaBoostsCacheKey = (userId: string) => `arxon:arena_boosts:v1:${userId}`;
 
+type ActiveMiningSessionCache = {
+  id: string;
+  started_at: string;
+  arx_mined?: number | null;
+  is_active: boolean;
+};
+
+const activeSessionCacheKey = (userId: string) => `arxon:mining_active_session:v1:${userId}`;
+
+function setActiveSessionCache(userId: string, session: ActiveMiningSessionCache) {
+  cacheSet(activeSessionCacheKey(userId), session);
+}
+
+function clearActiveSessionCache(userId: string) {
+  cacheSet(activeSessionCacheKey(userId), null);
+}
+
+function getActiveSessionCache(userId: string) {
+  const cached = cacheGet<ActiveMiningSessionCache | null>(activeSessionCacheKey(userId), {
+    // A session can run up to 8 hours; keep a bit of buffer.
+    maxAgeMs: 9 * 60 * 60_000,
+  });
+  return cached?.data ?? null;
+}
+
 export const useMining = (options?: UseMiningOptions) => {
   const tickMs = Math.min(Math.max(options?.tickMs ?? 1000, 100), 5000);
 
@@ -190,6 +215,10 @@ export const useMining = (options?: UseMiningOptions) => {
           })
           .eq('id', id);
 
+        if (user) {
+          clearActiveSessionCache(user.id);
+        }
+
         if (pointsToCredit > 0) {
           await addPoints(pointsToCredit, 'mining');
         }
@@ -213,7 +242,7 @@ export const useMining = (options?: UseMiningOptions) => {
         endingRef.current = false;
       }
     },
-    [addPoints]
+    [addPoints, user]
   );
 
   const finalizeSessionSilently = useCallback(
@@ -270,6 +299,9 @@ export const useMining = (options?: UseMiningOptions) => {
       if (sessions && sessions.length > 0) {
         const latestSession = sessions[0];
 
+        // Keep cross-page cache hot
+        setActiveSessionCache(user.id, latestSession as any);
+
         if (sessions.length > 1) {
           const duplicates = sessions.slice(1);
           await Promise.allSettled(duplicates.map((s) => finalizeSessionSilently(s as any)));
@@ -301,6 +333,8 @@ export const useMining = (options?: UseMiningOptions) => {
               .eq('id', latestSession.id);
           }
         }
+      } else {
+        clearActiveSessionCache(user.id);
       }
     } catch (error) {
       console.error('Error checking active session:', error);
@@ -317,6 +351,11 @@ export const useMining = (options?: UseMiningOptions) => {
         description: 'Please sign in to start mining',
         variant: 'destructive',
       });
+      return;
+    }
+
+    if (isMining && sessionId) {
+      // Already active locally; avoid creating duplicate sessions.
       return;
     }
 
@@ -364,6 +403,14 @@ export const useMining = (options?: UseMiningOptions) => {
         .single();
 
       if (error) throw error;
+
+      // Instant cross-page reflect
+      setActiveSessionCache(user.id, {
+        id: data.id,
+        started_at: data.started_at,
+        arx_mined: 0,
+        is_active: true,
+      });
 
       const startTime = new Date(data.started_at).getTime();
       setSessionId(data.id);
@@ -542,6 +589,26 @@ export const useMining = (options?: UseMiningOptions) => {
     const cachedArena = cacheGet<ArenaBoost[]>(arenaBoostsCacheKey(user.id), { maxAgeMs: 2 * 60_000 });
     if (cachedArena?.data) setArenaBoosts(cachedArena.data);
 
+    // Hydrate active session instantly (so Dashboard reflects Mining immediately)
+    const cachedActive = getActiveSessionCache(user.id);
+    if (cachedActive?.is_active) {
+      const startTime = new Date(cachedActive.started_at).getTime();
+      const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+
+      setSessionId(cachedActive.id);
+      setIsMining(true);
+      setElapsedTime(elapsed);
+      setEarnedPoints(Math.max(Number(cachedActive.arx_mined ?? 0), 0));
+      sessionStartTimeRef.current = startTime;
+      endingRef.current = false;
+
+      // Avoid showing spinners when we already know the user is mining.
+      setLoading(false);
+    } else {
+      // Don't block the Start button/UI while background checks run.
+      setLoading(false);
+    }
+
     Promise.all([fetchMiningSettings(), fetchXProfileBoost(), fetchArenaBoosts(), checkActiveSession()]).catch(
       () => {}
     );
@@ -616,8 +683,18 @@ export const useMining = (options?: UseMiningOptions) => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
+          const session = payload.new as any;
+
+          // Keep the local "active session" cache in sync across pages.
+          if (session?.id && typeof session?.is_active === 'boolean' && session?.started_at) {
+            if (session.is_active) {
+              setActiveSessionCache(user.id, session);
+            } else {
+              clearActiveSessionCache(user.id);
+            }
+          }
+
           if (payload.eventType === 'UPDATE') {
-            const session = payload.new as any;
             if (!session.is_active && session.id === sessionId) {
               setIsMining(false);
               setSessionId(null);
