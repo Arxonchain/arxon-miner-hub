@@ -13,8 +13,10 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 let installed = false;
 
-const BASE_COOLDOWN_MS = 2_000;
-const MAX_COOLDOWN_MS = 60_000;
+// Require more failures before opening circuit (avoids single transient glitch)
+const FAILURE_THRESHOLD = 3;
+const BASE_COOLDOWN_MS = 3_000;
+const MAX_COOLDOWN_MS = 30_000;
 
 let state: BackendHealthState = {
   status: 'up',
@@ -64,19 +66,31 @@ export function resetBackendCircuit() {
 function markFailure(message: string) {
   const now = Date.now();
   const consecutiveFailures = Math.min(state.consecutiveFailures + 1, 50);
-  const cooldown = Math.min(BASE_COOLDOWN_MS * 2 ** Math.max(0, consecutiveFailures - 1), MAX_COOLDOWN_MS);
 
-  setState({
-    status: 'down',
-    consecutiveFailures,
-    lastErrorMessage: message,
-    lastErrorAt: now,
-    nextRetryAt: now + cooldown,
-  });
+  // Only open circuit after meeting threshold
+  if (consecutiveFailures >= FAILURE_THRESHOLD) {
+    const cooldown = Math.min(BASE_COOLDOWN_MS * 2 ** Math.max(0, consecutiveFailures - FAILURE_THRESHOLD), MAX_COOLDOWN_MS);
+
+    setState({
+      status: 'down',
+      consecutiveFailures,
+      lastErrorMessage: message,
+      lastErrorAt: now,
+      nextRetryAt: now + cooldown,
+    });
+  } else {
+    // Below threshold: increment failures but stay up
+    setState({
+      ...state,
+      consecutiveFailures,
+      lastErrorMessage: message,
+      lastErrorAt: now,
+    });
+  }
 }
 
 function markSuccess() {
-  if (state.status === 'up') return;
+  if (state.consecutiveFailures === 0 && state.status === 'up') return;
   resetBackendCircuit();
 }
 

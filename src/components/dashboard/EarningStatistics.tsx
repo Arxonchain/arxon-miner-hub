@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } f
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cacheGet, cacheSet } from "@/lib/localCache";
 
 interface DayEarning {
   day: string;
@@ -13,11 +14,14 @@ interface DayEarning {
   checkin: number;
 }
 
+const earningsCacheKey = (userId: string) => `arxon:earnings_stats:v1:${userId}`;
+
 const EarningStatistics = memo(() => {
   const { user } = useAuth();
   const [earningData, setEarningData] = useState<DayEarning[]>([]);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const hydratedRef = useRef(false);
 
   const fetchEarnings = useCallback(async () => {
     if (!user) {
@@ -114,6 +118,7 @@ const EarningStatistics = memo(() => {
       });
 
       setEarningData(days);
+      cacheSet(earningsCacheKey(user.id), days);
     } catch (error) {
       console.error('Error fetching earnings:', error);
     } finally {
@@ -131,15 +136,32 @@ const EarningStatistics = memo(() => {
     }, 2000); // 2 second debounce for real-time updates
   }, [fetchEarnings]);
 
-  // Initial fetch
+  // Initial fetch with cache hydration
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Hydrate from cache instantly
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      const cached = cacheGet<DayEarning[]>(earningsCacheKey(user.id), { maxAgeMs: 5 * 60_000 });
+      if (cached?.data && cached.data.length > 0) {
+        setEarningData(cached.data);
+        setLoading(false);
+      }
+    }
+
+    // Background refresh
     fetchEarnings();
+
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
     };
-  }, [fetchEarnings]);
+  }, [fetchEarnings, user]);
 
   // Single consolidated real-time subscription with debounce
   useEffect(() => {
