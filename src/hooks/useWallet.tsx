@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from '@/hooks/use-toast';
 
@@ -24,98 +23,46 @@ declare global {
 
 export const useWallet = () => {
   const { user } = useAuth();
+
+  // Wallet connect is currently "Coming Soon" in the UI, so keep this hook zero-impact
+  // to avoid backend calls that can degrade overall app responsiveness.
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
   const fetchWallets = useCallback(async () => {
-    if (!user) {
-      setWallets([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('user_wallets')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('connected_at', { ascending: false });
-
-      if (error) throw error;
-      setWallets(data || []);
-    } catch (error) {
-      console.error('Error fetching wallets:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    setWallets([]);
+    setLoading(false);
+  }, []);
 
   const connectPolkadotWallet = async () => {
     toast({
       title: "Coming Soon",
       description: "Wallet connect will be available soon. Stay tuned!",
     });
-    return;
   };
 
-  const disconnectWallet = async (walletId: string) => {
-    try {
-      const { error } = await supabase
-        .from('user_wallets')
-        .delete()
-        .eq('id', walletId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Wallet Disconnected",
-        description: "Your wallet has been unlinked",
-      });
-
-      fetchWallets();
-    } catch (error: any) {
-      console.error('Error disconnecting wallet:', error);
-      toast({
-        title: "Error",
-        description: "Failed to disconnect wallet",
-        variant: "destructive"
-      });
-    }
+  const disconnectWallet = async () => {
+    toast({
+      title: "Coming Soon",
+      description: "Wallet management will be available soon.",
+    });
   };
 
-  const setPrimaryWallet = async (walletId: string) => {
-    try {
-      // First, set all wallets to non-primary
-      await supabase
-        .from('user_wallets')
-        .update({ is_primary: false })
-        .eq('user_id', user?.id);
-
-      // Then set the selected wallet as primary
-      const { error } = await supabase
-        .from('user_wallets')
-        .update({ is_primary: true })
-        .eq('id', walletId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Primary Wallet Updated",
-        description: "Your airdrop wallet has been set",
-      });
-
-      fetchWallets();
-    } catch (error: any) {
-      console.error('Error setting primary wallet:', error);
-    }
+  const setPrimaryWallet = async () => {
+    toast({
+      title: "Coming Soon",
+      description: "Wallet management will be available soon.",
+    });
   };
 
   useEffect(() => {
-    fetchWallets();
-  }, [fetchWallets]);
+    // Keep behavior stable if other pages call into this hook.
+    // (No backend traffic until wallet connect ships.)
+    void fetchWallets();
+  }, [fetchWallets, user?.id]);
 
-  const primaryWallet = wallets.find(w => w.is_primary) || wallets[0];
+  const primaryWallet = wallets.find((w) => w.is_primary) || wallets[0];
 
   return {
     wallets,
@@ -125,6 +72,7 @@ export const useWallet = () => {
     connectPolkadotWallet,
     disconnectWallet,
     setPrimaryWallet,
-    hasPolkadotExtension: typeof window !== 'undefined' && !!window.injectedWeb3?.['polkadot-js']
+    hasPolkadotExtension: typeof window !== 'undefined' && !!window.injectedWeb3?.['polkadot-js'],
   };
 };
+

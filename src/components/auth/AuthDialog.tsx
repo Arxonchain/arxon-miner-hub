@@ -26,6 +26,19 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 12_000): Promise<T> => {
+    let timeoutId: number | null = null;
+    const timeout = new Promise<T>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error('Request timed out. Please try again.')), ms);
+    });
+
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
+  };
+
   useEffect(() => {
     if (initialReferralCode) {
       setReferralCode(initialReferralCode);
@@ -39,7 +52,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
       toast({
         title: "Email Required",
         description: "Please enter your email address",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -47,15 +60,18 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     setLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
-      });
-      
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUrl,
+        }),
+        12_000
+      );
+
       if (error) {
         toast({
           title: "Error",
           description: error.message,
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
@@ -65,11 +81,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         setMode("signin");
       }
     } catch (error) {
-      console.error('Password reset error:', error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive"
+        description: (error as Error)?.message || "Something went wrong. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -77,96 +92,43 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   };
 
   const processReferral = async (referredUserId: string, code: string) => {
-    if (!code.trim()) return;
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return;
 
     try {
-      // Find the referrer by code
-      const { data: referrerProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('referral_code', code.toUpperCase())
-        .maybeSingle();
+      const { data: referrerProfile, error: profileError } = await withTimeout(
+        supabase.from('profiles').select('user_id').eq('referral_code', normalized).maybeSingle(),
+        12_000
+      );
 
-      if (profileError || !referrerProfile) {
-        console.log('Invalid referral code:', code);
-        return;
-      }
+      if (profileError || !referrerProfile?.user_id) return;
+      if (referrerProfile.user_id === referredUserId) return;
 
-      if (referrerProfile.user_id === referredUserId) {
-        console.log('Cannot use own referral code');
-        return;
-      }
+      const { data: existingReferral } = await withTimeout(
+        supabase.from('referrals').select('id').eq('referred_id', referredUserId).maybeSingle(),
+        12_000
+      );
 
-      // Check if referral already exists
-      const { data: existingReferral } = await supabase
-        .from('referrals')
-        .select('id')
-        .eq('referred_id', referredUserId)
-        .maybeSingle();
+      if (existingReferral) return;
 
-      if (existingReferral) {
-        console.log('Referral already exists for this user');
-        return;
-      }
-
-      // Create the referral record
-      const { error: insertError } = await supabase
-        .from('referrals')
-        .insert({
+      // Insert only the referral record. Rewards/boosts are handled securely on the backend.
+      await withTimeout(
+        supabase.from('referrals').insert({
           referrer_id: referrerProfile.user_id,
           referred_id: referredUserId,
-          referral_code_used: code.toUpperCase(),
-          points_awarded: 100
-        });
-
-      if (insertError) {
-        console.error('Failed to create referral:', insertError);
-        return;
-      }
-
-      console.log('Referral created successfully');
-
-      // Award bonus points and mining boost to the referrer
-      const { data: referrerPoints } = await supabase
-        .from('user_points')
-        .select('*')
-        .eq('user_id', referrerProfile.user_id)
-        .maybeSingle();
-
-      if (referrerPoints) {
-        // Add 100 referral points and 5% mining boost
-        await supabase
-          .from('user_points')
-          .update({
-            referral_points: referrerPoints.referral_points + 100,
-            total_points: referrerPoints.total_points + 100,
-            referral_bonus_percentage: Math.min((referrerPoints.referral_bonus_percentage || 0) + 5, 50)
-          })
-          .eq('user_id', referrerProfile.user_id);
-      } else {
-        // Create points record for referrer
-        await supabase
-          .from('user_points')
-          .insert({
-            user_id: referrerProfile.user_id,
-            referral_points: 100,
-            total_points: 100,
-            referral_bonus_percentage: 5
-          });
-      }
-
-      toast({
-        title: "Referral Applied! 🎉",
-        description: "Your friend will receive bonus points and mining boost!",
-      });
-    } catch (error) {
-      console.error('Error processing referral:', error);
+          referral_code_used: normalized,
+          points_awarded: 100,
+        }),
+        12_000
+      );
+    } catch {
+      // Silent: referral processing should never block signup.
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate password strength for signup
     if (mode === "signup") {
       const passwordValidation = validatePassword(password);
@@ -174,7 +136,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         toast({
           title: "Weak Password",
           description: passwordValidation.errors[0],
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -184,12 +146,12 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     try {
       if (mode === "signin") {
-        const { error } = await signIn(email, password);
+        const { error } = await withTimeout(signIn(email, password), 12_000);
         if (error) {
           toast({
             title: "Sign In Failed",
             description: error.message,
-            variant: "destructive"
+            variant: "destructive",
           });
         } else {
           toast({
@@ -199,37 +161,36 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
           onOpenChange(false);
         }
       } else {
-        // Store referral code before signup
         const codeToUse = referralCode.trim();
-        
-        const { error, user: newUser } = await signUp(email, password);
+        const { error, user: newUser } = await withTimeout(signUp(email, password), 12_000);
+
         if (error) {
           toast({
             title: "Sign Up Failed",
             description: error.message,
-            variant: "destructive"
+            variant: "destructive",
           });
         } else {
-          // Process referral if we have a user and a code
-          if (newUser && codeToUse) {
-            // Small delay to ensure profile is created by trigger
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await processReferral(newUser.id, codeToUse);
-          }
-          
           toast({
             title: "Account Created!",
             description: "Welcome to ARXON! Start mining to earn rewards.",
           });
+
           onOpenChange(false);
+
+          // Fire-and-forget: never block the user on referral processing.
+          if (newUser && codeToUse) {
+            window.setTimeout(() => {
+              void processReferral(newUser.id, codeToUse);
+            }, 0);
+          }
         }
       }
     } catch (error) {
-      console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive"
+        description: (error as Error)?.message || "Something went wrong. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
