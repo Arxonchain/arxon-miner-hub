@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
+import { BackendUnavailableError } from '@/lib/backendHealth';
 import { useAuth } from './useAuth';
 import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
@@ -381,9 +382,12 @@ export const useMining = (options?: UseMiningOptions) => {
       triggerConfetti();
     } catch (error) {
       console.error('Error starting mining:', error);
+      const description =
+        error instanceof BackendUnavailableError ? error.message : 'Failed to start mining session';
+
       toast({
-        title: 'Error',
-        description: 'Failed to start mining session',
+        title: error instanceof BackendUnavailableError ? 'Service Unavailable' : 'Error',
+        description,
         variant: 'destructive',
       });
     }
@@ -437,8 +441,8 @@ export const useMining = (options?: UseMiningOptions) => {
     } catch (error) {
       console.error('Error claiming points:', error);
       toast({
-        title: 'Claim Failed',
-        description: 'Please try again',
+        title: error instanceof BackendUnavailableError ? 'Service Unavailable' : 'Claim Failed',
+        description: error instanceof BackendUnavailableError ? error.message : 'Please try again',
         variant: 'destructive',
       });
     }
