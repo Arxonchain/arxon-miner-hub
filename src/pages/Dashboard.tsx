@@ -22,7 +22,8 @@ const Dashboard = () => {
   const { totalMiningBoost } = useSocialSubmissions();
   const [showAuth, setShowAuth] = useState(false);
 
-  const miningDisabled = settingsLoading || !miningSettings.publicMiningEnabled;
+  const miningDisabled = !miningSettings.publicMiningEnabled;
+  const miningStatusLoading = settingsLoading;
 
   // Calculate current mining rate with all boosts - real-time from useMining hook
   const currentMiningRate = useMemo(() => {
@@ -153,17 +154,19 @@ const Dashboard = () => {
         ) : (
           <>
             <p className="text-xs sm:text-sm lg:text-base text-muted-foreground">
-              {miningDisabled
-                ? "Mining is currently paused by the admin."
-                : "Start mining to earn ARX-P points. Max 8 hours per session, 10 points/hour."}
+              {miningStatusLoading
+                ? "Checking mining status..."
+                : miningDisabled
+                  ? "Mining is currently paused by the admin."
+                  : "Start mining to earn ARX-P points. Max 8 hours per session, 10 points/hour."}
             </p>
             <button 
-              onClick={miningDisabled ? undefined : handleStartMining}
-              disabled={miningDisabled}
-              className={`btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5 ${miningDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+              onClick={(miningStatusLoading || miningDisabled) ? undefined : handleStartMining}
+              disabled={miningStatusLoading || miningDisabled}
+              className={`btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5 ${(miningStatusLoading || miningDisabled) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
             >
-              <span className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${miningDisabled ? 'bg-muted-foreground' : 'bg-foreground'}`} />
-              {miningDisabled ? 'Mining Disabled' : 'Start Mining'}
+              <span className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${(miningStatusLoading || miningDisabled) ? 'bg-muted-foreground' : 'bg-foreground'}`} />
+              {miningStatusLoading ? 'Checking…' : (miningDisabled ? 'Mining Disabled' : 'Start Mining')}
               <ArrowRight className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
             </button>
           </>
