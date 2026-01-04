@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "./Dashboard";
@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 const Index = () => {
   const { user, loading } = useAuth();
   const [searchParams] = useSearchParams();
+  const [showSplash, setShowSplash] = useState(true);
 
   // Store referral code in sessionStorage for use after signup
   useEffect(() => {
@@ -17,8 +18,14 @@ const Index = () => {
     }
   }, [searchParams]);
 
-  // Show loading state
-  if (loading) {
+  // Never hard-block the app on an auth/session fetch that can hang on bad networks.
+  useEffect(() => {
+    const id = window.setTimeout(() => setShowSplash(false), 900);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  // Brief splash only
+  if (loading && showSplash) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
