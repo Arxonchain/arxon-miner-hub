@@ -18,7 +18,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { points, loading: pointsLoading, rank } = usePoints();
   const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading, pointsPerHour } = useMining();
-  const { canCheckin, performCheckin, currentStreak, loading: checkinLoading } = useCheckin();
+  const { canCheckin, performCheckin, currentStreak, streakBoost, loading: checkinLoading } = useCheckin();
   const { totalMiningBoost } = useSocialSubmissions();
   const [showAuth, setShowAuth] = useState(false);
 
@@ -66,14 +66,23 @@ const Dashboard = () => {
       {/* Daily Check-in Card */}
       {user && (
         <div className="glass-card p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${canCheckin ? 'bg-primary/20' : 'bg-muted'}`}>
-              <Calendar className={`h-5 w-5 ${canCheckin ? 'text-primary' : 'text-muted-foreground'}`} />
+          <div className="flex items-center gap-3 flex-1">
+            <div className={`p-2 rounded-lg ${canCheckin ? 'bg-primary/20 animate-pulse' : 'bg-green-500/20'}`}>
+              <Calendar className={`h-5 w-5 ${canCheckin ? 'text-primary' : 'text-green-500'}`} />
             </div>
-            <div>
-              <p className="font-medium text-foreground">Daily Check-in</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-foreground">Daily Check-in</p>
+                {currentStreak > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">
+                    🔥 {currentStreak} day{currentStreak !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                {canCheckin ? 'Claim your daily bonus!' : 'Come back tomorrow'}
+                {canCheckin 
+                  ? `Check in for +${5 + Math.min(currentStreak + 1, 30)} ARX-P & +${Math.min(currentStreak + 1, 30)}% boost` 
+                  : `+${streakBoost}% mining boost active`}
               </p>
             </div>
           </div>
@@ -88,7 +97,7 @@ const Dashboard = () => {
                 Check In
               </>
             ) : (
-              'Checked In ✓'
+              '✓ Checked In'
             )}
           </Button>
         </div>
