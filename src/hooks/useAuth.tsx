@@ -20,32 +20,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const lastAutoXSyncUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    let mounted = true;
+
+    // Check for existing session FIRST for faster initial load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false);
+    });
+
+    // Set up auth state listener for subsequent changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Auto-sync X rewards/boosts on login (no URL submission required)
+  // Auto-sync X rewards/boosts on login (non-blocking, fire-and-forget)
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) return;
     if (lastAutoXSyncUserId.current === userId) return;
     lastAutoXSyncUserId.current = userId;
 
+    // Fire-and-forget: don't await, don't block UI
     (async () => {
       try {
         const { data: xProfile } = await supabase
@@ -60,16 +70,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const shouldRefresh = !last || Date.now() - last > 60 * 60 * 1000; // 1h throttle
         if (!shouldRefresh) return;
 
-        await supabase.functions.invoke('scan-x-profile', {
+        // Don't await - let this run in background
+        supabase.functions.invoke('scan-x-profile', {
           body: {
             username: xProfile.username,
             profileUrl: xProfile.profile_url,
             isInitialConnect: false,
             forceHistorical: !xProfile.historical_scanned,
           },
-        });
+        }).catch(() => {}); // Silently ignore failures
       } catch (e) {
-        console.warn('Auto X sync failed:', e);
+        // Silently fail - don't block the app
       }
     })();
   }, [session?.user?.id]);

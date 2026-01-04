@@ -519,15 +519,22 @@ export const useMining = () => {
     };
   }, [recomputeFromStartTime, checkActiveSession, isMining]);
 
-  // Initial fetch - including all boost sources
+  // Initial fetch - all in PARALLEL for faster load
   useEffect(() => {
-    (async () => {
-      await fetchMiningSettings();
-      await fetchXProfileBoost();
-      await fetchArenaBoosts();
-      await checkActiveSession();
-    })();
-  }, [checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts]);
+    if (!user) {
+      setLoading(false);
+      setSettingsLoading(false);
+      return;
+    }
+
+    // Run all fetches in parallel to minimize load time
+    Promise.all([
+      fetchMiningSettings(),
+      fetchXProfileBoost(),
+      fetchArenaBoosts(),
+      checkActiveSession()
+    ]).catch(console.error);
+  }, [user, checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts]);
 
   // Real-time subscription for X profile boost changes
   useEffect(() => {
