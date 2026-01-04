@@ -2,13 +2,13 @@ import { ArrowRight, Copy, Users } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import { toast } from "@/hooks/use-toast";
-import { useMining } from "@/hooks/useMining";
+
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 
 const Referrals = () => {
-  const { isMining } = useMining();
+  
   const { user } = useAuth();
   const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals(user);
 
@@ -59,7 +59,7 @@ const Referrals = () => {
       <WelcomeCard
         title="Welcome to ARXON Referrals Section"
         description="Invite others to join ARXON and earn bonus rewards as they mine."
-        isActive={isMining}
+        isActive={false}
       />
 
       {/* Referral Code Display */}

@@ -30,7 +30,7 @@ const Mining = () => {
     pointsPerHour,
     totalBoostPercentage,
     miningSettings
-  } = useMining();
+  } = useMining({ tickMs: 250 });
   const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = !miningSettings.publicMiningEnabled;

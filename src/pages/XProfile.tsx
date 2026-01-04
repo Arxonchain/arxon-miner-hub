@@ -3,7 +3,8 @@ import { Link2, Unlink, Check, RefreshCw, Zap, Loader2, Gift, Clock, Heart, Repe
 import XIcon from "@/components/icons/XIcon";
 import { useXProfile } from "@/hooks/useXProfile";
 import { useAuth } from "@/hooks/useAuth";
-import { useMining } from "@/hooks/useMining";
+import { usePoints } from "@/hooks/usePoints";
+import { useArenaBoostTotal } from "@/hooks/useArenaBoostTotal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AuthDialog from "@/components/auth/AuthDialog";
@@ -11,7 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const XProfilePage = () => {
   const { user } = useAuth();
-  const { pointsPerHour, totalBoostPercentage, referralBonus, xProfileBoost, xPostBoost, totalArenaBoost } = useMining();
+  const { points } = usePoints();
+  const { totalArenaBoost } = useArenaBoostTotal();
+
   const { 
     xProfile, 
     postRewards,
@@ -21,6 +24,16 @@ const XProfilePage = () => {
     disconnectXProfile,
     refreshBoost
   } = useXProfile();
+
+  const referralBonus = points?.referral_bonus_percentage ?? 0;
+  const xPostBoost = points?.x_post_boost_percentage ?? 0;
+  const streakBoost = Math.min(points?.daily_streak ?? 0, 30);
+  const xProfileBoost = xProfile?.boost_percentage ?? 0;
+
+  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost + streakBoost;
+  const totalBoostPercentage = Math.min(rawTotalBoost, 500);
+  const pointsPerHour = Math.min(10 * (1 + totalBoostPercentage / 100), 60);
+
   const [showAuth, setShowAuth] = useState(false);
   const [xProfileInput, setXProfileInput] = useState('');
 
