@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PointsProvider } from "@/hooks/usePoints";
 import BackendHealthBanner from "@/components/system/BackendHealthBanner";
+import SessionRecovery from "@/components/system/SessionRecovery";
 import { BackendUnavailableError } from "@/lib/backendHealth";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -66,6 +67,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BackendHealthBanner />
+          <SessionRecovery />
           <BrowserRouter>
             <Routes>
               {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}

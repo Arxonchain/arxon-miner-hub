@@ -5,11 +5,13 @@ import { toast } from "@/hooks/use-toast";
 
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/hooks/useAuth";
+import { useMiningStatus } from "@/hooks/useMiningStatus";
 import { format } from "date-fns";
 
 const Referrals = () => {
   
   const { user } = useAuth();
+  const { isMining } = useMiningStatus();
   const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals(user);
 
   const copyReferralCode = () => {
@@ -59,7 +61,7 @@ const Referrals = () => {
       <WelcomeCard
         title="Welcome to ARXON Referrals Section"
         description="Invite others to join ARXON and earn bonus rewards as they mine."
-        isActive={false}
+        isActive={isMining}
       />
 
       {/* Referral Code Display */}
