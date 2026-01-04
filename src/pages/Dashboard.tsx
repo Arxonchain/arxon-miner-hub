@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
 import { useCheckin } from "@/hooks/useCheckin";
-import { useSocialSubmissions } from "@/hooks/useSocialSubmissions";
+
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import EarningStatistics from "@/components/dashboard/EarningStatistics";
@@ -19,7 +19,7 @@ const Dashboard = () => {
   const { points, loading: pointsLoading, rank } = usePoints();
   const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading, pointsPerHour } = useMining();
   const { canCheckin, performCheckin, currentStreak, streakBoost, loading: checkinLoading } = useCheckin();
-  const { totalMiningBoost } = useSocialSubmissions();
+  
   const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = !miningSettings.publicMiningEnabled;

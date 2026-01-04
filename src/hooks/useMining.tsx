@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cacheGet, cacheSet } from '@/lib/localCache';
 import { useAuth } from './useAuth';
 import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
@@ -19,9 +20,21 @@ interface ArenaBoost {
   expires_at: string;
 }
 
-export const useMining = () => {
+type UseMiningOptions = {
+  /** UI tick interval; lower is smoother but more CPU. */
+  tickMs?: number;
+};
+
+const miningSettingsCacheKey = 'arxon:mining_settings:v1';
+const xProfileBoostCacheKey = (userId: string) => `arxon:x_profile_boost:v1:${userId}`;
+const arenaBoostsCacheKey = (userId: string) => `arxon:arena_boosts:v1:${userId}`;
+
+export const useMining = (options?: UseMiningOptions) => {
+  const tickMs = Math.min(Math.max(options?.tickMs ?? 1000, 100), 5000);
+
   const { user } = useAuth();
   const { addPoints, triggerConfetti, points } = usePoints();
+
   const [isMining, setIsMining] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -32,14 +45,17 @@ export const useMining = () => {
     publicMiningEnabled: true,
     claimingEnabled: false,
     blockReward: 1000,
-    consensusMode: 'PoW'
+    consensusMode: 'PoW',
   });
   const [xProfileBoost, setXProfileBoost] = useState(0);
-  const [arenaBoosts, setArenaBoosts] = useState<ArenaBoost[]>([]); 
-  const lastDbPointsRef = useRef(0); // Track last whole points saved to DB
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [arenaBoosts, setArenaBoosts] = useState<ArenaBoost[]>([]);
+
+  const lastDbPointsRef = useRef(0);
+  const lastDbWriteAtRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialLoadRef = useRef(true);
   const sessionStartTimeRef = useRef<number | null>(null);
+  const endingRef = useRef(false);
 
   // Fetch X profile boost
   const fetchXProfileBoost = useCallback(async () => {
@@ -47,15 +63,18 @@ export const useMining = () => {
       setXProfileBoost(0);
       return;
     }
+
     try {
       const { data, error } = await supabase
         .from('x_profiles')
         .select('boost_percentage')
         .eq('user_id', user.id)
         .maybeSingle();
-      
+
       if (!error && data) {
-        setXProfileBoost(data.boost_percentage || 0);
+        const next = data.boost_percentage || 0;
+        setXProfileBoost(next);
+        cacheSet(xProfileBoostCacheKey(user.id), next);
       }
     } catch (err) {
       console.error('Error fetching X profile boost:', err);
@@ -68,15 +87,17 @@ export const useMining = () => {
       setArenaBoosts([]);
       return;
     }
+
     try {
       const { data, error } = await supabase
         .from('arena_boosts')
         .select('boost_percentage, expires_at')
         .eq('user_id', user.id)
         .gte('expires_at', new Date().toISOString());
-      
+
       if (!error && data) {
         setArenaBoosts(data);
+        cacheSet(arenaBoostsCacheKey(user.id), data);
       }
     } catch (err) {
       console.error('Error fetching arena boosts:', err);
@@ -84,45 +105,44 @@ export const useMining = () => {
   }, [user]);
 
   // Calculate all boost sources separately
-  const referralBonus = points?.referral_bonus_percentage || 0; // Only from referrals
-  const xPostBoost = (points as any)?.x_post_boost_percentage || 0; // From X social submissions
+  const referralBonus = points?.referral_bonus_percentage || 0;
+  const xPostBoost = (points as any)?.x_post_boost_percentage || 0;
   const totalArenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
-  
-  // Streak boost: +1% per consecutive day, capped at 30%
   const streakBoost = Math.min(points?.daily_streak || 0, 30);
-  
-  // X profile scan boost is tracked separately in x_profiles table
-  // xProfileBoost comes from the scan-x-profile edge function
-  
-  // Total boost = referral + X scan + X posts + arena + streak
-  // CAP total boost at 500% to prevent exploits
+
+  // Total boost = referral + X scan + X posts + arena + streak (cap 500%)
   const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost + streakBoost;
   const totalBoostPercentage = Math.min(rawTotalBoost, 500);
-  
-  // Calculate effective points per hour with ALL boosts
-  // Max: 10 base * (1 + 5) = 60 points/hour maximum
+
+  // Rate caps: 10/hr base, 60/hr max
   const pointsPerHour = BASE_POINTS_PER_HOUR * (1 + totalBoostPercentage / 100);
-  
-  // CAP points per hour at 60 (10 base + 500% boost max)
   const cappedPointsPerHour = Math.min(pointsPerHour, 60);
-  
-  // Points per second for real-time display
   const pointsPerSecond = cappedPointsPerHour / 3600;
-  
-  // Log when mining rate changes for debugging
+
   useEffect(() => {
-    console.log('Mining rate updated:', { 
-      referralBonus, 
-      xProfileBoost, 
+    if (!import.meta.env.DEV) return;
+    console.log('Mining rate updated:', {
+      referralBonus,
+      xProfileBoost,
       xPostBoost,
       totalArenaBoost,
       streakBoost,
       rawTotalBoost,
       totalBoostPercentage,
-      cappedPointsPerHour, 
-      pointsPerSecond 
+      cappedPointsPerHour,
+      pointsPerSecond,
     });
-  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, streakBoost, rawTotalBoost, totalBoostPercentage, cappedPointsPerHour, pointsPerSecond]);
+  }, [
+    referralBonus,
+    xProfileBoost,
+    xPostBoost,
+    totalArenaBoost,
+    streakBoost,
+    rawTotalBoost,
+    totalBoostPercentage,
+    cappedPointsPerHour,
+    pointsPerSecond,
+  ]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -132,19 +152,21 @@ export const useMining = () => {
     try {
       const { data, error } = await supabase
         .from('mining_settings')
-        .select('*')
+        .select('public_mining_enabled, claiming_enabled, block_reward, consensus_mode')
         .limit(1)
         .maybeSingle();
 
       if (error) throw error;
 
       if (data) {
-        setMiningSettings({
+        const next: MiningSettings = {
           publicMiningEnabled: data.public_mining_enabled,
           claimingEnabled: data.claiming_enabled,
           blockReward: data.block_reward,
-          consensusMode: data.consensus_mode
-        });
+          consensusMode: data.consensus_mode,
+        };
+        setMiningSettings(next);
+        cacheSet(miningSettingsCacheKey, next);
       }
     } catch (error) {
       console.error('Error fetching mining settings:', error);
@@ -163,7 +185,7 @@ export const useMining = () => {
           .update({
             is_active: false,
             ended_at: new Date().toISOString(),
-            arx_mined: pointsToCredit
+            arx_mined: pointsToCredit,
           })
           .eq('id', id);
 
@@ -176,14 +198,18 @@ export const useMining = () => {
         setElapsedTime(0);
         setEarnedPoints(0);
         lastDbPointsRef.current = 0;
+        lastDbWriteAtRef.current = 0;
         sessionStartTimeRef.current = null;
+        endingRef.current = false;
 
         toast({
-          title: "Mining Session Complete! 🎉",
+          title: 'Mining Session Complete! 🎉',
           description: `You earned ${pointsToCredit} ARX-P points`,
         });
       } catch (error) {
         console.error('Error ending session:', error);
+        // Allow another attempt if we failed to end
+        endingRef.current = false;
       }
     },
     [addPoints]
@@ -195,20 +221,16 @@ export const useMining = () => {
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
       const effectiveSeconds = Math.min(elapsedSeconds, maxTimeSeconds);
 
-      const calculatedPoints = Math.min(
-        480,
-        Math.floor((effectiveSeconds / 3600) * cappedPointsPerHour)
-      );
+      const calculatedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * cappedPointsPerHour));
       const dbPoints = Math.max(0, Math.floor(Number(session.arx_mined ?? 0)));
       const finalPoints = Math.max(calculatedPoints, dbPoints);
 
-      // Only credit if we actually ended an active session (prevents double-credit)
       const { data: updated, error: updateError } = await supabase
         .from('mining_sessions')
         .update({
           is_active: false,
           ended_at: new Date().toISOString(),
-          arx_mined: finalPoints
+          arx_mined: finalPoints,
         })
         .eq('id', session.id)
         .eq('is_active', true)
@@ -236,10 +258,11 @@ export const useMining = () => {
     try {
       const { data: sessions, error } = await supabase
         .from('mining_sessions')
-        .select('*')
+        .select('id, started_at, arx_mined, is_active')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .order('started_at', { ascending: false });
+        .order('started_at', { ascending: false })
+        .limit(5);
 
       if (error) throw error;
 
@@ -247,7 +270,6 @@ export const useMining = () => {
         const latestSession = sessions[0];
 
         if (sessions.length > 1) {
-          console.log(`Found ${sessions.length} active sessions, ending duplicates...`);
           const duplicates = sessions.slice(1);
           await Promise.allSettled(duplicates.map((s) => finalizeSessionSilently(s as any)));
         }
@@ -256,10 +278,7 @@ export const useMining = () => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
         if (elapsed >= maxTimeSeconds) {
-          const calculatedPoints = Math.min(
-            480,
-            Math.floor((maxTimeSeconds / 3600) * cappedPointsPerHour)
-          );
+          const calculatedPoints = Math.min(480, Math.floor((maxTimeSeconds / 3600) * cappedPointsPerHour));
           await endSession(latestSession.id, calculatedPoints);
         } else {
           const calculatedPoints = Math.min(480, (elapsed / 3600) * cappedPointsPerHour);
@@ -272,23 +291,14 @@ export const useMining = () => {
           setEarnedPoints(resumePoints);
           lastDbPointsRef.current = Math.floor(resumePoints);
           sessionStartTimeRef.current = startTime;
+          endingRef.current = false;
 
           if (calculatedPoints > dbPoints) {
-            await supabase
+            void supabase
               .from('mining_sessions')
               .update({ arx_mined: Math.floor(calculatedPoints) })
               .eq('id', latestSession.id);
           }
-
-          console.log('Resumed mining session:', {
-            sessionId: latestSession.id,
-            elapsed,
-            calculatedPoints,
-            dbPoints,
-            resumePoints,
-            startTime,
-            closedDuplicates: sessions.length - 1
-          });
         }
       }
     } catch (error) {
@@ -302,37 +312,27 @@ export const useMining = () => {
   const startMining = async () => {
     if (!user) {
       toast({
-        title: "Login Required",
-        description: "Please sign in to start mining",
-        variant: "destructive"
+        title: 'Login Required',
+        description: 'Please sign in to start mining',
+        variant: 'destructive',
       });
       return;
     }
 
-    // Always re-check backend setting right before starting
-    try {
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from('mining_settings')
-        .select('public_mining_enabled')
-        .limit(1)
-        .maybeSingle();
-
-      if (settingsError) throw settingsError;
-
-      if (!settingsRow?.public_mining_enabled) {
-        toast({
-          title: "Mining Disabled",
-          description: "Public mining is currently disabled",
-          variant: "destructive"
-        });
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking mining settings:', error);
+    if (settingsLoading) {
       toast({
-        title: "Error",
-        description: "Could not verify mining status",
-        variant: "destructive"
+        title: 'Please wait',
+        description: 'Still checking mining status…',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!miningSettings.publicMiningEnabled) {
+      toast({
+        title: 'Mining Disabled',
+        description: 'Public mining is currently disabled',
+        variant: 'destructive',
       });
       return;
     }
@@ -340,10 +340,11 @@ export const useMining = () => {
     try {
       const { data: existingSessions, error: existingError } = await supabase
         .from('mining_sessions')
-        .select('*')
+        .select('id, started_at, arx_mined, is_active')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .order('started_at', { ascending: false });
+        .order('started_at', { ascending: false })
+        .limit(5);
 
       if (existingError) throw existingError;
 
@@ -356,9 +357,9 @@ export const useMining = () => {
         .insert({
           user_id: user.id,
           is_active: true,
-          arx_mined: 0
+          arx_mined: 0,
         })
-        .select()
+        .select('id, started_at')
         .single();
 
       if (error) throw error;
@@ -369,142 +370,139 @@ export const useMining = () => {
       setElapsedTime(0);
       setEarnedPoints(0);
       lastDbPointsRef.current = 0;
+      lastDbWriteAtRef.current = 0;
       sessionStartTimeRef.current = startTime;
+      endingRef.current = false;
 
       toast({
-        title: "Mining Started! ⛏️",
+        title: 'Mining Started! ⛏️',
         description: "You're now earning ARX-P points",
       });
       triggerConfetti();
     } catch (error) {
       console.error('Error starting mining:', error);
       toast({
-        title: "Error",
-        description: "Failed to start mining session",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to start mining session',
+        variant: 'destructive',
       });
     }
   };
 
   const stopMining = async () => {
     if (!sessionId) return;
-    // Use whole earned points for claiming
     const pointsToClaim = Math.floor(earnedPoints);
     await endSession(sessionId, pointsToClaim);
   };
-  
+
   // Claim current earned points without stopping mining
   const claimPoints = async () => {
     if (!sessionId || !user) return;
-    
+
     const pointsToClaim = Math.floor(earnedPoints);
     if (pointsToClaim <= 0) {
       toast({
-        title: "Nothing to Claim",
-        description: "Keep mining to earn points",
-        variant: "destructive"
+        title: 'Nothing to Claim',
+        description: 'Keep mining to earn points',
+        variant: 'destructive',
       });
       return;
     }
-    
+
     try {
-      // Add points to total balance
       await addPoints(pointsToClaim, 'mining');
-      
-      // Reset earned points display (keep mining)
+
       setEarnedPoints(0);
       lastDbPointsRef.current = 0;
-      
-      // Update session start time to now for fresh count
+      lastDbWriteAtRef.current = 0;
+
       const newStartTime = Date.now();
       sessionStartTimeRef.current = newStartTime;
-      
-      // Update the session in database
+
       await supabase
         .from('mining_sessions')
-        .update({ 
+        .update({
           started_at: new Date(newStartTime).toISOString(),
-          arx_mined: 0 
+          arx_mined: 0,
         })
         .eq('id', sessionId);
-      
-      // Reset elapsed time
+
       setElapsedTime(0);
-      
+
       toast({
-        title: "Points Claimed! 🎉",
+        title: 'Points Claimed! 🎉',
         description: `+${pointsToClaim} ARX-P added to your balance`,
       });
       triggerConfetti();
     } catch (error) {
       console.error('Error claiming points:', error);
       toast({
-        title: "Claim Failed",
-        description: "Please try again",
-        variant: "destructive"
+        title: 'Claim Failed',
+        description: 'Please try again',
+        variant: 'destructive',
       });
     }
   };
 
   // Timer and points calculation - computed from server start time for accuracy.
-  // Uses Date.now() so the UI instantly catches up after tab throttling/backgrounding.
-  const recomputeFromStartTime = useCallback(async () => {
+  const recomputeFromStartTime = useCallback(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
     const startTime = sessionStartTimeRef.current;
     const elapsedMs = Date.now() - startTime;
     const newElapsed = Math.floor(elapsedMs / 1000);
 
-    // Check if max time reached
     if (newElapsed >= maxTimeSeconds) {
+      if (endingRef.current) return;
+      endingRef.current = true;
+
       const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
-      await endSession(sessionId, finalPoints);
+      void endSession(sessionId, finalPoints);
       return;
     }
 
     setElapsedTime(newElapsed);
 
-    // Calculate fractional points for real-time display - always positive, start from 0
     const secondsElapsed = elapsedMs / 1000;
-    const fractionalPoints = Math.max(
-      0,
-      Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour)
-    );
+    const fractionalPoints = Math.max(0, Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour));
     setEarnedPoints(fractionalPoints);
 
-    // Only update database when whole points change (to avoid excessive writes)
     const wholePoints = Math.min(480, Math.floor(fractionalPoints));
     if (wholePoints > lastDbPointsRef.current) {
       lastDbPointsRef.current = wholePoints;
-      void supabase.from('mining_sessions').update({ arx_mined: wholePoints }).eq('id', sessionId);
+
+      // Hard throttle (safety): never write more often than every 15s.
+      const now = Date.now();
+      if (now - lastDbWriteAtRef.current > 15_000) {
+        lastDbWriteAtRef.current = now;
+        void supabase.from('mining_sessions').update({ arx_mined: wholePoints }).eq('id', sessionId);
+      }
     }
   }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour, endSession]);
 
   useEffect(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
-    // Run once immediately so UI never looks "stuck" after navigation/refresh
-    void recomputeFromStartTime();
+    // Run once immediately
+    recomputeFromStartTime();
 
     intervalRef.current = setInterval(() => {
-      void recomputeFromStartTime();
-    }, 100); // Update every 100ms for smooth display
+      recomputeFromStartTime();
+    }, tickMs);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
     };
-  }, [isMining, sessionId, recomputeFromStartTime]);
+  }, [isMining, sessionId, recomputeFromStartTime, tickMs]);
 
-  // When the tab wakes up from background throttling, instantly recompute from server start time.
+  // When the tab wakes up from background throttling, recompute.
   useEffect(() => {
     const handleWake = () => {
       if (document.visibilityState !== 'visible') return;
 
-      void recomputeFromStartTime();
+      recomputeFromStartTime();
 
-      // If the UI lost state (navigation/refresh), re-check if there's an active session to resume.
       if (!isMining) {
         void checkActiveSession();
       }
@@ -519,7 +517,7 @@ export const useMining = () => {
     };
   }, [recomputeFromStartTime, checkActiveSession, isMining]);
 
-  // Initial fetch - all in PARALLEL for faster load
+  // Initial fetch
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -527,13 +525,22 @@ export const useMining = () => {
       return;
     }
 
-    // Run all fetches in parallel to minimize load time
-    Promise.all([
-      fetchMiningSettings(),
-      fetchXProfileBoost(),
-      fetchArenaBoosts(),
-      checkActiveSession()
-    ]).catch(console.error);
+    // Hydrate from cache first for instant UI
+    const cachedSettings = cacheGet<MiningSettings>(miningSettingsCacheKey, { maxAgeMs: 10 * 60_000 });
+    if (cachedSettings?.data) {
+      setMiningSettings(cachedSettings.data);
+      setSettingsLoading(false);
+    }
+
+    const cachedXBoost = cacheGet<number>(xProfileBoostCacheKey(user.id), { maxAgeMs: 10 * 60_000 });
+    if (cachedXBoost?.data !== undefined) setXProfileBoost(cachedXBoost.data);
+
+    const cachedArena = cacheGet<ArenaBoost[]>(arenaBoostsCacheKey(user.id), { maxAgeMs: 2 * 60_000 });
+    if (cachedArena?.data) setArenaBoosts(cachedArena.data);
+
+    Promise.all([fetchMiningSettings(), fetchXProfileBoost(), fetchArenaBoosts(), checkActiveSession()]).catch(
+      () => {}
+    );
   }, [user, checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts]);
 
   // Real-time subscription for X profile boost changes
@@ -548,13 +555,13 @@ export const useMining = () => {
           event: '*',
           schema: 'public',
           table: 'x_profiles',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Real-time X profile update:', payload);
           if (payload.new) {
-            const newProfile = payload.new as any;
-            setXProfileBoost(newProfile.boost_percentage || 0);
+            const next = (payload.new as any).boost_percentage || 0;
+            setXProfileBoost(next);
+            cacheSet(xProfileBoostCacheKey(user.id), next);
           }
         }
       )
@@ -577,11 +584,10 @@ export const useMining = () => {
           event: '*',
           schema: 'public',
           table: 'arena_boosts',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // Refetch arena boosts on any change
-          fetchArenaBoosts();
+          void fetchArenaBoosts();
         }
       )
       .subscribe();
@@ -595,8 +601,6 @@ export const useMining = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscription for mining_sessions');
-    
     const channel = supabase
       .channel('mining-session-changes')
       .on(
@@ -605,29 +609,27 @@ export const useMining = () => {
           event: '*',
           schema: 'public',
           table: 'mining_sessions',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
-         (payload) => {
-           console.log('Real-time mining session update:', payload);
-           
-           if (payload.eventType === 'UPDATE') {
-             const session = payload.new as any;
-             if (!session.is_active && session.id === sessionId) {
-               // Session was ended (possibly from another tab / admin controls)
-               setIsMining(false);
-               setSessionId(null);
-               setElapsedTime(0);
-               setEarnedPoints(0);
-               lastDbPointsRef.current = 0;
-               sessionStartTimeRef.current = null;
-             }
-           }
-         }
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const session = payload.new as any;
+            if (!session.is_active && session.id === sessionId) {
+              setIsMining(false);
+              setSessionId(null);
+              setElapsedTime(0);
+              setEarnedPoints(0);
+              lastDbPointsRef.current = 0;
+              lastDbWriteAtRef.current = 0;
+              sessionStartTimeRef.current = null;
+              endingRef.current = false;
+            }
+          }
+        }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up mining_sessions subscription');
       supabase.removeChannel(channel);
     };
   }, [user, sessionId]);
@@ -636,23 +638,21 @@ export const useMining = () => {
   const isMiningRef = useRef(isMining);
   const sessionIdRef = useRef(sessionId);
   const earnedPointsRef = useRef(earnedPoints);
-  
+
   useEffect(() => {
     isMiningRef.current = isMining;
   }, [isMining]);
-  
+
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
-  
+
   useEffect(() => {
     earnedPointsRef.current = earnedPoints;
   }, [earnedPoints]);
 
   // Real-time subscription for mining settings (admin controls)
   useEffect(() => {
-    console.log('Setting up real-time subscription for mining_settings');
-    
     const channel = supabase
       .channel('mining-settings-changes')
       .on(
@@ -660,26 +660,28 @@ export const useMining = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'mining_settings'
+          table: 'mining_settings',
         },
         async (payload) => {
-          console.log('Real-time mining settings update:', payload);
           const newSettings = payload.new as any;
-          
-          setMiningSettings({
+
+          const next: MiningSettings = {
             publicMiningEnabled: newSettings.public_mining_enabled,
             claimingEnabled: newSettings.claiming_enabled,
             blockReward: newSettings.block_reward,
-            consensusMode: newSettings.consensus_mode
-          });
+            consensusMode: newSettings.consensus_mode,
+          };
 
-          // If mining was just disabled and user is mining, stop their session
+          setMiningSettings(next);
+          cacheSet(miningSettingsCacheKey, next);
+
           if (!newSettings.public_mining_enabled && isMiningRef.current && sessionIdRef.current) {
             toast({
-              title: "Mining Disabled",
-              description: "Public mining has been disabled by admin. Your session has ended.",
-              variant: "destructive"
+              title: 'Mining Disabled',
+              description: 'Public mining has been disabled by admin. Your session has ended.',
+              variant: 'destructive',
             });
+
             await endSession(sessionIdRef.current, earnedPointsRef.current);
           }
         }
@@ -687,16 +689,17 @@ export const useMining = () => {
       .subscribe();
 
     return () => {
-      console.log('Cleaning up mining_settings subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [endSession]);
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
   };
 
   return {
@@ -705,22 +708,20 @@ export const useMining = () => {
     settingsLoading,
     elapsedTime,
     remainingTime,
-    earnedPoints: Math.max(0, earnedPoints), // Ensure never negative
+    earnedPoints: Math.max(0, earnedPoints),
     maxTimeSeconds,
     startMining,
     stopMining,
     claimPoints,
     formatTime,
-    // Boost breakdown for UI display
-    referralBonus,       // From referrals only
-    xProfileBoost,       // From X profile scan (hashtag posts)
-    xPostBoost,          // From X post submissions (social yapping)
+    referralBonus,
+    xProfileBoost,
+    xPostBoost,
     totalArenaBoost,
-    streakBoost,         // From daily check-in streak (+1%/day, max 30%)
-    totalBoostPercentage, // Capped at 500%
-    // Unified rate (capped at 60/hr max)
+    streakBoost,
+    totalBoostPercentage,
     pointsPerHour: cappedPointsPerHour,
     pointsPerSecond,
-    miningSettings
+    miningSettings,
   };
 };

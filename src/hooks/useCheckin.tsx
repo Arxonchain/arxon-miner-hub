@@ -112,40 +112,8 @@ export const useCheckin = () => {
     checkTodayCheckin();
   }, [checkTodayCheckin]);
 
-  // Real-time subscription for check-ins
-  useEffect(() => {
-    if (!user) return;
-
-    console.log('Setting up real-time subscription for daily_checkins');
-    
-    const channel = supabase
-      .channel('checkin-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'daily_checkins',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Real-time checkin update:', payload);
-          const today = new Date().toISOString().split('T')[0];
-          const checkin = payload.new as any;
-          
-          if (checkin.checkin_date === today) {
-            setTodayCheckin(checkin);
-            setCanCheckin(false);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('Cleaning up daily_checkins subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+  // Real-time subscription removed to reduce backend load and improve responsiveness.
+  // The UI refreshes via initial fetch and after performCheckin().
 
   return {
     canCheckin,
