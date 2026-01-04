@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PointsProvider } from "@/hooks/usePoints";
+import BackendHealthBanner from "@/components/system/BackendHealthBanner";
+import { BackendUnavailableError } from "@/lib/backendHealth";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Leaderboard from "./pages/Leaderboard";
@@ -30,11 +32,28 @@ import AdminControls from "./pages/admin/AdminControls";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Keep the UI responsive when the backend is slow/unavailable
-      retry: 1,
+      // Keep the UI responsive when the service is slow/unavailable
+      retry: (failureCount, error) => {
+        if (error instanceof BackendUnavailableError) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex, error) => {
+        if (error instanceof BackendUnavailableError) return error.retryAfterMs;
+        return Math.min(1000 * 2 ** attemptIndex, 30_000);
+      },
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       staleTime: 5_000,
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        if (error instanceof BackendUnavailableError) return false;
+        return failureCount < 1;
+      },
+      retryDelay: (attemptIndex, error) => {
+        if (error instanceof BackendUnavailableError) return error.retryAfterMs;
+        return Math.min(1000 * 2 ** attemptIndex, 15_000);
+      },
     },
   },
 });
@@ -46,6 +65,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <BackendHealthBanner />
           <BrowserRouter>
             <Routes>
               {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
@@ -61,7 +81,7 @@ const App = () => (
               <Route path="/arena" element={<Arena />} />
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              
+
               {/* Admin routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminLayout />}>
@@ -69,7 +89,7 @@ const App = () => (
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="controls" element={<AdminControls />} />
               </Route>
-              
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
