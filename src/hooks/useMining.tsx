@@ -188,21 +188,40 @@ export const useMining = () => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         
         if (elapsed >= maxTimeSeconds) {
-          // Session expired, end it
-          await endSession(latestSession.id, latestSession.arx_mined);
+          // Session expired, end it - calculate points based on elapsed time
+          // Use max 8 hours * rate, capped at 480
+          const calculatedPoints = Math.min(480, Math.floor((maxTimeSeconds / 3600) * cappedPointsPerHour));
+          await endSession(latestSession.id, calculatedPoints);
         } else {
-          // Resume session - use arx_mined from DB to ensure points persist across navigation
+          // Resume session - RECALCULATE points based on elapsed time, not DB value
+          // This handles cases where user closed browser and arx_mined wasn't saved
+          const calculatedPoints = Math.min(480, (elapsed / 3600) * cappedPointsPerHour);
           const dbPoints = latestSession.arx_mined || 0;
+          
+          // Use whichever is higher: calculated or DB (in case of timing issues)
+          const resumePoints = Math.max(calculatedPoints, dbPoints);
+          
           setSessionId(latestSession.id);
           setIsMining(true);
           setElapsedTime(elapsed);
-          setEarnedPoints(dbPoints);
-          lastDbPointsRef.current = Math.floor(dbPoints);
+          setEarnedPoints(resumePoints);
+          lastDbPointsRef.current = Math.floor(resumePoints);
           sessionStartTimeRef.current = startTime;
+          
+          // Update DB with calculated points if they're higher than what was saved
+          if (calculatedPoints > dbPoints) {
+            supabase
+              .from('mining_sessions')
+              .update({ arx_mined: Math.floor(calculatedPoints) })
+              .eq('id', latestSession.id);
+          }
+          
           console.log('Resumed mining session:', { 
             sessionId: latestSession.id, 
             elapsed, 
+            calculatedPoints,
             dbPoints, 
+            resumePoints,
             startTime,
             closedDuplicates: sessions.length - 1 
           });
