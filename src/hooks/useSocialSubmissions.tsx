@@ -216,14 +216,15 @@ export const useSocialSubmissions = () => {
     } catch (error: any) {
       console.error('Error submitting post:', error);
       toast({
-        title: "Submission Failed",
-        description: error.message,
-        variant: "destructive"
+        title: error instanceof BackendUnavailableError ? 'Service Unavailable' : 'Submission Failed',
+        description: error?.message || 'Please try again',
+        variant: "destructive",
       });
       return false;
     } finally {
       setSubmitting(false);
     }
+
   };
 
   // Claim rewards for a submission - with double-claim prevention
@@ -363,17 +364,18 @@ export const useSocialSubmissions = () => {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error claiming rewards:', error);
       toast({
-        title: "Claim Failed",
-        description: "Please try again",
-        variant: "destructive"
+        title: error instanceof BackendUnavailableError ? 'Service Unavailable' : 'Claim Failed',
+        description: error?.message || 'Please try again',
+        variant: "destructive",
       });
       return false;
     } finally {
       setClaiming(null);
     }
+
   };
 
   // Initial fetch
