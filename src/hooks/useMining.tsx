@@ -364,20 +364,22 @@ export const useMining = () => {
     }
   };
 
-  const endSession = async (id: string, finalPoints: number) => {
+  const endSession = useCallback(async (id: string, finalPoints: number) => {
+    const pointsToCredit = Math.max(0, Math.floor(finalPoints));
+
     try {
       await supabase
         .from('mining_sessions')
         .update({
           is_active: false,
           ended_at: new Date().toISOString(),
-          arx_mined: finalPoints
+          arx_mined: pointsToCredit
         })
         .eq('id', id);
 
       // Add earned points to total
-      if (finalPoints > 0) {
-        await addPoints(finalPoints, 'mining');
+      if (pointsToCredit > 0) {
+        await addPoints(pointsToCredit, 'mining');
       }
 
       setIsMining(false);
@@ -389,12 +391,12 @@ export const useMining = () => {
 
       toast({
         title: "Mining Session Complete! 🎉",
-        description: `You earned ${finalPoints} ARX-P points`,
+        description: `You earned ${pointsToCredit} ARX-P points`,
       });
     } catch (error) {
       console.error('Error ending session:', error);
     }
-  };
+  }, [addPoints]);
 
   const stopMining = async () => {
     if (!sessionId) return;
@@ -456,43 +458,48 @@ export const useMining = () => {
     }
   };
 
-  // Timer and points calculation - use server start time for accuracy
-  // Update every 100ms for smooth fractional point display
+  // Timer and points calculation - computed from server start time for accuracy.
+  // Uses Date.now() so the UI instantly catches up after tab throttling/backgrounding.
+  const recomputeFromStartTime = useCallback(async () => {
+    if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
+
+    const startTime = sessionStartTimeRef.current;
+    const elapsedMs = Date.now() - startTime;
+    const newElapsed = Math.floor(elapsedMs / 1000);
+
+    // Check if max time reached
+    if (newElapsed >= maxTimeSeconds) {
+      const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
+      await endSession(sessionId, finalPoints);
+      return;
+    }
+
+    setElapsedTime(newElapsed);
+
+    // Calculate fractional points for real-time display - always positive, start from 0
+    const secondsElapsed = elapsedMs / 1000;
+    const fractionalPoints = Math.max(
+      0,
+      Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour)
+    );
+    setEarnedPoints(fractionalPoints);
+
+    // Only update database when whole points change (to avoid excessive writes)
+    const wholePoints = Math.min(480, Math.floor(fractionalPoints));
+    if (wholePoints > lastDbPointsRef.current) {
+      lastDbPointsRef.current = wholePoints;
+      void supabase.from('mining_sessions').update({ arx_mined: wholePoints }).eq('id', sessionId);
+    }
+  }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour, endSession]);
+
   useEffect(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
-    intervalRef.current = setInterval(async () => {
-      // Calculate elapsed based on actual start time from server (in milliseconds for precision)
-      const startTime = sessionStartTimeRef.current!;
-      const elapsedMs = Date.now() - startTime;
-      const newElapsed = Math.floor(elapsedMs / 1000);
-      
-      // Check if max time reached
-      if (newElapsed >= maxTimeSeconds) {
-        // Use capped rate to prevent exploits - MAX 480 points in 8 hours (60/hr * 8hr)
-        const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
-        endSession(sessionId, finalPoints);
-        return;
-      }
+    // Run once immediately so UI never looks "stuck" after navigation/refresh
+    void recomputeFromStartTime();
 
-      setElapsedTime(newElapsed);
-
-      // Calculate fractional points for real-time display - always positive, start from 0
-      // Use capped rate to prevent exploits
-      const secondsElapsed = elapsedMs / 1000;
-      const fractionalPoints = Math.max(0, Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour));
-      setEarnedPoints(fractionalPoints);
-      
-      // Only update database when whole points change (to avoid excessive writes)
-      // Double-check cap before saving
-      const wholePoints = Math.min(480, Math.floor(fractionalPoints));
-      if (wholePoints > lastDbPointsRef.current) {
-        lastDbPointsRef.current = wholePoints;
-        supabase
-          .from('mining_sessions')
-          .update({ arx_mined: wholePoints })
-          .eq('id', sessionId);
-      }
+    intervalRef.current = setInterval(() => {
+      void recomputeFromStartTime();
     }, 100); // Update every 100ms for smooth display
 
     return () => {
@@ -500,7 +507,29 @@ export const useMining = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour]);
+  }, [isMining, sessionId, recomputeFromStartTime]);
+
+  // When the tab wakes up from background throttling, instantly recompute from server start time.
+  useEffect(() => {
+    const handleWake = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      void recomputeFromStartTime();
+
+      // If the UI lost state (navigation/refresh), re-check if there's an active session to resume.
+      if (!isMining) {
+        void checkActiveSession();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('focus', handleWake);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('focus', handleWake);
+    };
+  }, [recomputeFromStartTime, checkActiveSession, isMining]);
 
   // Initial fetch - including all boost sources
   useEffect(() => {
@@ -583,19 +612,22 @@ export const useMining = () => {
           table: 'mining_sessions',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
-          console.log('Real-time mining session update:', payload);
-          
-          if (payload.eventType === 'UPDATE') {
-            const session = payload.new as any;
-            if (!session.is_active && session.id === sessionId) {
-              // Session was ended (possibly from another tab)
-              setIsMining(false);
-              setSessionId(null);
-              sessionStartTimeRef.current = null;
-            }
-          }
-        }
+         (payload) => {
+           console.log('Real-time mining session update:', payload);
+           
+           if (payload.eventType === 'UPDATE') {
+             const session = payload.new as any;
+             if (!session.is_active && session.id === sessionId) {
+               // Session was ended (possibly from another tab / admin controls)
+               setIsMining(false);
+               setSessionId(null);
+               setElapsedTime(0);
+               setEarnedPoints(0);
+               lastDbPointsRef.current = 0;
+               sessionStartTimeRef.current = null;
+             }
+           }
+         }
       )
       .subscribe();
 
