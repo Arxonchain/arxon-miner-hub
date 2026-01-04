@@ -359,16 +359,9 @@ export const useMining = (options?: UseMiningOptions) => {
       return;
     }
 
-    if (settingsLoading) {
-      toast({
-        title: 'Please wait',
-        description: 'Still checking mining status…',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!miningSettings.publicMiningEnabled) {
+    // Don't block the UX with "checking" — we rely on cached/default settings and
+    // admin realtime will end sessions if mining is disabled.
+    if (!settingsLoading && !miningSettings.publicMiningEnabled) {
       toast({
         title: 'Mining Disabled',
         description: 'Public mining is currently disabled',

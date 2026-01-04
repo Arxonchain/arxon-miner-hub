@@ -33,7 +33,7 @@ const Mining = () => {
   } = useMining({ tickMs: 250 });
   const [showAuth, setShowAuth] = useState(false);
 
-  const miningDisabled = !miningSettings.publicMiningEnabled;
+  const miningDisabled = !settingsLoading && !miningSettings.publicMiningEnabled;
   const hasBoost = totalBoostPercentage > 0;
 
   const copyReferralCode = () => {
@@ -253,16 +253,7 @@ const Mining = () => {
 
         {/* Start/Stop Button */}
         <div className="w-full mb-4 sm:mb-6">
-          {settingsLoading ? (
-            <Button
-              disabled
-              className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold"
-              size="lg"
-            >
-              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-              Checking mining status...
-            </Button>
-          ) : miningDisabled ? (
+          {miningDisabled ? (
             <div className="glass-card p-4 text-center border-destructive/30 bg-destructive/5">
               <p className="text-sm text-destructive font-medium mb-1">Mining Temporarily Disabled</p>
               <p className="text-xs text-muted-foreground">Public mining is currently paused by the admin. Check back later.</p>
@@ -279,7 +270,6 @@ const Mining = () => {
           ) : (
             <Button
               onClick={handleStartMining}
-              disabled={loading}
               className="w-full py-4 sm:py-6 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-0"
               size="lg"
             >
