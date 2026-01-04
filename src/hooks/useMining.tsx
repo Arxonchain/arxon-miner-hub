@@ -153,6 +153,42 @@ export const useMining = () => {
     }
   }, []);
 
+  const endSession = useCallback(
+    async (id: string, finalPoints: number) => {
+      const pointsToCredit = Math.max(0, Math.floor(finalPoints));
+
+      try {
+        await supabase
+          .from('mining_sessions')
+          .update({
+            is_active: false,
+            ended_at: new Date().toISOString(),
+            arx_mined: pointsToCredit
+          })
+          .eq('id', id);
+
+        if (pointsToCredit > 0) {
+          await addPoints(pointsToCredit, 'mining');
+        }
+
+        setIsMining(false);
+        setSessionId(null);
+        setElapsedTime(0);
+        setEarnedPoints(0);
+        lastDbPointsRef.current = 0;
+        sessionStartTimeRef.current = null;
+
+        toast({
+          title: "Mining Session Complete! 🎉",
+          description: `You earned ${pointsToCredit} ARX-P points`,
+        });
+      } catch (error) {
+        console.error('Error ending session:', error);
+      }
+    },
+    [addPoints]
+  );
+
   const finalizeSessionSilently = useCallback(
     async (session: { id: string; started_at: string; arx_mined?: number | null }) => {
       const startTime = new Date(session.started_at).getTime();
@@ -198,7 +234,6 @@ export const useMining = () => {
     }
 
     try {
-      // Fetch ALL active sessions for this user, order by most recent
       const { data: sessions, error } = await supabase
         .from('mining_sessions')
         .select('*')
@@ -209,10 +244,8 @@ export const useMining = () => {
       if (error) throw error;
 
       if (sessions && sessions.length > 0) {
-        // Use the most recent session
         const latestSession = sessions[0];
 
-        // If duplicates exist, end & credit them (don’t silently discard mined time)
         if (sessions.length > 1) {
           console.log(`Found ${sessions.length} active sessions, ending duplicates...`);
           const duplicates = sessions.slice(1);
@@ -223,20 +256,14 @@ export const useMining = () => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
         if (elapsed >= maxTimeSeconds) {
-          // Session expired, end it - calculate points based on elapsed time
-          // Use max 8 hours * rate, capped at 480
           const calculatedPoints = Math.min(
             480,
             Math.floor((maxTimeSeconds / 3600) * cappedPointsPerHour)
           );
           await endSession(latestSession.id, calculatedPoints);
         } else {
-          // Resume session - RECALCULATE points based on elapsed time, not DB value
-          // This handles cases where user closed browser and arx_mined wasn't saved
           const calculatedPoints = Math.min(480, (elapsed / 3600) * cappedPointsPerHour);
           const dbPoints = latestSession.arx_mined || 0;
-
-          // Use whichever is higher: calculated or DB (in case of timing issues)
           const resumePoints = Math.max(calculatedPoints, dbPoints);
 
           setSessionId(latestSession.id);
@@ -246,7 +273,6 @@ export const useMining = () => {
           lastDbPointsRef.current = Math.floor(resumePoints);
           sessionStartTimeRef.current = startTime;
 
-          // Update DB with calculated points if they're higher than what was saved
           if (calculatedPoints > dbPoints) {
             await supabase
               .from('mining_sessions')
@@ -271,7 +297,7 @@ export const useMining = () => {
       setLoading(false);
       initialLoadRef.current = false;
     }
-  }, [user, maxTimeSeconds, cappedPointsPerHour, finalizeSessionSilently]);
+  }, [user, maxTimeSeconds, cappedPointsPerHour, finalizeSessionSilently, endSession]);
 
   const startMining = async () => {
     if (!user) {
@@ -312,7 +338,6 @@ export const useMining = () => {
     }
 
     try {
-      // End & credit any existing active sessions for this user (prevents duplicates without losing points)
       const { data: existingSessions, error: existingError } = await supabase
         .from('mining_sessions')
         .select('*')
@@ -323,12 +348,9 @@ export const useMining = () => {
       if (existingError) throw existingError;
 
       if (existingSessions && existingSessions.length > 0) {
-        await Promise.allSettled(
-          existingSessions.map((s) => finalizeSessionSilently(s as any))
-        );
+        await Promise.allSettled(existingSessions.map((s) => finalizeSessionSilently(s as any)));
       }
 
-      // Now create a fresh session
       const { data, error } = await supabase
         .from('mining_sessions')
         .insert({
@@ -363,40 +385,6 @@ export const useMining = () => {
       });
     }
   };
-
-  const endSession = useCallback(async (id: string, finalPoints: number) => {
-    const pointsToCredit = Math.max(0, Math.floor(finalPoints));
-
-    try {
-      await supabase
-        .from('mining_sessions')
-        .update({
-          is_active: false,
-          ended_at: new Date().toISOString(),
-          arx_mined: pointsToCredit
-        })
-        .eq('id', id);
-
-      // Add earned points to total
-      if (pointsToCredit > 0) {
-        await addPoints(pointsToCredit, 'mining');
-      }
-
-      setIsMining(false);
-      setSessionId(null);
-      setElapsedTime(0);
-      setEarnedPoints(0);
-      lastDbPointsRef.current = 0;
-      sessionStartTimeRef.current = null;
-
-      toast({
-        title: "Mining Session Complete! 🎉",
-        description: `You earned ${pointsToCredit} ARX-P points`,
-      });
-    } catch (error) {
-      console.error('Error ending session:', error);
-    }
-  }, [addPoints]);
 
   const stopMining = async () => {
     if (!sessionId) return;
