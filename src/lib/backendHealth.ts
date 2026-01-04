@@ -130,7 +130,14 @@ export function installBackendFetchGuard() {
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = getUrlFromFetchArgs(input);
-    const shouldGuard = !!backendOrigin && !!url && url.startsWith(backendOrigin);
+
+    // Guard only REST/function traffic; never block auth/session bootstrap.
+    const shouldGuard =
+      !!backendOrigin &&
+      !!url &&
+      url.startsWith(backendOrigin) &&
+      !url.includes('/auth/v1') &&
+      !url.includes('/realtime/v1');
 
     if (shouldGuard && isBackendCircuitOpen()) {
       const retryAfterMs = Math.max(1_000, (state.nextRetryAt ?? Date.now()) - Date.now());
