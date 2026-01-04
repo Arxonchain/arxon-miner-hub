@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useYapperLeaderboard } from "@/hooks/useYapperLeaderboard";
+import { useMiningStatus } from "@/hooks/useMiningStatus";
 
 
 const getRankIcon = (index: number) => {
@@ -123,6 +124,7 @@ const Leaderboard = () => {
   // Fetch both on mount - no conditional fetching that causes re-renders
   const { leaderboard: minerEntries, loading: minersLoading } = useLeaderboard(100);
   const { yappers, loading: yappersLoading } = useYapperLeaderboard();
+  const { isMining } = useMiningStatus();
   
 
   return (
@@ -132,7 +134,7 @@ const Leaderboard = () => {
       <WelcomeCard 
         title="Welcome to ARXON Creator Leaderboard" 
         description="Compete for glory and prizes! Top content creators win amazing rewards." 
-        isActive={false} 
+        isActive={isMining} 
       />
 
       <div className="glass-card p-3 sm:p-4 flex items-center gap-2 border-solid">
