@@ -88,12 +88,15 @@ export const useMining = () => {
   const xPostBoost = (points as any)?.x_post_boost_percentage || 0; // From X social submissions
   const totalArenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
   
+  // Streak boost: +1% per consecutive day, capped at 30%
+  const streakBoost = Math.min(points?.daily_streak || 0, 30);
+  
   // X profile scan boost is tracked separately in x_profiles table
   // xProfileBoost comes from the scan-x-profile edge function
   
-  // Total boost = referral + X scan + X posts + arena
+  // Total boost = referral + X scan + X posts + arena + streak
   // CAP total boost at 500% to prevent exploits
-  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost;
+  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost + streakBoost;
   const totalBoostPercentage = Math.min(rawTotalBoost, 500);
   
   // Calculate effective points per hour with ALL boosts
@@ -112,13 +115,14 @@ export const useMining = () => {
       referralBonus, 
       xProfileBoost, 
       xPostBoost,
-      totalArenaBoost, 
+      totalArenaBoost,
+      streakBoost,
       rawTotalBoost,
       totalBoostPercentage,
       cappedPointsPerHour, 
       pointsPerSecond 
     });
-  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, rawTotalBoost, totalBoostPercentage, cappedPointsPerHour, pointsPerSecond]);
+  }, [referralBonus, xProfileBoost, xPostBoost, totalArenaBoost, streakBoost, rawTotalBoost, totalBoostPercentage, cappedPointsPerHour, pointsPerSecond]);
 
   const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
   const remainingTime = Math.max(0, maxTimeSeconds - elapsedTime);
@@ -619,6 +623,7 @@ export const useMining = () => {
     xProfileBoost,       // From X profile scan (hashtag posts)
     xPostBoost,          // From X post submissions (social yapping)
     totalArenaBoost,
+    streakBoost,         // From daily check-in streak (+1%/day, max 30%)
     totalBoostPercentage, // Capped at 500%
     // Unified rate (capped at 60/hr max)
     pointsPerHour: cappedPointsPerHour,

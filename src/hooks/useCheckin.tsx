@@ -4,15 +4,21 @@ import { useAuth } from './useAuth';
 import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
 
-const CHECKIN_BASE_POINTS = 5;
-const STREAK_BONUS_MULTIPLIER = 2;
+interface CheckinResult {
+  success: boolean;
+  streak_day: number;
+  points_awarded: number;
+  streak_boost: number;
+  message: string;
+}
 
 export const useCheckin = () => {
   const { user } = useAuth();
-  const { addPoints, triggerConfetti, points, refreshPoints } = usePoints();
+  const { triggerConfetti, points, refreshPoints } = usePoints();
   const [canCheckin, setCanCheckin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [todayCheckin, setTodayCheckin] = useState<any>(null);
+  const [streakBoost, setStreakBoost] = useState(0);
 
   const checkTodayCheckin = useCallback(async () => {
     if (!user) {
@@ -34,66 +40,63 @@ export const useCheckin = () => {
 
       setTodayCheckin(data);
       setCanCheckin(!data);
+      
+      // Calculate current streak boost (1% per day, max 30%)
+      const currentStreak = points?.daily_streak || 0;
+      setStreakBoost(Math.min(currentStreak, 30));
     } catch (error) {
       console.error('Error checking today checkin:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, points?.daily_streak]);
 
   const performCheckin = async () => {
     if (!user || !canCheckin) return;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      
-      // Check if yesterday was checked in
-      const { data: yesterdayCheckin } = await supabase
-        .from('daily_checkins')
-        .select('streak_day')
-        .eq('user_id', user.id)
-        .eq('checkin_date', yesterday)
-        .maybeSingle();
-
-      const streakDay = yesterdayCheckin ? yesterdayCheckin.streak_day + 1 : 1;
-      const streakBonus = Math.floor(streakDay / 7) * STREAK_BONUS_MULTIPLIER;
-      const pointsToAward = CHECKIN_BASE_POINTS + streakBonus;
-
+      // Use atomic server-side function
       const { data, error } = await supabase
-        .from('daily_checkins')
-        .insert({
-          user_id: user.id,
-          checkin_date: today,
-          points_awarded: pointsToAward,
-          streak_day: streakDay
-        })
-        .select()
-        .single();
+        .rpc('perform_daily_checkin', { p_user_id: user.id });
 
       if (error) throw error;
 
-      // Update user points
-      await supabase
-        .from('user_points')
-        .update({
-          daily_streak: streakDay,
-          last_checkin_date: today,
-          total_points: (points?.total_points || 0) + pointsToAward,
-          task_points: (points?.task_points || 0) + pointsToAward
-        })
-        .eq('user_id', user.id);
+      const result = data?.[0] as CheckinResult | undefined;
+      
+      if (!result?.success) {
+        toast({
+          title: "Check-in Failed",
+          description: result?.message || "Could not complete check-in",
+          variant: "destructive"
+        });
+        return;
+      }
 
-      setTodayCheckin(data);
       setCanCheckin(false);
+      setStreakBoost(result.streak_boost);
       triggerConfetti();
 
+      // Show success with streak info
+      const streakEmoji = result.streak_day >= 7 ? '🔥' : result.streak_day >= 3 ? '⚡' : '✨';
+      
       toast({
-        title: `Daily Check-in Complete! 🔥`,
-        description: `+${pointsToAward} ARX-P | Streak: ${streakDay} days`,
+        title: `Day ${result.streak_day} Streak! ${streakEmoji}`,
+        description: `+${result.points_awarded} ARX-P | +${result.streak_boost}% mining boost`,
       });
 
-      refreshPoints();
+      // Refresh to get updated points
+      await refreshPoints();
+      
+      // Fetch updated check-in record
+      const today = new Date().toISOString().split('T')[0];
+      const { data: checkinData } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('checkin_date', today)
+        .maybeSingle();
+      
+      setTodayCheckin(checkinData);
     } catch (error: any) {
       console.error('Error performing checkin:', error);
       toast({
@@ -149,6 +152,7 @@ export const useCheckin = () => {
     loading,
     todayCheckin,
     performCheckin,
-    currentStreak: points?.daily_streak || 0
+    currentStreak: points?.daily_streak || 0,
+    streakBoost // +1% per day, max 30%
   };
 };

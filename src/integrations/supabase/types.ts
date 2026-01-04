@@ -839,6 +839,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      perform_daily_checkin: {
+        Args: { p_user_id: string }
+        Returns: {
+          message: string
+          points_awarded: number
+          streak_boost: number
+          streak_day: number
+          success: boolean
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
