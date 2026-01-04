@@ -23,9 +23,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let mounted = true;
 
     // Fail-safe: never block the whole app on a hung network request.
+    // Reduced to 2.5s for faster fallback to landing page when backend is down.
     const failSafe = window.setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 4000);
+    }, 2500);
 
     // Check for existing session FIRST for faster initial load
     supabase.auth
@@ -35,11 +36,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        window.clearTimeout(failSafe);
       })
       .catch(() => {
         if (mounted) setLoading(false);
-      })
-      .finally(() => {
         window.clearTimeout(failSafe);
       });
 
