@@ -22,28 +22,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Check for existing session FIRST for faster initial load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    }).catch(() => {
+    // Fail-safe: never block the whole app on a hung network request.
+    const failSafe = window.setTimeout(() => {
       if (mounted) setLoading(false);
-    });
+    }, 4000);
 
-    // Set up auth state listener for subsequent changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    // Check for existing session FIRST for faster initial load
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-      }
-    );
+      })
+      .catch(() => {
+        if (mounted) setLoading(false);
+      })
+      .finally(() => {
+        window.clearTimeout(failSafe);
+      });
+
+    // Set up auth state listener for subsequent changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     return () => {
       mounted = false;
+      window.clearTimeout(failSafe);
       subscription.unsubscribe();
     };
   }, []);

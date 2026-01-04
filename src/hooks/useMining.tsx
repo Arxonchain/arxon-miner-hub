@@ -359,8 +359,7 @@ export const useMining = (options?: UseMiningOptions) => {
       return;
     }
 
-    // Don't block the UX with "checking" — we rely on cached/default settings and
-    // admin realtime will end sessions if mining is disabled.
+    // If admin has explicitly disabled mining (and we already know it), block.
     if (!settingsLoading && !miningSettings.publicMiningEnabled) {
       toast({
         title: 'Mining Disabled',
@@ -370,7 +369,28 @@ export const useMining = (options?: UseMiningOptions) => {
       return;
     }
 
+    // Instant UX: start the UI immediately, then sync/create the session in background.
+    const optimisticStartAt = Date.now();
+    const pendingId = `pending-${optimisticStartAt}`;
+
+    setSessionId(pendingId);
+    setIsMining(true);
+    setElapsedTime(0);
+    setEarnedPoints(0);
+    lastDbPointsRef.current = 0;
+    lastDbWriteAtRef.current = 0;
+    sessionStartTimeRef.current = optimisticStartAt;
+    endingRef.current = false;
+
+    setActiveSessionCache(user.id, {
+      id: pendingId,
+      started_at: new Date(optimisticStartAt).toISOString(),
+      arx_mined: 0,
+      is_active: true,
+    });
+
     try {
+      // 1) If there is already an active session (from another page/device), resume it.
       const { data: existingSessions, error: existingError } = await supabase
         .from('mining_sessions')
         .select('id, started_at, arx_mined, is_active')
@@ -382,9 +402,34 @@ export const useMining = (options?: UseMiningOptions) => {
       if (existingError) throw existingError;
 
       if (existingSessions && existingSessions.length > 0) {
-        await Promise.allSettled(existingSessions.map((s) => finalizeSessionSilently(s as any)));
+        const latestSession = existingSessions[0];
+        setActiveSessionCache(user.id, latestSession as any);
+
+        // End duplicates if any (multi-device safety), but do NOT end the latest.
+        if (existingSessions.length > 1) {
+          const duplicates = existingSessions.slice(1);
+          await Promise.allSettled(duplicates.map((s) => finalizeSessionSilently(s as any)));
+        }
+
+        const startTime = new Date(latestSession.started_at).getTime();
+        const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        const effectiveElapsed = Math.min(elapsed, maxTimeSeconds);
+
+        const calculatedPoints = Math.min(480, (effectiveElapsed / 3600) * cappedPointsPerHour);
+        const dbPoints = latestSession.arx_mined || 0;
+        const resumePoints = Math.max(calculatedPoints, dbPoints);
+
+        setSessionId(latestSession.id);
+        setIsMining(true);
+        setElapsedTime(effectiveElapsed);
+        setEarnedPoints(resumePoints);
+        lastDbPointsRef.current = Math.floor(resumePoints);
+        sessionStartTimeRef.current = startTime;
+        endingRef.current = false;
+        return;
       }
 
+      // 2) Otherwise create a new session.
       const { data, error } = await supabase
         .from('mining_sessions')
         .insert({
@@ -397,7 +442,6 @@ export const useMining = (options?: UseMiningOptions) => {
 
       if (error) throw error;
 
-      // Instant cross-page reflect
       setActiveSessionCache(user.id, {
         id: data.id,
         started_at: data.started_at,
@@ -422,6 +466,17 @@ export const useMining = (options?: UseMiningOptions) => {
       triggerConfetti();
     } catch (error) {
       console.error('Error starting mining:', error);
+
+      clearActiveSessionCache(user.id);
+      setIsMining(false);
+      setSessionId(null);
+      setElapsedTime(0);
+      setEarnedPoints(0);
+      lastDbPointsRef.current = 0;
+      lastDbWriteAtRef.current = 0;
+      sessionStartTimeRef.current = null;
+      endingRef.current = false;
+
       const description =
         error instanceof BackendUnavailableError ? error.message : 'Failed to start mining session';
 
@@ -435,6 +490,21 @@ export const useMining = (options?: UseMiningOptions) => {
 
   const stopMining = async () => {
     if (!sessionId) return;
+
+    // If we're still in optimistic "pending" mode, just cancel locally.
+    if (sessionId.startsWith('pending-')) {
+      if (user) clearActiveSessionCache(user.id);
+      setIsMining(false);
+      setSessionId(null);
+      setElapsedTime(0);
+      setEarnedPoints(0);
+      lastDbPointsRef.current = 0;
+      lastDbWriteAtRef.current = 0;
+      sessionStartTimeRef.current = null;
+      endingRef.current = false;
+      return;
+    }
+
     const pointsToClaim = Math.floor(earnedPoints);
     await endSession(sessionId, pointsToClaim);
   };
@@ -492,12 +562,16 @@ export const useMining = (options?: UseMiningOptions) => {
   const recomputeFromStartTime = useCallback(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
 
+    // While a session is "pending" (optimistic UI), never write to the DB.
+    const isPending = sessionId.startsWith('pending-');
+
     const startTime = sessionStartTimeRef.current;
     const elapsedMs = Date.now() - startTime;
     const newElapsed = Math.floor(elapsedMs / 1000);
 
     if (newElapsed >= maxTimeSeconds) {
       if (endingRef.current) return;
+      if (isPending) return;
       endingRef.current = true;
 
       const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
@@ -510,6 +584,8 @@ export const useMining = (options?: UseMiningOptions) => {
     const secondsElapsed = elapsedMs / 1000;
     const fractionalPoints = Math.max(0, Math.min(480, (secondsElapsed / 3600) * cappedPointsPerHour));
     setEarnedPoints(fractionalPoints);
+
+    if (isPending) return;
 
     const wholePoints = Math.min(480, Math.floor(fractionalPoints));
     if (wholePoints > lastDbPointsRef.current) {
