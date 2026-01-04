@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
+import { cacheGet, cacheSet } from '@/lib/localCache';
+import { withTimeout } from '@/lib/utils';
 
 interface ReferralData {
   id: string;
@@ -17,69 +19,115 @@ interface ReferralStats {
   totalEarnings: number;
 }
 
+const referralCodeCacheKey = (userId: string) => `arxon:referral_code:v1:${userId}`;
+const referralsCacheKey = (userId: string) => `arxon:referrals:v1:${userId}`;
+const referralStatsCacheKey = (userId: string) => `arxon:referral_stats:v1:${userId}`;
+
 export const useReferrals = (user: User | null) => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<ReferralData[]>([]);
   const [stats, setStats] = useState<ReferralStats>({
     totalReferrals: 0,
     activeMiners: 0,
-    totalEarnings: 0
+    totalEarnings: 0,
   });
   const [loading, setLoading] = useState(true);
 
   const fetchReferralCode = useCallback(async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('referral_code')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('profiles').select('referral_code').eq('user_id', user.id).maybeSingle(),
+        12_000
+      );
 
-    if (!error && data) {
-      setReferralCode(data.referral_code);
+      if (!error && data?.referral_code) {
+        setReferralCode(data.referral_code);
+        cacheSet(referralCodeCacheKey(user.id), data.referral_code);
+      }
+    } catch {
+      // keep cached UI
     }
   }, [user]);
 
   const fetchReferrals = useCallback(async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('referrals')
-      .select('*')
-      .eq('referrer_id', user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('referrals')
+          .select('*')
+          .eq('referrer_id', user.id)
+          .order('created_at', { ascending: false }),
+        12_000
+      );
 
-    if (!error && data) {
-      // Fetch usernames for referred users
-      const referredIds = data.map(r => r.referred_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, username')
-        .in('user_id', referredIds);
+      if (error) return;
 
-      const referralsWithUsernames = data.map(r => ({
+      const rows = (data || []) as any[];
+
+      if (rows.length === 0) {
+        setReferrals([]);
+        setStats({ totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
+        cacheSet(referralsCacheKey(user.id), []);
+        cacheSet(referralStatsCacheKey(user.id), { totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
+        return;
+      }
+
+      const referredIds = rows.map((r) => r.referred_id).filter(Boolean);
+      if (referredIds.length === 0) {
+        setReferrals(rows);
+        const nextStats = {
+          totalReferrals: rows.length,
+          activeMiners: 0,
+          totalEarnings: rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0),
+        };
+        setStats(nextStats);
+        cacheSet(referralsCacheKey(user.id), rows);
+        cacheSet(referralStatsCacheKey(user.id), nextStats);
+        return;
+      }
+
+      const totalEarnings = rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0);
+
+      // Fetch usernames + active miner count in parallel
+      const [profilesRes, activeRes] = await Promise.all([
+        withTimeout(
+          supabase.from('profiles').select('user_id, username').in('user_id', referredIds),
+          12_000
+        ).catch(() => ({ data: [] as any[] } as any)),
+        withTimeout(
+          supabase
+            .from('mining_sessions')
+            .select('user_id', { count: 'exact', head: true })
+            .in('user_id', referredIds)
+            .eq('is_active', true),
+          12_000
+        ).catch(() => ({ count: 0 } as any)),
+      ]);
+
+      const profiles = (profilesRes as any)?.data as any[] | undefined;
+      const activeCount = Number((activeRes as any)?.count || 0);
+
+      const referralsWithUsernames: ReferralData[] = rows.map((r) => ({
         ...r,
-        referred_username: profiles?.find(p => p.user_id === r.referred_id)?.username || 'Anonymous'
+        referred_username: profiles?.find((p) => p.user_id === r.referred_id)?.username || 'Anonymous',
       }));
 
-      setReferrals(referralsWithUsernames);
-
-      // Calculate stats
-      const totalEarnings = data.reduce((sum, r) => sum + Number(r.points_awarded), 0);
-      
-      // Get active miners count (users who have mined in last 24 hours)
-      const { count: activeCount } = await supabase
-        .from('mining_sessions')
-        .select('user_id', { count: 'exact', head: true })
-        .in('user_id', referredIds)
-        .eq('is_active', true);
-
-      setStats({
-        totalReferrals: data.length,
+      const nextStats: ReferralStats = {
+        totalReferrals: rows.length,
         activeMiners: activeCount || 0,
-        totalEarnings
-      });
+        totalEarnings,
+      };
+
+      setReferrals(referralsWithUsernames);
+      setStats(nextStats);
+      cacheSet(referralsCacheKey(user.id), referralsWithUsernames);
+      cacheSet(referralStatsCacheKey(user.id), nextStats);
+    } catch {
+      // keep cached UI
     }
   }, [user]);
 
@@ -115,67 +163,54 @@ export const useReferrals = (user: User | null) => {
     }
 
     // Create the referral record
-    const { error: insertError } = await supabase
-      .from('referrals')
-      .insert({
-        referrer_id: referrerProfile.user_id,
-        referred_id: user.id,
-        referral_code_used: code.toUpperCase(),
-        points_awarded: 100 // Base referral bonus
-      });
+    const { error: insertError } = await supabase.from('referrals').insert({
+      referrer_id: referrerProfile.user_id,
+      referred_id: user.id,
+      referral_code_used: code.toUpperCase(),
+      points_awarded: 100, // Base referral bonus
+    });
 
     if (insertError) {
       return { success: false, error: 'Failed to apply referral code' };
     }
 
-    // Award the referrer +5% boost (capped at 50% total) and 100 ARX-P
-    const { data: referrerPoints } = await supabase
-      .from('user_points')
-      .select('referral_bonus_percentage, referral_points, total_points')
-      .eq('user_id', referrerProfile.user_id)
-      .single();
-
-    if (referrerPoints) {
-      const currentBoost = referrerPoints.referral_bonus_percentage || 0;
-      const newBoost = Math.min(currentBoost + 5, 50); // Cap at 50%
-      const newReferralPoints = (referrerPoints.referral_points || 0) + 100;
-      const newTotalPoints = (referrerPoints.total_points || 0) + 100;
-
-      await supabase
-        .from('user_points')
-        .update({
-          referral_bonus_percentage: newBoost,
-          referral_points: newReferralPoints,
-          total_points: newTotalPoints,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', referrerProfile.user_id);
-    }
+    // Keep UI fresh
+    void fetchReferrals();
 
     return { success: true };
   };
 
-  // Initial fetch
+  // Initial fetch + cache hydration
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      await Promise.all([fetchReferralCode(), fetchReferrals()]);
+    if (!user) {
+      setReferralCode(null);
+      setReferrals([]);
+      setStats({ totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
       setLoading(false);
-    };
-
-    if (user) {
-      fetchData();
-    } else {
-      setLoading(false);
+      return;
     }
+
+    const cachedCode = cacheGet<string>(referralCodeCacheKey(user.id), { maxAgeMs: 24 * 60 * 60_000 });
+    if (cachedCode?.data) setReferralCode(cachedCode.data);
+
+    const cachedRefs = cacheGet<ReferralData[]>(referralsCacheKey(user.id), { maxAgeMs: 5 * 60_000 });
+    if (cachedRefs?.data) setReferrals(cachedRefs.data);
+
+    const cachedStats = cacheGet<ReferralStats>(referralStatsCacheKey(user.id), { maxAgeMs: 5 * 60_000 });
+    if (cachedStats?.data) setStats(cachedStats.data);
+
+    // Avoid long spinners
+    setLoading(false);
+
+    // Refresh in background
+    void fetchReferralCode();
+    void fetchReferrals();
   }, [user, fetchReferralCode, fetchReferrals]);
 
   // Real-time subscription for referrals (when someone uses your code)
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscription for referrals');
-    
     const channel = supabase
       .channel('referrals-changes')
       .on(
@@ -184,18 +219,15 @@ export const useReferrals = (user: User | null) => {
           event: 'INSERT',
           schema: 'public',
           table: 'referrals',
-          filter: `referrer_id=eq.${user.id}`
+          filter: `referrer_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log('Real-time referral insert:', payload);
-          // Refetch referrals to get updated data with usernames
-          fetchReferrals();
+        () => {
+          void fetchReferrals();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up referrals subscription');
       supabase.removeChannel(channel);
     };
   }, [user, fetchReferrals]);
@@ -212,6 +244,7 @@ export const useReferrals = (user: User | null) => {
     loading,
     getReferralLink,
     applyReferralCode,
-    refreshReferrals: fetchReferrals
+    refreshReferrals: fetchReferrals,
   };
 };
+

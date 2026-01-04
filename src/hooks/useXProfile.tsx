@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { cacheGet, cacheSet } from '@/lib/localCache';
+import { withTimeout } from '@/lib/utils';
 
 interface XProfile {
   id: string;
@@ -36,6 +38,9 @@ interface XPostReward {
   created_at: string;
 }
 
+const xProfileCacheKey = (userId: string) => `arxon:x_profile:v2:${userId}`;
+const xRewardsCacheKey = (userId: string) => `arxon:x_post_rewards:v2:${userId}`;
+
 export const useXProfile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -52,36 +57,48 @@ export const useXProfile = () => {
       return;
     }
 
+    // Fail-safe: never spin forever
+    const failSafe = window.setTimeout(() => setLoading(false), 4000);
+
     try {
-      const { data, error } = await supabase
-        .from('x_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase.from('x_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        12_000
+      );
 
       if (error) {
         console.error('Error fetching X profile:', error);
-      } else {
-        setXProfile(data);
-        
-        // Fetch post rewards if profile exists
-        if (data) {
-          const { data: rewards, error: rewardsError } = await supabase
+        return;
+      }
+
+      setXProfile(data as any);
+      cacheSet(xProfileCacheKey(user.id), data);
+
+      if (data) {
+        const { data: rewards, error: rewardsError } = await withTimeout(
+          supabase
             .from('x_post_rewards')
             .select('*')
             .eq('user_id', user.id)
-            .order('tweet_created_at', { ascending: false });
-          
-          if (rewardsError) {
-            console.error('Error fetching post rewards:', rewardsError);
-          } else {
-            setPostRewards(rewards || []);
-          }
+            .order('tweet_created_at', { ascending: false }),
+          12_000
+        );
+
+        if (rewardsError) {
+          console.error('Error fetching post rewards:', rewardsError);
+        } else {
+          const nextRewards = (rewards || []) as any;
+          setPostRewards(nextRewards);
+          cacheSet(xRewardsCacheKey(user.id), nextRewards);
         }
+      } else {
+        setPostRewards([]);
+        cacheSet(xRewardsCacheKey(user.id), []);
       }
     } catch (error) {
       console.error('Error fetching X profile:', error);
     } finally {
+      window.clearTimeout(failSafe);
       setLoading(false);
     }
   }, [user]);
@@ -92,17 +109,17 @@ export const useXProfile = () => {
     if (urlMatch) {
       return urlMatch[1];
     }
-    
+
     // Handle @username
     if (input.startsWith('@')) {
       return input.slice(1);
     }
-    
+
     // Handle plain username
     if (/^[a-zA-Z0-9_]+$/.test(input)) {
       return input;
     }
-    
+
     return null;
   };
 
@@ -130,52 +147,46 @@ export const useXProfile = () => {
 
     try {
       // First, check if there's an existing profile and delete it to allow reconnection
-      const { data: existingProfile } = await supabase
-        .from('x_profiles')
-        .select('id, historical_scanned')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data: existingProfile } = await withTimeout(
+        supabase.from('x_profiles').select('id, historical_scanned').eq('user_id', user.id).maybeSingle(),
+        12_000
+      );
 
-      const isInitialConnect = !existingProfile || !existingProfile.historical_scanned;
+      const isInitialConnect = !existingProfile || !(existingProfile as any).historical_scanned;
 
       if (existingProfile) {
-        // Delete existing profile first to prevent conflicts
-        await supabase
-          .from('x_profiles')
-          .delete()
-          .eq('user_id', user.id);
-        
-        // Also delete existing post rewards
-        await supabase
-          .from('x_post_rewards')
-          .delete()
-          .eq('user_id', user.id);
+        await withTimeout(supabase.from('x_profiles').delete().eq('user_id', user.id), 12_000);
+        await withTimeout(supabase.from('x_post_rewards').delete().eq('user_id', user.id), 12_000);
       }
 
-      const response = await supabase.functions.invoke('scan-x-profile', {
-        body: {
-          username,
-          profileUrl: `https://x.com/${username}`,
-          isInitialConnect,
-        },
-      });
+      const response = await withTimeout(
+        supabase.functions.invoke('scan-x-profile', {
+          body: {
+            username,
+            profileUrl: `https://x.com/${username}`,
+            isInitialConnect,
+          },
+        }),
+        20_000
+      );
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if ((response as any).error) {
+        throw new Error((response as any).error.message);
       }
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to scan profile');
+      if (!(response as any).data?.success) {
+        throw new Error((response as any).data?.error || 'Failed to scan profile');
       }
 
-      const boostPct = response.data.data.boostPercentage || 0;
-      const postsFound = response.data.data.qualifiedPostsToday || 0;
-      
+      const boostPct = (response as any).data.data.boostPercentage || 0;
+      const postsFound = (response as any).data.data.qualifiedPostsToday || 0;
+
       toast({
         title: 'X Profile Connected!',
-        description: boostPct > 0 
-          ? `@${username} connected with ${boostPct}% boost from ${postsFound} posts!`
-          : `@${username} connected successfully. Post about ARXON to earn boost!`,
+        description:
+          boostPct > 0
+            ? `@${username} connected with ${boostPct}% boost from ${postsFound} posts!`
+            : `@${username} connected successfully. Post about ARXON to earn boost!`,
       });
 
       await fetchXProfile();
@@ -199,29 +210,30 @@ export const useXProfile = () => {
     setScanning(true);
 
     try {
-      const response = await supabase.functions.invoke('scan-x-profile', {
-        body: {
-          username: xProfile.username,
-          profileUrl: xProfile.profile_url,
-        },
-      });
+      const response = await withTimeout(
+        supabase.functions.invoke('scan-x-profile', {
+          body: {
+            username: xProfile.username,
+            profileUrl: xProfile.profile_url,
+          },
+        }),
+        20_000
+      );
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if ((response as any).error) {
+        throw new Error((response as any).error.message);
       }
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to refresh boost');
+      if (!(response as any).data?.success) {
+        throw new Error((response as any).data?.error || 'Failed to refresh boost');
       }
 
-      const boostPct = response.data.data.boostPercentage || 0;
-      const postsFound = response.data.data.qualifiedPostsToday || 0;
-      
+      const boostPct = (response as any).data.data.boostPercentage || 0;
+      const postsFound = (response as any).data.data.qualifiedPostsToday || 0;
+
       toast({
         title: 'Scan Complete!',
-        description: boostPct > 0 
-          ? `Found ${postsFound} posts. Current boost: ${boostPct}%`
-          : 'No ARXON posts found yet. Post with #Arxon to earn boost!',
+        description: boostPct > 0 ? `Found ${postsFound} posts. Current boost: ${boostPct}%` : 'No ARXON posts found yet. Post with #Arxon to earn boost!',
       });
 
       await fetchXProfile();
@@ -241,14 +253,18 @@ export const useXProfile = () => {
     if (!user || !xProfile) return;
 
     try {
-      const { error } = await supabase
-        .from('x_profiles')
-        .delete()
-        .eq('user_id', user.id);
+      const { error } = await withTimeout(
+        supabase.from('x_profiles').delete().eq('user_id', user.id),
+        12_000
+      );
 
       if (error) throw error;
 
       setXProfile(null);
+      setPostRewards([]);
+      cacheSet(xProfileCacheKey(user.id), null);
+      cacheSet(xRewardsCacheKey(user.id), []);
+
       toast({
         title: 'X Profile Disconnected',
         description: 'Your X profile has been disconnected',
@@ -271,24 +287,40 @@ export const useXProfile = () => {
     return lastScanned < sixHoursAgo;
   }, [xProfile]);
 
+  // Cache hydration + fetch
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    const cachedProfile = cacheGet<XProfile | null>(xProfileCacheKey(userId), { maxAgeMs: 10 * 60_000 });
+    if (cachedProfile) {
+      setXProfile(cachedProfile.data);
+      setLoading(false);
+    }
+
+    const cachedRewards = cacheGet<XPostReward[]>(xRewardsCacheKey(userId), { maxAgeMs: 10 * 60_000 });
+    if (cachedRewards) {
+      setPostRewards(cachedRewards.data);
+    }
+  }, [user?.id]);
+
   // Fetch profile on mount and when user changes
   useEffect(() => {
-    fetchXProfile();
+    void fetchXProfile();
   }, [fetchXProfile]);
 
   // Auto-refresh on app open if needed (only once)
   useEffect(() => {
     if (xProfile && shouldRefresh() && !scanning) {
-      refreshBoost();
+      void refreshBoost();
     }
-  }, [xProfile?.id]); // Only run when profile ID changes (not on every xProfile update)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [xProfile?.id]);
 
   // Real-time subscription for X profile changes
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscription for x_profiles');
-    
     const channel = supabase
       .channel('x-profile-changes-hook')
       .on(
@@ -297,21 +329,23 @@ export const useXProfile = () => {
           event: '*',
           schema: 'public',
           table: 'x_profiles',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Real-time X profile update in hook:', payload);
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
             setXProfile(payload.new as XProfile);
+            cacheSet(xProfileCacheKey(user.id), payload.new);
           } else if (payload.eventType === 'DELETE') {
             setXProfile(null);
+            setPostRewards([]);
+            cacheSet(xProfileCacheKey(user.id), null);
+            cacheSet(xRewardsCacheKey(user.id), []);
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up x_profiles subscription in hook');
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -320,8 +354,6 @@ export const useXProfile = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscription for x_post_rewards');
-    
     const channel = supabase
       .channel('x-post-rewards-changes')
       .on(
@@ -330,18 +362,15 @@ export const useXProfile = () => {
           event: '*',
           schema: 'public',
           table: 'x_post_rewards',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log('Real-time X post rewards update:', payload);
-          // Refetch to get properly sorted data
-          fetchXProfile();
+        () => {
+          void fetchXProfile();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up x_post_rewards subscription');
       supabase.removeChannel(channel);
     };
   }, [user, fetchXProfile]);
