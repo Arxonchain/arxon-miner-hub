@@ -40,15 +40,23 @@ export const usePoints = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('user_points')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Fetch points and rank in PARALLEL for faster load
+      const [pointsResult, rankResult] = await Promise.all([
+        supabase
+          .from('user_points')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('leaderboard_view')
+          .select('user_id')
+          .order('total_points', { ascending: false })
+          .limit(1000)
+      ]);
 
-      if (error) throw error;
+      if (pointsResult.error) throw pointsResult.error;
 
-      if (!data) {
+      if (!pointsResult.data) {
         // Ensure an initial row exists without race-condition unique errors
         const { error: ensureError } = await supabase
           .from('user_points')
@@ -65,18 +73,12 @@ export const usePoints = () => {
         if (ensuredError) throw ensuredError;
         setPoints(ensured ?? null);
       } else {
-        setPoints(data);
+        setPoints(pointsResult.data);
       }
 
-      // Fetch rank from the secure leaderboard view (user_points is private by RLS)
-      const { data: leaderboardRows } = await supabase
-        .from('leaderboard_view')
-        .select('user_id')
-        .order('total_points', { ascending: false })
-        .limit(1000);
-
-      if (leaderboardRows) {
-        const userRank = leaderboardRows.findIndex((p) => p.user_id === user.id) + 1;
+      // Set rank from parallel fetch
+      if (rankResult.data) {
+        const userRank = rankResult.data.findIndex((p) => p.user_id === user.id) + 1;
         setRank(userRank > 0 ? userRank : null);
       }
     } catch (error) {
