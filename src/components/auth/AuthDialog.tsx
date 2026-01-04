@@ -96,31 +96,30 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     if (!normalized) return;
 
     try {
-      const { data: referrerProfile, error: profileError } = await withTimeout(
-        supabase.from('profiles').select('user_id').eq('referral_code', normalized).maybeSingle(),
-        12_000
-      );
+      const { data: referrerProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('referral_code', normalized)
+        .maybeSingle();
 
       if (profileError || !referrerProfile?.user_id) return;
       if (referrerProfile.user_id === referredUserId) return;
 
-      const { data: existingReferral } = await withTimeout(
-        supabase.from('referrals').select('id').eq('referred_id', referredUserId).maybeSingle(),
-        12_000
-      );
+      const { data: existingReferral } = await supabase
+        .from('referrals')
+        .select('id')
+        .eq('referred_id', referredUserId)
+        .maybeSingle();
 
       if (existingReferral) return;
 
       // Insert only the referral record. Rewards/boosts are handled securely on the backend.
-      await withTimeout(
-        supabase.from('referrals').insert({
-          referrer_id: referrerProfile.user_id,
-          referred_id: referredUserId,
-          referral_code_used: normalized,
-          points_awarded: 100,
-        }),
-        12_000
-      );
+      await supabase.from('referrals').insert({
+        referrer_id: referrerProfile.user_id,
+        referred_id: referredUserId,
+        referral_code_used: normalized,
+        points_awarded: 100,
+      });
     } catch {
       // Silent: referral processing should never block signup.
     }
