@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { PointsProvider } from "@/hooks/usePoints";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Leaderboard from "./pages/Leaderboard";
@@ -26,42 +27,54 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminControls from "./pages/admin/AdminControls";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Keep the UI responsive when the backend is slow/unavailable
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      staleTime: 5_000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
-            <Route path="/" element={<Index />} />
-            <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
-            <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
-            <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
-            <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-            <Route path="/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
-            <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
-            <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
-            <Route path="/mining" element={<Mining />} />
-            <Route path="/arena" element={<Arena />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            
-            {/* Admin routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="controls" element={<AdminControls />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <PointsProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
+              <Route path="/" element={<Index />} />
+              <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
+              <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
+              <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
+              <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+              <Route path="/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
+              <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
+              <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
+              <Route path="/mining" element={<Mining />} />
+              <Route path="/arena" element={<Arena />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              
+              {/* Admin routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="controls" element={<AdminControls />} />
+              </Route>
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PointsProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

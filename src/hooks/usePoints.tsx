@@ -1,7 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import confetti from 'canvas-confetti';
+import { supabase } from '@/integrations/supabase/client';
+import { cacheGet, cacheSet } from '@/lib/localCache';
+import { useAuth } from './useAuth';
 
 interface UserPoints {
   id: string;
@@ -14,50 +24,62 @@ interface UserPoints {
   social_points: number;
   referral_points: number;
   referral_bonus_percentage: number; // Boost from referrals only
-  x_post_boost_percentage: number;   // Boost from X post submissions (social yapping)
+  x_post_boost_percentage: number; // Boost from X post submissions (social yapping)
 }
 
-export const usePoints = () => {
+type PointsContextType = {
+  points: UserPoints | null;
+  loading: boolean;
+  rank: number | null;
+  addPoints: (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => Promise<void>;
+  refreshPoints: () => Promise<void>;
+  triggerConfetti: () => void;
+};
+
+const PointsContext = createContext<PointsContextType | undefined>(undefined);
+
+const pointsCacheKey = (userId: string) => `arxon:points:v2:${userId}`;
+const rankCacheKey = (userId: string) => `arxon:rank:v1:${userId}`;
+
+export const PointsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+
   const [points, setPoints] = useState<UserPoints | null>(null);
   const [loading, setLoading] = useState(true);
   const [rank, setRank] = useState<number | null>(null);
 
-  const triggerConfetti = () => {
+  const hydratedUserIdRef = useRef<string | null>(null);
+
+  const triggerConfetti = useCallback(() => {
     confetti({
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#6B8CAE', '#8BA4C4', '#A0B8D4', '#C0D0E0']
+      colors: ['#6B8CAE', '#8BA4C4', '#A0B8D4', '#C0D0E0'],
     });
-  };
+  }, []);
 
   const fetchPoints = useCallback(async () => {
     if (!user) {
       setPoints(null);
+      setRank(null);
       setLoading(false);
       return;
     }
 
     try {
-      // Fetch points and rank in PARALLEL for faster load
+      // Fetch points and rank in parallel
       const [pointsResult, rankResult] = await Promise.all([
-        supabase
-          .from('user_points')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('leaderboard_view')
-          .select('user_id')
-          .order('total_points', { ascending: false })
-          .limit(1000)
+        supabase.from('user_points').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('leaderboard_view').select('user_id').order('total_points', { ascending: false }).limit(1000),
       ]);
 
       if (pointsResult.error) throw pointsResult.error;
 
-      if (!pointsResult.data) {
-        // Ensure an initial row exists without race-condition unique errors
+      let nextPoints = pointsResult.data as UserPoints | null;
+
+      if (!nextPoints) {
+        // Ensure row exists (avoid unique race)
         const { error: ensureError } = await supabase
           .from('user_points')
           .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true });
@@ -71,68 +93,92 @@ export const usePoints = () => {
           .maybeSingle();
 
         if (ensuredError) throw ensuredError;
-        setPoints(ensured ?? null);
-      } else {
-        setPoints(pointsResult.data);
+        nextPoints = ensured as UserPoints | null;
       }
 
-      // Set rank from parallel fetch
+      setPoints(nextPoints);
+      cacheSet(pointsCacheKey(user.id), nextPoints);
+
       if (rankResult.data) {
         const userRank = rankResult.data.findIndex((p) => p.user_id === user.id) + 1;
-        setRank(userRank > 0 ? userRank : null);
+        const nextRank = userRank > 0 ? userRank : null;
+        setRank(nextRank);
+        cacheSet(rankCacheKey(user.id), nextRank);
       }
     } catch (error) {
+      // Keep any cached/previous values; don't block UI
       console.error('Error fetching points:', error);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  const addPoints = useCallback(async (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => {
-    if (!user) return;
+  const addPoints = useCallback(
+    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => {
+      if (!user) return;
 
-    // Validate amount client-side first
-    const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 10000);
-    if (safeAmount <= 0) return;
+      const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 10000);
+      if (safeAmount <= 0) return;
 
-    try {
-      // Use server-side RPC for atomic, safe point increments
-      const { data, error } = await supabase.rpc('increment_user_points', {
-        p_user_id: user.id,
-        p_amount: safeAmount,
-        p_type: type
-      });
+      try {
+        const { data, error } = await supabase.rpc('increment_user_points', {
+          p_user_id: user.id,
+          p_amount: safeAmount,
+          p_type: type,
+        });
 
-      if (error) {
-        console.error('Error adding points via RPC:', error);
-        return;
+        if (error) {
+          console.error('Error adding points via RPC:', error);
+          return;
+        }
+
+        if (data) {
+          const next = data as UserPoints;
+          setPoints(next);
+          cacheSet(pointsCacheKey(user.id), next);
+        }
+
+        if (safeAmount >= 10) triggerConfetti();
+      } catch (err) {
+        console.error('Error adding points:', err);
       }
+    },
+    [triggerConfetti, user]
+  );
 
-      // Update local state from returned row
-      if (data) {
-        setPoints(data as UserPoints);
-      }
+  // Hydrate instantly from cache on login (so ARX-P shows immediately), then refresh in background
+  useEffect(() => {
+    const userId = user?.id;
 
-      // Trigger confetti for significant rewards
-      if (safeAmount >= 10) {
-        triggerConfetti();
-      }
-    } catch (err) {
-      console.error('Error adding points:', err);
+    if (!userId) {
+      hydratedUserIdRef.current = null;
+      setPoints(null);
+      setRank(null);
+      setLoading(false);
+      return;
     }
-  }, [user, triggerConfetti]);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchPoints();
-  }, [fetchPoints]);
+    if (hydratedUserIdRef.current !== userId) {
+      hydratedUserIdRef.current = userId;
 
-  // Real-time subscription for user's own points
+      const cachedPoints = cacheGet<UserPoints | null>(pointsCacheKey(userId));
+      const cachedRank = cacheGet<number | null>(rankCacheKey(userId));
+
+      if (cachedPoints) setPoints(cachedPoints.data);
+      if (cachedRank) setRank(cachedRank.data);
+
+      // If we have cached values, don't show loading spinners
+      setLoading(!(cachedPoints || cachedRank));
+    }
+
+    // Always refresh in background
+    void fetchPoints();
+  }, [fetchPoints, user?.id]);
+
+  // Single real-time subscription for user_points (consolidated via provider)
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscription for user_points');
-    
     const channel = supabase
       .channel('user-points-changes')
       .on(
@@ -141,22 +187,43 @@ export const usePoints = () => {
           event: '*',
           schema: 'public',
           table: 'user_points',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Real-time points update:', payload);
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            setPoints(payload.new as UserPoints);
+            const next = payload.new as UserPoints;
+            setPoints(next);
+            cacheSet(pointsCacheKey(user.id), next);
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up user_points subscription');
       supabase.removeChannel(channel);
     };
   }, [user]);
 
-  return { points, loading, rank, addPoints, refreshPoints: fetchPoints, triggerConfetti };
+  const value = useMemo<PointsContextType>(
+    () => ({
+      points,
+      loading,
+      rank,
+      addPoints,
+      refreshPoints: fetchPoints,
+      triggerConfetti,
+    }),
+    [addPoints, fetchPoints, loading, points, rank, triggerConfetti]
+  );
+
+  return <PointsContext.Provider value={value}>{children}</PointsContext.Provider>;
 };
+
+export const usePoints = () => {
+  const context = useContext(PointsContext);
+  if (context === undefined) {
+    throw new Error('usePoints must be used within a PointsProvider');
+  }
+  return context;
+};
+

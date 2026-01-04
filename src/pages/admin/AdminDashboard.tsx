@@ -86,7 +86,7 @@ const AdminDashboard = () => {
         totalReferrals: totalReferrals || 0,
       };
     },
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 
   // Fetch 24h miner activity
@@ -170,7 +170,7 @@ const AdminDashboard = () => {
         };
       }) || [];
     },
-    refetchInterval: 15000,
+    refetchInterval: 60000,
   });
 
   // Points distribution for chart

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cacheGet, cacheSet } from '@/lib/localCache';
 import { useAuth } from './useAuth';
 
 interface UserProfile {
@@ -33,6 +34,7 @@ export const useProfile = () => {
         console.error('Error fetching profile:', error);
       } else {
         setProfile(data);
+        cacheSet(`arxon:profile:v1:${user.id}`, data);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -64,8 +66,21 @@ export const useProfile = () => {
   };
 
   useEffect(() => {
+    const userId = user?.id;
+    if (!userId) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    const cached = cacheGet<UserProfile | null>(`arxon:profile:v1:${userId}`, { maxAgeMs: 24 * 60 * 60_000 });
+    if (cached?.data) {
+      setProfile(cached.data);
+      setLoading(false);
+    }
+
     fetchProfile();
-  }, [fetchProfile]);
+  }, [fetchProfile, user?.id]);
 
   return {
     profile,
@@ -74,3 +89,4 @@ export const useProfile = () => {
     updateProfile,
   };
 };
+

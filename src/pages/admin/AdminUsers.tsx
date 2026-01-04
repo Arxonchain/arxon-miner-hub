@@ -253,89 +253,13 @@ const AdminUsers = () => {
 
       return userData.sort((a, b) => b.total_points - a.total_points);
     },
-    refetchInterval: 15000, // Faster polling for live data
+    refetchInterval: 60000, // Reduce load; realtime invalidation below is intentionally disabled for performance
   });
 
-  // Real-time subscription for instant admin updates
-  useEffect(() => {
-    console.log('Admin: Setting up real-time subscriptions for instant data updates');
-    
-    // Subscribe to user_points changes for real-time boost/points updates
-    const pointsChannel = supabase
-      .channel('admin-user-points-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_points'
-        },
-        () => {
-          console.log('Admin: Real-time user_points update detected');
-          queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
-        }
-      )
-      .subscribe();
+  // NOTE: Real-time invalidation of the full "admin-users-comprehensive" query was causing
+  // massive repeated full-table reads as the dataset grows (slow UI + backend timeouts).
+  // We rely on slower polling + the per-user snapshot (edge function) for detailed live updates.
 
-    // Subscribe to referrals for instant referral updates
-    const referralsChannel = supabase
-      .channel('admin-referrals-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'referrals'
-        },
-        () => {
-          console.log('Admin: Real-time referral insert detected');
-          queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
-        }
-      )
-      .subscribe();
-
-    // Subscribe to x_profiles for instant X profile updates
-    const xProfilesChannel = supabase
-      .channel('admin-x-profiles-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'x_profiles'
-        },
-        () => {
-          console.log('Admin: Real-time x_profiles update detected');
-          queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
-        }
-      )
-      .subscribe();
-
-    // Subscribe to mining_sessions for instant mining status updates
-    const miningChannel = supabase
-      .channel('admin-mining-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'mining_sessions'
-        },
-        () => {
-          console.log('Admin: Real-time mining session update detected');
-          queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('Admin: Cleaning up real-time subscriptions');
-      supabase.removeChannel(pointsChannel);
-      supabase.removeChannel(referralsChannel);
-      supabase.removeChannel(xProfilesChannel);
-      supabase.removeChannel(miningChannel);
-    };
-  }, [queryClient]);
 
   // Fetch detailed user snapshot via admin endpoint
   const { data: userSnapshot, isLoading: loadingSnapshot } = useQuery({
