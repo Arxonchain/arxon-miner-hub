@@ -26,10 +26,11 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const withTimeout = async <T,>(promise: Promise<T>, ms = 12_000): Promise<T> => {
+  // Shorter timeout for better UX - fail fast when backend is down
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 8_000): Promise<T> => {
     let timeoutId: number | null = null;
     const timeout = new Promise<T>((_, reject) => {
-      timeoutId = window.setTimeout(() => reject(new Error('Request timed out. Please try again.')), ms);
+      timeoutId = window.setTimeout(() => reject(new Error('Connection timed out. The server may be busy - please try again.')), ms);
     });
 
     try {
@@ -145,37 +146,53 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     try {
       if (mode === "signin") {
-        const { error } = await withTimeout(signIn(email, password), 12_000);
+        const { error } = await withTimeout(signIn(email, password), 8_000);
         if (error) {
+          const msg = error.message?.toLowerCase() || '';
+          // Provide friendlier messages for common errors
+          let description = error.message;
+          if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+            description = 'Invalid email or password. Please try again.';
+          } else if (msg.includes('network') || msg.includes('fetch')) {
+            description = 'Connection failed. Please check your internet and try again.';
+          }
           toast({
             title: "Sign In Failed",
-            description: error.message,
+            description,
             variant: "destructive",
           });
         } else {
+          // Immediately close dialog - user is now authenticated
+          onOpenChange(false);
           toast({
             title: "Welcome back!",
             description: "You're now signed in",
           });
-          onOpenChange(false);
         }
       } else {
         const codeToUse = referralCode.trim();
-        const { error, user: newUser } = await withTimeout(signUp(email, password), 12_000);
+        const { error, user: newUser } = await withTimeout(signUp(email, password), 8_000);
 
         if (error) {
+          const msg = error.message?.toLowerCase() || '';
+          let description = error.message;
+          if (msg.includes('already registered') || msg.includes('already exists')) {
+            description = 'This email is already registered. Try signing in instead.';
+          } else if (msg.includes('network') || msg.includes('fetch')) {
+            description = 'Connection failed. Please check your internet and try again.';
+          }
           toast({
             title: "Sign Up Failed",
-            description: error.message,
+            description,
             variant: "destructive",
           });
         } else {
+          // Immediately close dialog - user is now authenticated
+          onOpenChange(false);
           toast({
             title: "Account Created!",
             description: "Welcome to ARXON! Start mining to earn rewards.",
           });
-
-          onOpenChange(false);
 
           // Fire-and-forget: never block the user on referral processing.
           if (newUser && codeToUse) {
@@ -186,9 +203,16 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         }
       }
     } catch (error) {
+      const msg = (error as Error)?.message?.toLowerCase() || '';
+      let description = (error as Error)?.message || "Something went wrong. Please try again.";
+      if (msg.includes('timeout')) {
+        description = 'Server is slow to respond. Please wait a moment and try again.';
+      } else if (msg.includes('network') || msg.includes('fetch')) {
+        description = 'Connection failed. Please check your internet connection.';
+      }
       toast({
-        title: "Error",
-        description: (error as Error)?.message || "Something went wrong. Please try again.",
+        title: "Connection Error",
+        description,
         variant: "destructive",
       });
     } finally {
