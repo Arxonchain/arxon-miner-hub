@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AuthDialog from "@/components/auth/AuthDialog";
 import { toast } from "@/hooks/use-toast";
+import { cacheGet, cacheSet } from "@/lib/localCache";
+import { withTimeout } from "@/lib/utils";
 
 interface MiningHistory {
   id: string;
@@ -16,6 +18,8 @@ interface MiningHistory {
   arx_mined: number;
   is_active: boolean;
 }
+
+const miningHistoryCacheKey = (userId: string) => `arxon:mining_history:v1:${userId}`;
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -30,39 +34,64 @@ const Profile = () => {
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    
-    if (data?.username) {
-      setUsername(data.username);
+    try {
+      const { data } = await withTimeout(
+        supabase.from('profiles').select('username').eq('user_id', user.id).maybeSingle(),
+        12_000
+      );
+
+      if (data?.username) {
+        setUsername(data.username);
+      }
+    } catch {
+      // ignore
     }
   }, [user]);
 
   const fetchMiningHistory = useCallback(async () => {
     if (!user) return;
-    
-    const { data, error } = await supabase
-      .from('mining_sessions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('started_at', { ascending: false })
-      .limit(10);
 
-    if (!error && data) {
-      setMiningHistory(data);
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('mining_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('started_at', { ascending: false })
+          .limit(10),
+        12_000
+      );
+
+      if (!error && data) {
+        setMiningHistory(data as any);
+        cacheSet(miningHistoryCacheKey(user.id), data);
+      }
+    } catch {
+      // keep cached UI
+    } finally {
+      setHistoryLoading(false);
     }
-    setHistoryLoading(false);
   }, [user]);
 
-  // Initial fetch
+  // Initial fetch (hydrate from cache first)
   useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchMiningHistory();
+    if (!user) return;
+
+    const cached = cacheGet<MiningHistory[]>(miningHistoryCacheKey(user.id), { maxAgeMs: 5 * 60_000 });
+    if (cached?.data) {
+      setMiningHistory(cached.data);
+      setHistoryLoading(false);
     }
+
+    // Fail-safe: never spin forever
+    const failSafe = window.setTimeout(() => {
+      setHistoryLoading(false);
+    }, 4000);
+
+    fetchProfile();
+    fetchMiningHistory().finally(() => window.clearTimeout(failSafe));
+
+    return () => window.clearTimeout(failSafe);
   }, [user, fetchProfile, fetchMiningHistory]);
 
   // Real-time subscription for mining history
@@ -71,12 +100,18 @@ const Profile = () => {
 
     const channel = supabase
       .channel('profile-mining')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'mining_sessions',
-        filter: `user_id=eq.${user.id}`
-      }, () => fetchMiningHistory())
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mining_sessions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchMiningHistory();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -90,22 +125,27 @@ const Profile = () => {
 
     const channel = supabase
       .channel('profile-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'profiles',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        if (payload.new && 'username' in payload.new) {
-          setUsername(payload.new.username || '');
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'username' in payload.new) {
+            setUsername((payload.new as any).username || '');
+          }
         }
-      })
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
 
   const saveUsername = async () => {
     if (!user || !username.trim()) return;

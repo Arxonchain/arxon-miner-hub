@@ -334,7 +334,16 @@ export const useMining = (options?: UseMiningOptions) => {
           }
         }
       } else {
-        clearActiveSessionCache(user.id);
+        // If a session is in optimistic "pending" mode, the DB insert may not have
+        // completed yet; don't clear cache during that short window.
+        const cachedActive = getActiveSessionCache(user.id);
+        const isRecentPending =
+          cachedActive?.id?.startsWith('pending-') &&
+          Date.now() - new Date(cachedActive.started_at).getTime() < 30_000;
+
+        if (!isRecentPending) {
+          clearActiveSessionCache(user.id);
+        }
       }
     } catch (error) {
       console.error('Error checking active session:', error);
@@ -491,9 +500,44 @@ export const useMining = (options?: UseMiningOptions) => {
   const stopMining = async () => {
     if (!sessionId) return;
 
-    // If we're still in optimistic "pending" mode, just cancel locally.
+    // If we're still in optimistic "pending" mode, try to resolve the real session first.
     if (sessionId.startsWith('pending-')) {
-      if (user) clearActiveSessionCache(user.id);
+      if (!user) return;
+
+      try {
+        const { data: sessions } = await supabase
+          .from('mining_sessions')
+          .select('id, started_at, arx_mined, is_active')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('started_at', { ascending: false })
+          .limit(1);
+
+        const real = sessions?.[0] as any;
+        if (real?.id) {
+          setActiveSessionCache(user.id, real);
+          const startTime = new Date(real.started_at).getTime();
+          sessionStartTimeRef.current = startTime;
+
+          const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+          const effectiveElapsed = Math.min(elapsed, maxTimeSeconds);
+          const calculatedPoints = Math.min(480, (effectiveElapsed / 3600) * cappedPointsPerHour);
+          const dbPoints = Number(real.arx_mined || 0);
+          const finalPoints = Math.max(calculatedPoints, dbPoints);
+
+          setSessionId(real.id);
+          setIsMining(true);
+          setElapsedTime(effectiveElapsed);
+          setEarnedPoints(finalPoints);
+
+          await endSession(real.id, finalPoints);
+          return;
+        }
+      } catch {
+        // ignore; we'll just cancel locally below
+      }
+
+      clearActiveSessionCache(user.id);
       setIsMining(false);
       setSessionId(null);
       setElapsedTime(0);
@@ -512,6 +556,15 @@ export const useMining = (options?: UseMiningOptions) => {
   // Claim current earned points without stopping mining
   const claimPoints = async () => {
     if (!sessionId || !user) return;
+
+    if (sessionId.startsWith('pending-')) {
+      toast({
+        title: 'Starting Mining…',
+        description: 'Please wait a moment, then try claiming again.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const pointsToClaim = Math.floor(earnedPoints);
     if (pointsToClaim <= 0) {
@@ -760,6 +813,21 @@ export const useMining = (options?: UseMiningOptions) => {
               setActiveSessionCache(user.id, session);
             } else {
               clearActiveSessionCache(user.id);
+            }
+          }
+
+          // If we were in optimistic pending mode, switch to the real DB session as soon as it exists.
+          if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && session?.is_active) {
+            if (!sessionId || sessionId.startsWith('pending-') || sessionId === session.id) {
+              const startTime = new Date(session.started_at).getTime();
+              const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+
+              setSessionId(session.id);
+              setIsMining(true);
+              setElapsedTime(elapsed);
+              setEarnedPoints(Math.max(Number(session.arx_mined ?? 0), 0));
+              sessionStartTimeRef.current = startTime;
+              endingRef.current = false;
             }
           }
 
