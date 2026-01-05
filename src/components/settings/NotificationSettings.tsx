@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Bell, Zap, Gift, Trophy, AlertCircle, Save, Loader2 } from "lucide-react";
+import { Bell, Zap, Gift, Trophy, AlertCircle, Save, Loader2, BellOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface NotificationPreferences {
   miningAlerts: boolean;
@@ -17,6 +18,7 @@ const STORAGE_KEY = "arxon_notification_preferences";
 
 const NotificationSettings = () => {
   const { toast } = useToast();
+  const { permission, requestPermission, isSupported, preferences: hookPrefs, updatePreferences } = usePushNotifications();
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<NotificationPreferences>({
     miningAlerts: true,
@@ -37,7 +39,20 @@ const NotificationSettings = () => {
     }
   }, []);
 
-  const handleToggle = (key: keyof NotificationPreferences) => {
+  const handleToggle = async (key: keyof NotificationPreferences) => {
+    // If enabling any notification and permission not granted, request it
+    if (!preferences[key] && permission !== 'granted') {
+      const granted = await requestPermission();
+      if (!granted) {
+        toast({
+          title: "Permission Required",
+          description: "Please allow notifications in your browser to receive alerts",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setPreferences((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -48,9 +63,10 @@ const NotificationSettings = () => {
     setSaving(true);
     setTimeout(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+      updatePreferences(preferences);
       toast({
         title: "Preferences Saved",
-        description: "Your notification settings have been updated",
+        description: "Your notification settings have been updated. You'll now receive alerts for enabled notifications.",
       });
       setSaving(false);
     }, 500);
@@ -61,19 +77,19 @@ const NotificationSettings = () => {
       key: "miningAlerts" as const,
       icon: Zap,
       title: "Mining Alerts",
-      description: "Get notified when mining sessions start or complete",
+      description: "Get notified 10 minutes before your mining session ends",
     },
     {
       key: "claimNotifications" as const,
       icon: Gift,
       title: "Claim Notifications",
-      description: "Receive alerts when tokens are ready to claim",
+      description: "Receive alerts when your session is complete and tokens are ready to claim",
     },
     {
       key: "rewardUpdates" as const,
       icon: Trophy,
       title: "Reward Updates",
-      description: "Notifications for reward rate changes and bonuses",
+      description: "Notifications when you earn significant ARX-P rewards",
     },
     {
       key: "leaderboardChanges" as const,
@@ -101,6 +117,49 @@ const NotificationSettings = () => {
         </p>
       </div>
 
+      {!isSupported && (
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 flex items-center gap-2">
+          <BellOff className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-xs text-destructive">
+            Push notifications are not supported in your browser.
+          </p>
+        </div>
+      )}
+
+      {isSupported && permission === 'denied' && (
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 flex items-center gap-2">
+          <BellOff className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-xs text-destructive">
+            Notifications are blocked. Please enable them in your browser settings.
+          </p>
+        </div>
+      )}
+
+      {isSupported && permission === 'default' && (
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+          <p className="text-xs text-muted-foreground mb-2">
+            Enable browser notifications to receive real-time alerts about your mining and rewards.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={requestPermission}
+            className="text-xs"
+          >
+            Enable Notifications
+          </Button>
+        </div>
+      )}
+
+      {isSupported && permission === 'granted' && (
+        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-2">
+          <Bell className="h-4 w-4 text-green-500 shrink-0" />
+          <p className="text-xs text-green-500">
+            Notifications enabled! Toggle individual alerts below.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-3 sm:space-y-4">
         {notificationOptions.map((option) => (
           <div
@@ -125,6 +184,7 @@ const NotificationSettings = () => {
               checked={preferences[option.key]}
               onCheckedChange={() => handleToggle(option.key)}
               className="shrink-0"
+              disabled={!isSupported || permission === 'denied'}
             />
           </div>
         ))}
@@ -132,7 +192,7 @@ const NotificationSettings = () => {
 
       <Button
         onClick={handleSave}
-        disabled={saving}
+        disabled={saving || !isSupported}
         className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
       >
         {saving ? (

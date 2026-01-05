@@ -45,11 +45,10 @@ const AdminDashboard = () => {
   const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ["admin-dashboard-stats"],
     queryFn: async () => {
-      // Total unique miners
-      const { data: allSessions } = await supabase
-        .from("mining_sessions")
-        .select("user_id");
-      const totalMiners = new Set(allSessions?.map((s) => s.user_id)).size;
+      // Total users (from profiles, not mining_sessions)
+      const { count: totalUsers } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
 
       // Active sessions
       const { count: activeSessions } = await supabase
@@ -77,7 +76,7 @@ const AdminDashboard = () => {
         .select("*", { count: "exact", head: true });
 
       return {
-        totalMiners,
+        totalUsers: totalUsers || 0,
         activeSessions: activeSessions || 0,
         totalMiningPoints,
         totalPoints,
@@ -219,9 +218,9 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <StatCard 
           icon={Users} 
-          label="Total Miners" 
-          value={formatNumber(stats?.totalMiners || 0)} 
-          subtext="Unique users"
+          label="Total Users" 
+          value={formatNumber(stats?.totalUsers || 0)} 
+          subtext="Registered users"
           loading={loadingStats}
         />
         <StatCard 

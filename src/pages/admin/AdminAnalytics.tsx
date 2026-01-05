@@ -17,17 +17,31 @@ const AdminAnalytics = () => {
   const [timeRange, setTimeRange] = useState<"24H" | "7D" | "30D">("7D");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch total active miners
-  const { data: totalMiners = 0, isLoading: loadingMiners, refetch: refetchMiners } = useQuery({
-    queryKey: ["admin-total-miners"],
+  // Fetch total users (from profiles, not mining_sessions)
+  const { data: totalUsers = 0, isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
+    queryKey: ["admin-total-users"],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("mining_sessions")
-        .select("user_id", { count: "exact", head: true });
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
       if (error) throw error;
       return count || 0;
     },
     refetchInterval: 60000,
+  });
+
+  // Fetch active miners (currently mining)
+  const { data: activeMiners = 0, isLoading: loadingMiners, refetch: refetchMiners } = useQuery({
+    queryKey: ["admin-active-miners"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("mining_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true);
+      if (error) throw error;
+      return count || 0;
+    },
+    refetchInterval: 30000,
   });
 
   // Fetch total ARX mined
@@ -194,11 +208,12 @@ const AdminAnalytics = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const isLoading = loadingMiners || loadingArx || loadingClaims || loadingPerformance;
+  const isLoading = loadingUsers || loadingMiners || loadingArx || loadingClaims || loadingPerformance;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await Promise.all([
+      refetchUsers(),
       refetchMiners(),
       refetchArx(),
       refetchSettings(),
@@ -219,7 +234,8 @@ const AdminAnalytics = () => {
   const handleExportCSV = () => {
     const data = [
       ["Metric", "Value"],
-      ["Total Active Miners", totalMiners],
+      ["Total Users", totalUsers],
+      ["Active Miners", activeMiners],
       ["Total ARX Mined", totalArxMined],
       ["Successful Claims", claimsData?.successful || 0],
       ["Pending Claims", claimsData?.pending || 0],
@@ -316,27 +332,27 @@ const AdminAnalytics = () => {
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-card p-6 space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Active Miners</p>
-          <p className="text-4xl font-bold text-foreground">{formatNumber(totalMiners)}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Users</p>
+          <p className="text-4xl font-bold text-foreground">{formatNumber(totalUsers)}</p>
           <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-500 text-xs">
             <TrendingUp className="h-3 w-3" />
-            +{performanceData?.activeMiners.change || 0} vs {timeRange}
+            Registered users
           </div>
-          <p className="text-sm text-muted-foreground">Primary network participants contributing hashpower</p>
+          <p className="text-sm text-muted-foreground">Total users on the platform</p>
         </div>
 
         <div className="glass-card p-6 space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Active Sessions</p>
-          <p className="text-4xl font-bold text-foreground">{formatNumber(performanceData?.activeMiners.current || 0)}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Active Miners</p>
+          <p className="text-4xl font-bold text-foreground">{formatNumber(activeMiners)}</p>
           <div className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
-            Number(performanceData?.activeMiners.changePercent) >= 0 
+            activeMiners > 0 
               ? 'bg-green-500/10 text-green-500' 
-              : 'bg-red-500/10 text-red-500'
+              : 'bg-muted text-muted-foreground'
           }`}>
-            {Number(performanceData?.activeMiners.changePercent) >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Number(performanceData?.activeMiners.changePercent) >= 0 ? '+' : ''}{performanceData?.activeMiners.changePercent}% vs {timeRange}
+            {activeMiners > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            Currently mining
           </div>
-          <p className="text-sm text-muted-foreground">Miners who started sessions in this period</p>
+          <p className="text-sm text-muted-foreground">Users with active mining sessions</p>
         </div>
 
         <div className="glass-card p-6 space-y-3">
@@ -367,7 +383,7 @@ const AdminAnalytics = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Total Users</span>
-                <span className="text-sm text-foreground">{formatNumber(totalMiners)}</span>
+                <span className="text-sm text-foreground">{formatNumber(totalUsers)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Mining Status</span>
@@ -493,7 +509,7 @@ const AdminAnalytics = () => {
               <div className="p-4 bg-muted/30 rounded-lg">
                 <p className="text-xs text-muted-foreground uppercase">Auth Service</p>
                 <p className="text-lg font-bold text-green-500">Online</p>
-                <p className="text-xs text-muted-foreground">{formatNumber(totalMiners)} users</p>
+                <p className="text-xs text-muted-foreground">{formatNumber(totalUsers)} users</p>
               </div>
               <div className="p-4 bg-muted/30 rounded-lg">
                 <p className="text-xs text-muted-foreground uppercase">Real-time</p>
@@ -575,8 +591,8 @@ const AdminAnalytics = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-bold text-foreground">{formatNumber(totalMiners)}</p>
-                <p className="text-xs text-green-500">Registered miners</p>
+                <p className="text-2xl font-bold text-foreground">{formatNumber(totalUsers)}</p>
+                <p className="text-xs text-green-500">{formatNumber(activeMiners)} mining now</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Platform Status</p>
