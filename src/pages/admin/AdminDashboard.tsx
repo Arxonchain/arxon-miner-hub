@@ -1,3 +1,4 @@
+// Admin Dashboard - centralized stats with tooltips
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, Coins, Server, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
