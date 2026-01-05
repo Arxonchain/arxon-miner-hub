@@ -336,11 +336,119 @@ export type Database = {
         }
         Relationships: []
       }
+      nexus_boosts: {
+        Row: {
+          boost_percentage: number
+          claimed: boolean
+          created_at: string
+          expires_at: string
+          id: string
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          boost_percentage?: number
+          claimed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          boost_percentage?: number
+          claimed?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexus_boosts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "nexus_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nexus_privacy_settings: {
+        Row: {
+          hide_amount: boolean
+          hide_usernames: boolean
+          id: string
+          private_mode: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          hide_amount?: boolean
+          hide_usernames?: boolean
+          id?: string
+          private_mode?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          hide_amount?: boolean
+          hide_usernames?: boolean
+          id?: string
+          private_mode?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nexus_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          hide_amount: boolean
+          hide_usernames: boolean
+          id: string
+          private_mode: boolean
+          receiver_address: string
+          receiver_id: string
+          sender_address: string
+          sender_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          hide_amount?: boolean
+          hide_usernames?: boolean
+          id?: string
+          private_mode?: boolean
+          receiver_address: string
+          receiver_id: string
+          sender_address: string
+          sender_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          hide_amount?: boolean
+          hide_usernames?: boolean
+          id?: string
+          private_mode?: boolean
+          receiver_address?: string
+          receiver_id?: string
+          sender_address?: string
+          sender_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           id: string
+          nexus_address: string | null
           referral_code: string | null
           updated_at: string
           user_id: string
@@ -350,6 +458,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           id?: string
+          nexus_address?: string | null
           referral_code?: string | null
           updated_at?: string
           user_id: string
@@ -359,6 +468,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           id?: string
+          nexus_address?: string | null
           referral_code?: string | null
           updated_at?: string
           user_id?: string
@@ -796,6 +906,8 @@ export type Database = {
       }
     }
     Functions: {
+      claim_nexus_reward: { Args: { p_transaction_id: string }; Returns: Json }
+      generate_nexus_address: { Args: { p_username: string }; Returns: string }
       generate_referral_code: { Args: never; Returns: string }
       get_arena_participation: {
         Args: { p_battle_id: string }
@@ -808,6 +920,7 @@ export type Database = {
           username: string
         }[]
       }
+      get_daily_send_count: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -848,6 +961,17 @@ export type Database = {
           streak_day: number
           success: boolean
         }[]
+      }
+      send_nexus_transfer: {
+        Args: {
+          p_amount: number
+          p_hide_amount?: boolean
+          p_hide_usernames?: boolean
+          p_private_mode?: boolean
+          p_receiver_address: string
+          p_sender_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

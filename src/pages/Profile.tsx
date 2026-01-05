@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { User, Wallet, Zap, Clock, Calendar, Trophy, History, Edit2, Check } from "lucide-react";
+import { User, Wallet, Zap, Clock, Calendar, Trophy, History, Edit2, Check, Copy, ArrowLeftRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useWallet } from "@/hooks/useWallet";
@@ -27,21 +27,35 @@ const Profile = () => {
   const { primaryWallet } = useWallet();
   const [showAuth, setShowAuth] = useState(false);
   const [username, setUsername] = useState("");
+  const [nexusAddress, setNexusAddress] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [miningHistory, setMiningHistory] = useState<MiningHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  const copyNexusAddress = async () => {
+    if (!nexusAddress) return;
+    try {
+      await navigator.clipboard.writeText(nexusAddress);
+      toast({ title: "Nexus address copied!" });
+    } catch {
+      toast({ title: "Failed to copy", variant: "destructive" });
+    }
+  };
+
   const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
       const { data } = await withTimeout(
-        supabase.from('profiles').select('username').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('username, nexus_address').eq('user_id', user.id).maybeSingle(),
         12_000
       );
 
       if (data?.username) {
         setUsername(data.username);
+      }
+      if (data?.nexus_address) {
+        setNexusAddress(data.nexus_address);
       }
     } catch {
       // ignore
@@ -252,6 +266,20 @@ const Profile = () => {
               </div>
             )}
             <p className="text-sm text-muted-foreground">{user.email}</p>
+            {nexusAddress && (
+              <div className="flex items-center gap-2 mt-2">
+                <ArrowLeftRight className="h-4 w-4 text-primary" />
+                <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">
+                  {nexusAddress}
+                </code>
+                <button 
+                  onClick={copyNexusAddress}
+                  className="p-1 hover:bg-secondary rounded"
+                >
+                  <Copy className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

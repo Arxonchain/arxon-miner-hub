@@ -21,6 +21,11 @@ interface ArenaBoost {
   expires_at: string;
 }
 
+interface NexusBoost {
+  boost_percentage: number;
+  expires_at: string;
+}
+
 type UseMiningOptions = {
   /** UI tick interval; lower is smoother but more CPU. */
   tickMs?: number;
@@ -29,6 +34,7 @@ type UseMiningOptions = {
 const miningSettingsCacheKey = 'arxon:mining_settings:v1';
 const xProfileBoostCacheKey = (userId: string) => `arxon:x_profile_boost:v1:${userId}`;
 const arenaBoostsCacheKey = (userId: string) => `arxon:arena_boosts:v1:${userId}`;
+const nexusBoostsCacheKey = (userId: string) => `arxon:nexus_boosts:v1:${userId}`;
 
 type ActiveMiningSessionCache = {
   id: string;
@@ -75,6 +81,7 @@ export const useMining = (options?: UseMiningOptions) => {
   });
   const [xProfileBoost, setXProfileBoost] = useState(0);
   const [arenaBoosts, setArenaBoosts] = useState<ArenaBoost[]>([]);
+  const [nexusBoosts, setNexusBoosts] = useState<NexusBoost[]>([]);
 
   const lastDbPointsRef = useRef(0);
   const lastDbWriteAtRef = useRef(0);
@@ -130,14 +137,39 @@ export const useMining = (options?: UseMiningOptions) => {
     }
   }, [user]);
 
+  // Fetch nexus boosts
+  const fetchNexusBoosts = useCallback(async () => {
+    if (!user) {
+      setNexusBoosts([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('nexus_boosts')
+        .select('boost_percentage, expires_at')
+        .eq('user_id', user.id)
+        .eq('claimed', true)
+        .gte('expires_at', new Date().toISOString());
+
+      if (!error && data) {
+        setNexusBoosts(data);
+        cacheSet(nexusBoostsCacheKey(user.id), data);
+      }
+    } catch (err) {
+      console.error('Error fetching nexus boosts:', err);
+    }
+  }, [user]);
+
   // Calculate all boost sources separately
   const referralBonus = points?.referral_bonus_percentage || 0;
   const xPostBoost = (points as any)?.x_post_boost_percentage || 0;
   const totalArenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
+  const totalNexusBoost = nexusBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
   const streakBoost = Math.min(points?.daily_streak || 0, 30);
 
-  // Total boost = referral + X scan + X posts + arena + streak (cap 500%)
-  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost + streakBoost;
+  // Total boost = referral + X scan + X posts + arena + nexus + streak (cap 500%)
+  const rawTotalBoost = referralBonus + xProfileBoost + xPostBoost + totalArenaBoost + totalNexusBoost + streakBoost;
   const totalBoostPercentage = Math.min(rawTotalBoost, 500);
 
   // Rate caps: 10/hr base, 60/hr max
@@ -152,6 +184,7 @@ export const useMining = (options?: UseMiningOptions) => {
       xProfileBoost,
       xPostBoost,
       totalArenaBoost,
+      totalNexusBoost,
       streakBoost,
       rawTotalBoost,
       totalBoostPercentage,
@@ -163,6 +196,7 @@ export const useMining = (options?: UseMiningOptions) => {
     xProfileBoost,
     xPostBoost,
     totalArenaBoost,
+    totalNexusBoost,
     streakBoost,
     rawTotalBoost,
     totalBoostPercentage,
@@ -731,10 +765,10 @@ export const useMining = (options?: UseMiningOptions) => {
       setLoading(false);
     }
 
-    Promise.all([fetchMiningSettings(), fetchXProfileBoost(), fetchArenaBoosts(), checkActiveSession()]).catch(
+    Promise.all([fetchMiningSettings(), fetchXProfileBoost(), fetchArenaBoosts(), fetchNexusBoosts(), checkActiveSession()]).catch(
       () => {}
     );
-  }, [user, checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts]);
+  }, [user, checkActiveSession, fetchMiningSettings, fetchXProfileBoost, fetchArenaBoosts, fetchNexusBoosts]);
 
   // Real-time subscription for X profile boost changes
   useEffect(() => {
@@ -789,6 +823,31 @@ export const useMining = (options?: UseMiningOptions) => {
       supabase.removeChannel(channel);
     };
   }, [user, fetchArenaBoosts]);
+
+  // Real-time subscription for nexus boost changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('nexus-boost-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'nexus_boosts',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchNexusBoosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchNexusBoosts]);
 
   // Real-time subscription for mining sessions
   useEffect(() => {
@@ -936,6 +995,7 @@ export const useMining = (options?: UseMiningOptions) => {
     xProfileBoost,
     xPostBoost,
     totalArenaBoost,
+    totalNexusBoost,
     streakBoost,
     totalBoostPercentage,
     pointsPerHour: cappedPointsPerHour,

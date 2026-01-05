@@ -1,11 +1,12 @@
 import { memo } from "react";
-import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Swords } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Swords, ArrowLeftRight } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import XIcon from "@/components/icons/XIcon";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: ArrowLeftRight, label: "Nexus", path: "/nexus" },
   { icon: Swords, label: "Arena", path: "/arena" },
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
