@@ -37,13 +37,30 @@ export const useAdminStats = () => {
         .select("user_id");
       const totalMinersEver = new Set(allSessions?.map(s => s.user_id)).size;
 
-      // Total points from user_points (the source of truth for all points)
-      const { data: pointsData } = await supabase
-        .from("user_points")
-        .select("mining_points, total_points");
+      // Total points from user_points - use RPC or paginated fetch to get ALL rows
+      // Supabase default limit is 1000, so we need to fetch in batches
+      let allPointsData: { mining_points: number; total_points: number }[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: batch } = await supabase
+          .from("user_points")
+          .select("mining_points, total_points")
+          .range(offset, offset + batchSize - 1);
+        
+        if (batch && batch.length > 0) {
+          allPointsData = [...allPointsData, ...batch];
+          offset += batchSize;
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
       
-      const totalMiningPoints = pointsData?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0;
-      const totalPoints = pointsData?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
+      const totalMiningPoints = allPointsData.reduce((sum, p) => sum + Number(p.mining_points || 0), 0);
+      const totalPoints = allPointsData.reduce((sum, p) => sum + Number(p.total_points || 0), 0);
 
       // Total referrals
       const { count: totalReferrals } = await supabase
