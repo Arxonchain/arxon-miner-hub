@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from "react";
-import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Menu, Swords } from "lucide-react";
+import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Menu, Swords, ArrowLeftRight } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,7 @@ import XIcon from "@/components/icons/XIcon";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: ArrowLeftRight, label: "Nexus", path: "/nexus" },
   { icon: Swords, label: "Arena", path: "/arena" },
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },

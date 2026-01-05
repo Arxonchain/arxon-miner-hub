@@ -20,6 +20,7 @@ import XProfilePage from "./pages/XProfile";
 import Profile from "./pages/Profile";
 import Arena from "./pages/Arena";
 import WalletPage from "./pages/Wallet";
+import Nexus from "./pages/Nexus";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
               <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
               <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
+              <Route path="/nexus" element={<Nexus />} />
               <Route path="/mining" element={<Mining />} />
               <Route path="/arena" element={<Arena />} />
               <Route path="/wallet" element={<WalletPage />} />

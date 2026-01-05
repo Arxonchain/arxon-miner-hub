@@ -9,6 +9,7 @@ interface UserProfile {
   username: string | null;
   avatar_url: string | null;
   referral_code: string | null;
+  nexus_address: string | null;
 }
 
 export const useProfile = () => {
