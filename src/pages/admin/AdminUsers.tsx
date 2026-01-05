@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
+import { AdminStatCardCompact } from "@/components/admin/AdminStatCard";
+
 interface XProfileData {
   id: string;
   username: string;
@@ -322,17 +325,8 @@ const AdminUsers = () => {
     },
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["admin-users-stats"],
-    queryFn: async () => {
-      const totalUsers = users.length;
-      const activeMiners = users.filter(u => u.active_session).length;
-      const totalPoints = users.reduce((sum, u) => sum + u.total_points, 0);
-
-      return { totalUsers, activeMiners, totalPoints };
-    },
-    enabled: users.length > 0,
-  });
+  // Use centralized admin stats
+  const { data: globalStats, isLoading: loadingGlobalStats } = useAdminStats();
 
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -381,33 +375,31 @@ const AdminUsers = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(users.length)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Total Users</p>
-          </div>
-        </div>
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-            <Activity className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.activeMiners || 0)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Mining Now</p>
-          </div>
-        </div>
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-            <Coins className="h-5 w-5 md:h-6 md:w-6 text-accent" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalPoints || 0)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Total ARX-P</p>
-          </div>
-        </div>
+        <AdminStatCardCompact
+          icon={Users}
+          label="Total Users"
+          value={formatNumber(globalStats?.totalUsers || 0)}
+          tooltip="Total users who have signed up on the app"
+          loading={loadingGlobalStats}
+        />
+        <AdminStatCardCompact
+          icon={Activity}
+          label="Mining Now"
+          value={formatNumber(globalStats?.activeMiners || 0)}
+          tooltip="Users with an active mining session right now"
+          loading={loadingGlobalStats}
+          iconColor="text-green-500"
+          iconBgColor="bg-green-500/10"
+        />
+        <AdminStatCardCompact
+          icon={Coins}
+          label="Total ARX-P"
+          value={formatNumber(globalStats?.totalPoints || 0)}
+          tooltip="Combined ARX-P from mining, tasks, referrals, and social"
+          loading={loadingGlobalStats}
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
+        />
       </div>
 
       {/* Search */}

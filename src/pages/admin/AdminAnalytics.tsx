@@ -12,50 +12,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const AdminAnalytics = () => {
   const [timeRange, setTimeRange] = useState<"24H" | "7D" | "30D">("7D");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch total users (from profiles, not mining_sessions)
-  const { data: totalUsers = 0, isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
-    queryKey: ["admin-total-users"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
-      if (error) throw error;
-      return count || 0;
-    },
-    refetchInterval: 60000,
-  });
-
-  // Fetch active miners (currently mining)
-  const { data: activeMiners = 0, isLoading: loadingMiners, refetch: refetchMiners } = useQuery({
-    queryKey: ["admin-active-miners"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("mining_sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
-      if (error) throw error;
-      return count || 0;
-    },
-    refetchInterval: 30000,
-  });
-
-  // Fetch total ARX mined
-  const { data: totalArxMined = 0, isLoading: loadingArx, refetch: refetchArx } = useQuery({
-    queryKey: ["admin-total-arx-mined"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_points")
-        .select("total_points");
-      if (error) throw error;
-      return data?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
-    },
-    refetchInterval: 60000,
-  });
+  // Use centralized admin stats
+  const { data: globalStats, isLoading: loadingGlobalStats, refetch: refetchGlobalStats } = useAdminStats();
 
   // Fetch mining settings
   const { data: miningSettings, refetch: refetchSettings } = useQuery({
@@ -208,14 +178,17 @@ const AdminAnalytics = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const isLoading = loadingUsers || loadingMiners || loadingArx || loadingClaims || loadingPerformance;
+  const isLoading = loadingGlobalStats || loadingClaims || loadingPerformance;
+
+  // Convenience aliases for global stats
+  const totalUsers = globalStats?.totalUsers || 0;
+  const activeMiners = globalStats?.activeMiners || 0;
+  const totalArxMined = globalStats?.totalPoints || 0;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await Promise.all([
-      refetchUsers(),
-      refetchMiners(),
-      refetchArx(),
+      refetchGlobalStats(),
       refetchSettings(),
       refetchClaims(),
       refetchPerformance(),
@@ -223,12 +196,6 @@ const AdminAnalytics = () => {
       refetchRecentPoints()
     ]);
     setIsRefreshing(false);
-  };
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toLocaleString();
   };
 
   const handleExportCSV = () => {
