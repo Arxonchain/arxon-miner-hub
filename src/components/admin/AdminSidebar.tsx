@@ -9,6 +9,7 @@ import {
   ChevronRight,
   User,
   Menu,
+  CalendarDays,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
   { icon: Users, label: "Users & Miners", path: "/admin/users" },
+  { icon: CalendarDays, label: "Daily Signups", path: "/admin/signups" },
   { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
 ];
 
