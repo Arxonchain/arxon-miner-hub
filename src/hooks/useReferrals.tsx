@@ -207,12 +207,12 @@ export const useReferrals = (user: User | null) => {
     void fetchReferrals();
   }, [user, fetchReferralCode, fetchReferrals]);
 
-  // Real-time subscription for referrals (when someone uses your code)
+  // Real-time subscription for referrals and mining sessions (for active miners count)
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
-      .channel('referrals-changes')
+      .channel('referrals-and-mining-changes')
       .on(
         'postgres_changes',
         {
@@ -222,6 +222,18 @@ export const useReferrals = (user: User | null) => {
           filter: `referrer_id=eq.${user.id}`,
         },
         () => {
+          void fetchReferrals();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mining_sessions',
+        },
+        () => {
+          // Refresh referrals to update active miners count when any session changes
           void fetchReferrals();
         }
       )
