@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
+import { AdminStatCardCompact } from "@/components/admin/AdminStatCard";
 
 interface MinerData {
   user_id: string;
@@ -110,34 +112,8 @@ const AdminMiners = () => {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["admin-miners-stats"],
-    queryFn: async () => {
-      const { count: activeCount } = await supabase
-        .from("mining_sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
-
-      const { data: totalMinedData } = await supabase
-        .from("mining_sessions")
-        .select("arx_mined");
-
-      const totalMined = totalMinedData?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
-
-      const { data: uniqueUsers } = await supabase
-        .from("mining_sessions")
-        .select("user_id");
-
-      const uniqueUserCount = new Set(uniqueUsers?.map((u) => u.user_id)).size;
-
-      return {
-        activeNow: activeCount || 0,
-        totalMiners: uniqueUserCount,
-        totalMined,
-      };
-    },
-    refetchInterval: 30000,
-  });
+  // Use centralized admin stats for consistent data
+  const { data: globalStats, isLoading: loadingGlobalStats } = useAdminStats();
 
   const filteredMiners = miners.filter(
     (miner) =>
@@ -190,33 +166,31 @@ const AdminMiners = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-            <Activity className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.activeNow || 0)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Mining Now</p>
-          </div>
-        </div>
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalMiners || 0)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Total Miners</p>
-          </div>
-        </div>
-        <div className="glass-card p-3 md:p-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-            <Coins className="h-5 w-5 md:h-6 md:w-6 text-accent" />
-          </div>
-          <div className="text-center sm:text-left">
-            <p className="text-lg md:text-2xl font-bold text-foreground">{formatNumber(stats?.totalMined || 0)}</p>
-            <p className="text-xs md:text-sm text-muted-foreground">Total ARX-P</p>
-          </div>
-        </div>
+        <AdminStatCardCompact
+          icon={Activity}
+          label="Mining Now"
+          value={formatNumber(globalStats?.activeMiners || 0)}
+          tooltip="Users with an active mining session right now"
+          loading={loadingGlobalStats}
+          iconColor="text-green-500"
+          iconBgColor="bg-green-500/10"
+        />
+        <AdminStatCardCompact
+          icon={Users}
+          label="Total Miners"
+          value={formatNumber(globalStats?.totalMinersEver || 0)}
+          tooltip="Unique users who have ever started a mining session"
+          loading={loadingGlobalStats}
+        />
+        <AdminStatCardCompact
+          icon={Coins}
+          label="Total ARX-P"
+          value={formatNumber(globalStats?.totalPoints || 0)}
+          tooltip="Combined ARX-P from mining, tasks, referrals, and social"
+          loading={loadingGlobalStats}
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
+        />
       </div>
 
       {/* Filters */}

@@ -4,89 +4,12 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, 
 import { supabase } from "@/integrations/supabase/client";
 import { format, subHours, startOfHour, eachHourOfInterval } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
-
-const StatCard = ({ icon: Icon, label, value, subtext, trend, loading }: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  subtext?: string;
-  trend?: "up" | "down" | "neutral";
-  loading?: boolean;
-}) => (
-  <div className="glass-card p-3 md:p-5 space-y-2 md:space-y-3">
-    <div className="flex items-center justify-between">
-      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-        <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-      </div>
-      {trend && (
-        <span className={`text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full ${
-          trend === "up" ? "bg-green-500/10 text-green-500" :
-          trend === "down" ? "bg-red-500/10 text-red-500" :
-          "bg-muted text-muted-foreground"
-        }`}>
-          {trend === "up" ? "↑" : trend === "down" ? "↓" : "—"}
-        </span>
-      )}
-    </div>
-    <div>
-      {loading ? (
-        <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin text-primary" />
-      ) : (
-        <p className="text-lg md:text-2xl font-bold text-foreground">{value}</p>
-      )}
-      <p className="text-xs md:text-sm text-muted-foreground">{label}</p>
-      {subtext && <p className="text-xs text-muted-foreground mt-0.5 md:mt-1 hidden sm:block">{subtext}</p>}
-    </div>
-  </div>
-);
+import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 
 const AdminDashboard = () => {
-  // Fetch main stats
-  const { data: stats, isLoading: loadingStats } = useQuery({
-    queryKey: ["admin-dashboard-stats"],
-    queryFn: async () => {
-      // Total users (from profiles, not mining_sessions)
-      const { count: totalUsers } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
-
-      // Active sessions
-      const { count: activeSessions } = await supabase
-        .from("mining_sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
-
-      // Total ARX-P mined (from user_points)
-      const { data: pointsData } = await supabase
-        .from("user_points")
-        .select("mining_points, total_points");
-      const totalMiningPoints = pointsData?.reduce((sum, p) => sum + Number(p.mining_points || 0), 0) || 0;
-      const totalPoints = pointsData?.reduce((sum, p) => sum + Number(p.total_points || 0), 0) || 0;
-
-      // Mining settings (claim status)
-      const { data: settings } = await supabase
-        .from("mining_settings")
-        .select("claiming_enabled, block_reward")
-        .limit(1)
-        .maybeSingle();
-
-      // Total referrals
-      const { count: totalReferrals } = await supabase
-        .from("referrals")
-        .select("*", { count: "exact", head: true });
-
-      return {
-        totalUsers: totalUsers || 0,
-        activeSessions: activeSessions || 0,
-        totalMiningPoints,
-        totalPoints,
-        claimingEnabled: settings?.claiming_enabled || false,
-        blockReward: settings?.block_reward || 1000,
-        totalReferrals: totalReferrals || 0,
-      };
-    },
-    refetchInterval: 60000,
-  });
+  // Use centralized stats hook for consistent data
+  const { data: stats, isLoading: loadingStats } = useAdminStats();
 
   // Fetch 24h miner activity
   const { data: hourlyData = [], isLoading: loadingHourly } = useQuery({
@@ -216,48 +139,54 @@ const AdminDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-        <StatCard 
+        <AdminStatCard 
           icon={Users} 
           label="Total Users" 
           value={formatNumber(stats?.totalUsers || 0)} 
           subtext="Registered users"
           loading={loadingStats}
+          tooltip="Total users who have signed up on the app"
         />
-        <StatCard 
+        <AdminStatCard 
           icon={Activity} 
           label="Active Sessions" 
-          value={formatNumber(stats?.activeSessions || 0)} 
-          trend={stats?.activeSessions ? "up" : "neutral"}
+          value={formatNumber(stats?.activeMiners || 0)} 
+          trend={stats?.activeMiners ? "up" : "neutral"}
           subtext="Currently mining"
           loading={loadingStats}
+          tooltip="Users currently running an active mining session"
         />
-        <StatCard 
+        <AdminStatCard 
           icon={Coins} 
           label="Mining ARX-P" 
           value={formatNumber(stats?.totalMiningPoints || 0)} 
           subtext="From mining only"
           loading={loadingStats}
+          tooltip="Total ARX-P earned from mining sessions only"
         />
-        <StatCard 
+        <AdminStatCard 
           icon={Coins} 
           label="Total ARX-P" 
           value={formatNumber(stats?.totalPoints || 0)} 
           subtext="All sources"
           loading={loadingStats}
+          tooltip="Combined ARX-P from mining, tasks, referrals, and social"
         />
-        <StatCard 
+        <AdminStatCard 
           icon={CheckCircle} 
           label="$ARX Claiming" 
           value={stats?.claimingEnabled ? "Enabled" : "Disabled"} 
           subtext="Token conversion"
           loading={loadingStats}
+          tooltip="Whether users can convert ARX-P to $ARX tokens"
         />
-        <StatCard 
+        <AdminStatCard 
           icon={Server} 
           label="Referrals" 
           value={formatNumber(stats?.totalReferrals || 0)} 
           subtext="Total signups"
           loading={loadingStats}
+          tooltip="Total successful referrals on the platform"
         />
       </div>
 
