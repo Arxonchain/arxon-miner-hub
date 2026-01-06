@@ -9,23 +9,19 @@ import NexusRewardModal from '@/components/nexus/NexusRewardModal';
 import NexusBoostIndicator from '@/components/nexus/NexusBoostIndicator';
 import TransactionExplorer from '@/components/nexus/TransactionExplorer';
 import PersonalTransactionHistory from '@/components/nexus/PersonalTransactionHistory';
-import { useNexus } from '@/hooks/useNexus';
+import { NexusProvider, useNexus } from '@/hooks/useNexus';
 import { usePoints } from '@/hooks/usePoints';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-const Nexus = () => {
-  const { user } = useAuth();
+const NexusContent = () => {
   const { points } = usePoints();
-  const { 
-    nexusAddress, 
-    activeBoosts, 
-    pendingReward, 
+  const {
+    nexusAddress,
+    activeBoosts,
     claimReward,
-    loading,
-    lastTransactionAmount
   } = useNexus();
-  
+
   const [showRewardModal, setShowRewardModal] = useState(false);
   const [pendingTransactionId, setPendingTransactionId] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -39,11 +35,11 @@ const Nexus = () => {
 
   const handleClaimReward = async () => {
     if (!pendingTransactionId) return;
-    
+
     setClaiming(true);
     const success = await claimReward(pendingTransactionId);
     setClaiming(false);
-    
+
     if (success) {
       setShowRewardModal(false);
       setPendingTransactionId(null);
@@ -51,25 +47,8 @@ const Nexus = () => {
     }
   };
 
-  if (!user) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle>Sign in Required</CardTitle>
-              <CardDescription>
-                Please sign in to access the Arxon Nexus
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   return (
-    <DashboardLayout>
+    <>
       <div className="space-y-4 sm:space-y-6 pb-6">
         {/* Header - Compact on mobile */}
         <motion.div
@@ -100,24 +79,24 @@ const Nexus = () => {
         {/* Main content */}
         <Tabs defaultValue="send" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-card border border-border/50">
-            <TabsTrigger 
-              value="send" 
+            <TabsTrigger
+              value="send"
               className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
             >
               <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="font-medium hidden sm:inline">Send ARX-P</span>
               <span className="font-medium sm:hidden">Send</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="history" 
+            <TabsTrigger
+              value="history"
               className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
             >
               <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="font-medium hidden sm:inline">My History</span>
               <span className="font-medium sm:hidden">History</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="explorer" 
+            <TabsTrigger
+              value="explorer"
               className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
             >
               <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -128,9 +107,9 @@ const Nexus = () => {
           <TabsContent value="send" className="space-y-4 sm:space-y-6">
             <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Left column - Address card */}
-              <NexusAddressCard 
-                address={nexusAddress} 
-                balance={points?.total_points || 0} 
+              <NexusAddressCard
+                address={nexusAddress}
+                balance={points?.total_points || 0}
               />
 
               {/* Right column - Send form */}
@@ -205,6 +184,35 @@ const Nexus = () => {
         claiming={claiming}
         bonusAmount={sentAmount}
       />
+    </>
+  );
+};
+
+const Nexus = () => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle>Sign in Required</CardTitle>
+              <CardDescription>
+                Please sign in to access the Arxon Nexus
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <NexusProvider>
+        <NexusContent />
+      </NexusProvider>
     </DashboardLayout>
   );
 };
