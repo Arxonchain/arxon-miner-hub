@@ -77,8 +77,13 @@ const NexusSendForm = ({ onSuccess }: NexusSendFormProps) => {
     }
 
     const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum < 10) {
-      toast({ title: "Minimum amount is 10 ARX-P", variant: "destructive" });
+    if (isNaN(amountNum) || amountNum < 1) {
+      toast({ title: "Minimum amount is 1 ARX-P", variant: "destructive" });
+      return;
+    }
+
+    if (amountNum > 10) {
+      toast({ title: "Maximum amount is 10 ARX-P", variant: "destructive" });
       return;
     }
 
@@ -214,17 +219,18 @@ const NexusSendForm = ({ onSuccess }: NexusSendFormProps) => {
           <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="number"
-            placeholder="Min 10 ARX-P"
+            placeholder="1-10 ARX-P"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            min={10}
+            min={1}
+            max={10}
             className="pl-10 pr-16 bg-card/50 border-border/50 h-10 sm:h-11 text-sm"
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-muted-foreground">
             ARX-P
           </span>
         </div>
-        {amount && parseFloat(amount) >= 10 && (
+        {amount && parseFloat(amount) >= 1 && parseFloat(amount) <= 10 && (
           <p className="text-xs text-green-400 flex items-center gap-1">
             <AlertCircle className="h-3 w-3" />
             You'll get +{parseFloat(amount)} ARX-P bonus back!
