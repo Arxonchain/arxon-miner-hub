@@ -24,7 +24,7 @@ const NexusBoostIndicator = ({ boosts }: NexusBoostIndicatorProps) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative overflow-hidden rounded-lg border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/10 p-4"
+      className="relative overflow-hidden rounded-lg border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/10 p-3 sm:p-4"
     >
       {/* Animated border glow */}
       <motion.div
@@ -43,11 +43,11 @@ const NexusBoostIndicator = ({ boosts }: NexusBoostIndicatorProps) => {
         }}
       />
 
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Zap className="h-5 w-5 text-primary" />
+      <div className="relative flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="relative shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             </div>
             <motion.div
               className="absolute inset-0 rounded-full bg-primary/30"
@@ -56,20 +56,20 @@ const NexusBoostIndicator = ({ boosts }: NexusBoostIndicatorProps) => {
             />
           </div>
           <div>
-            <p className="font-semibold flex items-center gap-2">
+            <p className="font-semibold text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
               Nexus Boost Active
-              <span className="text-primary text-lg">+{totalBoost}%</span>
+              <span className="text-primary text-sm sm:text-lg">+{totalBoost}%</span>
             </p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               Expires {formatDistanceToNow(nearestExpiry, { addSuffix: true })}
             </p>
           </div>
         </div>
 
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">{boosts.length} active</p>
-          <p className="text-xs text-muted-foreground">boosts stacked</p>
+        <div className="text-right shrink-0">
+          <p className="text-xs sm:text-sm text-muted-foreground">{boosts.length} active</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">boosts stacked</p>
         </div>
       </div>
     </motion.div>

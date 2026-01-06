@@ -55,6 +55,7 @@ export const useNexus = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [pendingReward, setPendingReward] = useState<string | null>(null);
+  const [lastTransactionAmount, setLastTransactionAmount] = useState<number>(0);
 
   // Fetch user's nexus address
   const fetchNexusAddress = useCallback(async () => {
@@ -218,10 +219,11 @@ export const useNexus = () => {
       
       if (result.success) {
         setPendingReward(null);
+        setLastTransactionAmount(0);
         await fetchActiveBoosts();
         toast({
           title: "Reward Claimed!",
-          description: "+5 ARX-P and 20% mining boost for 24h",
+          description: result.message || "+ARX-P and 20% mining boost for 3 days",
         });
         return true;
       } else {
@@ -317,6 +319,7 @@ export const useNexus = () => {
     loading,
     sending,
     pendingReward,
+    lastTransactionAmount,
     searchUsers,
     sendTransfer,
     claimReward,
