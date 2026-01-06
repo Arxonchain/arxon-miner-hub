@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, History, Send, Zap, Gift, Clock } from 'lucide-react';
+import { ArrowLeftRight, History, Send, Zap, Gift, Clock, Globe, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import NexusAddressCard from '@/components/nexus/NexusAddressCard';
@@ -8,6 +8,7 @@ import NexusSendForm from '@/components/nexus/NexusSendForm';
 import NexusRewardModal from '@/components/nexus/NexusRewardModal';
 import NexusBoostIndicator from '@/components/nexus/NexusBoostIndicator';
 import TransactionExplorer from '@/components/nexus/TransactionExplorer';
+import PersonalTransactionHistory from '@/components/nexus/PersonalTransactionHistory';
 import { useNexus } from '@/hooks/useNexus';
 import { usePoints } from '@/hooks/usePoints';
 import { useAuth } from '@/hooks/useAuth';
@@ -98,19 +99,28 @@ const Nexus = () => {
 
         {/* Main content */}
         <Tabs defaultValue="send" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-card border border-border/50">
+          <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-card border border-border/50">
             <TabsTrigger 
               value="send" 
-              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
+              className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
             >
-              <Send className="h-4 w-4" />
-              <span className="font-medium">Send ARX-P</span>
+              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="font-medium hidden sm:inline">Send ARX-P</span>
+              <span className="font-medium sm:hidden">Send</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
+            >
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="font-medium hidden sm:inline">My History</span>
+              <span className="font-medium sm:hidden">History</span>
             </TabsTrigger>
             <TabsTrigger 
               value="explorer" 
-              className="flex items-center gap-2 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
+              className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground transition-all"
             >
-              <History className="h-4 w-4" />
+              <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="font-medium">Explorer</span>
             </TabsTrigger>
           </TabsList>
@@ -153,7 +163,7 @@ const Nexus = () => {
                   <span className="font-semibold text-green-400 text-sm sm:text-base">Matching Bonus</span>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Send 10, get 10 back. Send 100, get 100 back!
+                  Send 10, get 10 back. Send 5, get 5 back!
                 </p>
               </div>
               <div className="p-3 sm:p-4 rounded-lg bg-primary/10 border border-primary/30">
@@ -175,6 +185,10 @@ const Nexus = () => {
                 </p>
               </div>
             </motion.div>
+          </TabsContent>
+
+          <TabsContent value="history">
+            <PersonalTransactionHistory />
           </TabsContent>
 
           <TabsContent value="explorer">
