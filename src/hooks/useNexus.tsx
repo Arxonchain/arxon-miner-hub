@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -40,7 +40,7 @@ interface SearchResult {
   avatar_url: string | null;
 }
 
-export const useNexus = () => {
+function useNexusState() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [nexusAddress, setNexusAddress] = useState<string | null>(null);
@@ -141,9 +141,10 @@ export const useNexus = () => {
     const { data, error } = await supabase
       .from('nexus_transactions')
       .select('*')
+      .eq('private_mode', false)
       .order('created_at', { ascending: false })
       .limit(100);
-    
+
     if (!error && data) {
       setTransactions(data);
     }
@@ -327,4 +328,21 @@ export const useNexus = () => {
     getTotalNexusBoost,
     fetchTransactions,
   };
+}
+
+type NexusContextValue = ReturnType<typeof useNexusState>;
+
+const NexusContext = createContext<NexusContextValue | null>(null);
+
+export function NexusProvider({ children }: { children: ReactNode }) {
+  const value = useNexusState();
+  return <NexusContext.Provider value={value}>{children}</NexusContext.Provider>;
+}
+
+export const useNexus = () => {
+  const ctx = useContext(NexusContext);
+  if (!ctx) {
+    throw new Error('useNexus must be used within <NexusProvider />');
+  }
+  return ctx;
 };
