@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { cacheGet, cacheSet } from '@/lib/localCache';
 
 const NOTIFICATION_PREFS_KEY = 'arxon_notification_preferences';
+const VAPID_PUBLIC_KEY = 'BH83wzlnSpDzR3jxVWOmlPVnSWMxzKy6XABCoR5BThesZTX3Lkt_cJZmze_gDsReh5_IeBXIjb-ijbluwf0I2_w';
 
 interface NotificationPreferences {
   miningAlerts: boolean;
@@ -21,13 +21,29 @@ const defaultPrefs: NotificationPreferences = {
   systemAnnouncements: true,
 };
 
+// Convert base64 to Uint8Array for VAPID key
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray.buffer as ArrayBuffer;
+}
+
 export const usePushNotifications = () => {
   const { user } = useAuth();
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [preferences, setPreferences] = useState<NotificationPreferences>(defaultPrefs);
+  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const previousRankRef = useRef<number | null>(null);
   const miningSessionCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedSessionsRef = useRef<Set<string>>(new Set());
+  const serviceWorkerRef = useRef<ServiceWorkerRegistration | null>(null);
 
   // Load preferences from localStorage
   useEffect(() => {
@@ -41,22 +57,101 @@ export const usePushNotifications = () => {
     }
   }, []);
 
-  // Check browser notification permission
+  // Register service worker and get existing subscription
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('Push notifications not supported');
+      return;
     }
+
+    const registerSW = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered:', registration.scope);
+        serviceWorkerRef.current = registration;
+
+        // Check for existing subscription
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) {
+          setSubscription(existingSub);
+          console.log('Existing push subscription found');
+        }
+
+        // Update permission state
+        if (Notification.permission === 'granted') {
+          setPermission('granted');
+        } else if (Notification.permission === 'denied') {
+          setPermission('denied');
+        }
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
+      }
+    };
+
+    registerSW();
   }, []);
 
-  // Request permission
+  // Save subscription to database when user is authenticated
+  useEffect(() => {
+    if (!user || !subscription) return;
+
+    const saveSubscription = async () => {
+      try {
+        const subscriptionJson = subscription.toJSON();
+        const keys = subscriptionJson.keys as { p256dh: string; auth: string } | undefined;
+        
+        if (!keys?.p256dh || !keys?.auth) {
+          console.error('Invalid subscription keys');
+          return;
+        }
+
+        // Upsert subscription
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .upsert({
+            user_id: user.id,
+            endpoint: subscription.endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth,
+          }, {
+            onConflict: 'user_id,endpoint'
+          });
+
+        if (error) {
+          console.error('Error saving push subscription:', error);
+        } else {
+          console.log('Push subscription saved to database');
+        }
+      } catch (error) {
+        console.error('Error saving subscription:', error);
+      }
+    };
+
+    saveSubscription();
+  }, [user, subscription]);
+
+  // Request permission and subscribe to push
   const requestPermission = useCallback(async () => {
-    if (!('Notification' in window)) {
+    if (!('Notification' in window) || !serviceWorkerRef.current) {
       return false;
     }
 
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
+
+      if (result === 'granted' && serviceWorkerRef.current) {
+        // Subscribe to push notifications
+        const pushSubscription = await serviceWorkerRef.current.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        
+        setSubscription(pushSubscription);
+        console.log('Push subscription created:', pushSubscription.endpoint);
+        return true;
+      }
+      
       return result === 'granted';
     } catch (error) {
       console.error('Error requesting notification permission:', error);
@@ -64,7 +159,7 @@ export const usePushNotifications = () => {
     }
   }, []);
 
-  // Send a notification
+  // Send a local notification (fallback when on page)
   const sendNotification = useCallback((title: string, options?: NotificationOptions) => {
     if (permission !== 'granted') return;
     if (document.visibilityState === 'visible') {
@@ -88,9 +183,32 @@ export const usePushNotifications = () => {
     }
   }, [permission]);
 
+  // Trigger server push notification
+  const sendServerPush = useCallback(async (
+    title: string, 
+    body: string, 
+    options?: { url?: string; tag?: string }
+  ) => {
+    if (!user) return;
+
+    try {
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          title,
+          body,
+          url: options?.url || '/',
+          tag: options?.tag || 'arxon-notification',
+        },
+      });
+    } catch (error) {
+      console.error('Error sending server push:', error);
+    }
+  }, [user]);
+
   // Mining session notifications (10 min before end + session complete)
   useEffect(() => {
-    if (!user || !preferences.miningAlerts && !preferences.claimNotifications) {
+    if (!user || (!preferences.miningAlerts && !preferences.claimNotifications)) {
       if (miningSessionCheckRef.current) {
         clearInterval(miningSessionCheckRef.current);
         miningSessionCheckRef.current = null;
@@ -122,10 +240,11 @@ export const usePushNotifications = () => {
         if (preferences.miningAlerts && elapsed >= tenMinsBefore && elapsed < maxTime) {
           if (!notifiedSessionsRef.current.has(warningKey)) {
             notifiedSessionsRef.current.add(warningKey);
-            sendNotification('Mining Session Ending Soon ⏰', {
-              body: 'Your mining session will complete in 10 minutes. Get ready to claim your rewards!',
-              tag: 'mining-warning',
-            });
+            await sendServerPush(
+              'Mining Session Ending Soon ⏰',
+              'Your mining session will complete in 10 minutes. Get ready to claim your rewards!',
+              { url: '/mining', tag: 'mining-warning' }
+            );
           }
         }
 
@@ -133,10 +252,11 @@ export const usePushNotifications = () => {
         if (preferences.claimNotifications && elapsed >= maxTime) {
           if (!notifiedSessionsRef.current.has(completeKey)) {
             notifiedSessionsRef.current.add(completeKey);
-            sendNotification('Mining Complete! 🎉', {
-              body: 'Your 8-hour session is complete. Claim your ARX-P and start a new session!',
-              tag: 'mining-complete',
-            });
+            await sendServerPush(
+              'Mining Complete! 🎉',
+              'Your 8-hour session is complete. Claim your ARX-P and start a new session!',
+              { url: '/mining', tag: 'mining-complete' }
+            );
           }
         }
       } catch (error) {
@@ -154,7 +274,7 @@ export const usePushNotifications = () => {
         miningSessionCheckRef.current = null;
       }
     };
-  }, [user, preferences.miningAlerts, preferences.claimNotifications, sendNotification]);
+  }, [user, preferences.miningAlerts, preferences.claimNotifications, sendServerPush]);
 
   // Leaderboard change notifications
   useEffect(() => {
@@ -174,15 +294,17 @@ export const usePushNotifications = () => {
         if (previousRankRef.current !== null && currentRank !== previousRankRef.current) {
           const change = previousRankRef.current - currentRank;
           if (change > 0) {
-            sendNotification('Rank Up! 🚀', {
-              body: `You moved up ${change} position${change > 1 ? 's' : ''} to #${currentRank} on the leaderboard!`,
-              tag: 'leaderboard-up',
-            });
+            await sendServerPush(
+              'Rank Up! 🚀',
+              `You moved up ${change} position${change > 1 ? 's' : ''} to #${currentRank} on the leaderboard!`,
+              { url: '/leaderboard', tag: 'leaderboard-up' }
+            );
           } else if (change < 0) {
-            sendNotification('Leaderboard Update 📊', {
-              body: `You dropped to #${currentRank} on the leaderboard. Keep mining to climb back up!`,
-              tag: 'leaderboard-down',
-            });
+            await sendServerPush(
+              'Leaderboard Update 📊',
+              `You dropped to #${currentRank} on the leaderboard. Keep mining to climb back up!`,
+              { url: '/leaderboard', tag: 'leaderboard-down' }
+            );
           }
         }
         
@@ -197,11 +319,11 @@ export const usePushNotifications = () => {
     const interval = setInterval(checkRank, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user, preferences.leaderboardChanges, sendNotification]);
+  }, [user, preferences.leaderboardChanges, sendServerPush]);
 
   // System announcements
   useEffect(() => {
-    if (!preferences.systemAnnouncements) return;
+    if (!user || !preferences.systemAnnouncements) return;
 
     const channel = supabase
       .channel('announcements-notifications')
@@ -212,12 +334,13 @@ export const usePushNotifications = () => {
           schema: 'public',
           table: 'announcements',
         },
-        (payload) => {
+        async (payload) => {
           if (payload.new && (payload.new as any).is_active) {
-            sendNotification('📢 New Announcement', {
-              body: (payload.new as any).title,
-              tag: 'announcement',
-            });
+            await sendServerPush(
+              '📢 New Announcement',
+              (payload.new as any).title,
+              { url: '/dashboard', tag: 'announcement' }
+            );
           }
         }
       )
@@ -226,7 +349,7 @@ export const usePushNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [preferences.systemAnnouncements, sendNotification]);
+  }, [user, preferences.systemAnnouncements, sendServerPush]);
 
   // Reward updates (points changes)
   useEffect(() => {
@@ -242,16 +365,17 @@ export const usePushNotifications = () => {
           table: 'user_points',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const oldPoints = (payload.old as any)?.total_points || 0;
           const newPoints = (payload.new as any)?.total_points || 0;
           const diff = newPoints - oldPoints;
 
           if (diff > 0 && diff >= 10) { // Only notify for significant gains
-            sendNotification('Rewards Earned! 💰', {
-              body: `You earned +${Math.floor(diff)} ARX-P! Total: ${Math.floor(newPoints).toLocaleString()}`,
-              tag: 'reward-update',
-            });
+            await sendServerPush(
+              'Rewards Earned! 💰',
+              `You earned +${Math.floor(diff)} ARX-P! Total: ${Math.floor(newPoints).toLocaleString()}`,
+              { url: '/dashboard', tag: 'reward-update' }
+            );
           }
         }
       )
@@ -260,7 +384,7 @@ export const usePushNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, preferences.rewardUpdates, sendNotification]);
+  }, [user, preferences.rewardUpdates, sendServerPush]);
 
   const updatePreferences = useCallback((newPrefs: NotificationPreferences) => {
     setPreferences(newPrefs);
@@ -270,9 +394,11 @@ export const usePushNotifications = () => {
   return {
     permission,
     preferences,
+    subscription,
     requestPermission,
     sendNotification,
+    sendServerPush,
     updatePreferences,
-    isSupported: 'Notification' in window,
+    isSupported: 'serviceWorker' in navigator && 'PushManager' in window,
   };
 };
