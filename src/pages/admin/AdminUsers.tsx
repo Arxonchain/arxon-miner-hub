@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap, RefreshCw } from "lucide-react";
+import { Search, Download, Eye, Activity, Coins, Users, Calendar, Loader2, ChevronDown, ChevronUp, Zap, RefreshCw, CheckCircle2, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "sonner";
 import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
 import { AdminStatCardCompact } from "@/components/admin/AdminStatCard";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface XProfileData {
   id: string;
@@ -82,6 +83,7 @@ interface UserData {
   referral_count: number;
   total_sessions: number;
   active_session: boolean;
+  completed_sessions: number;
   last_active: string | null;
   total_arx_mined: number;
   x_profile: XProfileData | null;
@@ -99,10 +101,13 @@ interface MiningSession {
   is_active: boolean;
 }
 
+type SessionFilter = "all" | "active" | "completed" | "never";
+
 const AdminUsers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
   const queryClient = useQueryClient();
 
   // Fetch all users with comprehensive data
@@ -193,9 +198,11 @@ const AdminUsers = () => {
         });
       });
 
-      // Aggregate sessions
+      // Aggregate sessions - count both active and completed
       const sessionStats = new Map<string, {
         count: number;
+        activeCount: number;
+        completedCount: number;
         totalMined: number;
         active: boolean;
         lastActive: Date | null;
@@ -203,6 +210,8 @@ const AdminUsers = () => {
       sessions?.forEach(s => {
         const existing = sessionStats.get(s.user_id) || {
           count: 0,
+          activeCount: 0,
+          completedCount: 0,
           totalMined: 0,
           active: false,
           lastActive: null,
@@ -210,6 +219,8 @@ const AdminUsers = () => {
         const sessionEnd = s.ended_at ? new Date(s.ended_at) : new Date(s.started_at);
         sessionStats.set(s.user_id, {
           count: existing.count + 1,
+          activeCount: existing.activeCount + (s.is_active ? 1 : 0),
+          completedCount: existing.completedCount + (!s.is_active ? 1 : 0),
           totalMined: existing.totalMined + Number(s.arx_mined || 0),
           active: existing.active || s.is_active,
           lastActive: !existing.lastActive || sessionEnd > existing.lastActive ? sessionEnd : existing.lastActive,
@@ -223,19 +234,24 @@ const AdminUsers = () => {
         const arena = arenaStats.get(profile.user_id) || { votes: 0, power: 0 };
         const sessionData = sessionStats.get(profile.user_id) || {
           count: 0,
+          activeCount: 0,
+          completedCount: 0,
           totalMined: 0,
           active: false,
           lastActive: null,
         };
 
+        // Use actual mined from sessions as mining_points for display accuracy
+        const actualMined = sessionData.totalMined;
+
         return {
           user_id: profile.user_id,
-          email: "hidden@email.com", // Email not accessible from profiles
+          email: "hidden@email.com",
           username: profile.username || "Anonymous",
           created_at: profile.created_at,
           wallet: walletMap.get(profile.user_id) || null,
           total_points: Number(userPoints?.total_points || 0),
-          mining_points: Number(userPoints?.mining_points || 0),
+          mining_points: actualMined, // Use actual mined value for accuracy
           task_points: Number(userPoints?.task_points || 0),
           social_points: Number(userPoints?.social_points || 0),
           referral_points: Number(userPoints?.referral_points || 0),
@@ -244,8 +260,9 @@ const AdminUsers = () => {
           referral_count: referralCounts.get(profile.user_id) || 0,
           total_sessions: sessionData.count,
           active_session: sessionData.active,
+          completed_sessions: sessionData.completedCount,
           last_active: sessionData.lastActive?.toISOString() || null,
-          total_arx_mined: sessionData.totalMined,
+          total_arx_mined: actualMined,
           x_profile: xProfileMap.get(profile.user_id) || null,
           arena_votes: arena.votes,
           arena_power_spent: arena.power,
@@ -256,7 +273,7 @@ const AdminUsers = () => {
 
       return userData.sort((a, b) => b.total_points - a.total_points);
     },
-    refetchInterval: 60000, // Reduce load; realtime invalidation below is intentionally disabled for performance
+    refetchInterval: 60000,
   });
 
   // NOTE: Real-time invalidation of the full "admin-users-comprehensive" query was causing
@@ -328,12 +345,35 @@ const AdminUsers = () => {
   // Use centralized admin stats
   const { data: globalStats, isLoading: loadingGlobalStats } = useAdminStats();
 
-  const filteredUsers = users.filter(user =>
+  // Filter by session status
+  const sessionFilteredUsers = useMemo(() => {
+    switch (sessionFilter) {
+      case "active":
+        return users.filter(u => u.active_session);
+      case "completed":
+        return users.filter(u => !u.active_session && u.total_sessions > 0);
+      case "never":
+        return users.filter(u => u.total_sessions === 0);
+      default:
+        return users;
+    }
+  }, [users, sessionFilter]);
+
+  // Then filter by search query
+  const filteredUsers = sessionFilteredUsers.filter(user =>
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.user_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (user.wallet?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.referral_code?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+  
+  // Calculate session counts for tabs
+  const sessionCounts = useMemo(() => ({
+    all: users.length,
+    active: users.filter(u => u.active_session).length,
+    completed: users.filter(u => !u.active_session && u.total_sessions > 0).length,
+    never: users.filter(u => u.total_sessions === 0).length,
+  }), [users]);
 
   const toggleRow = (userId: string) => {
     const newExpanded = new Set(expandedRows);
@@ -401,6 +441,32 @@ const AdminUsers = () => {
           iconBgColor="bg-accent/10"
         />
       </div>
+
+      {/* Session Filter Tabs */}
+      <Tabs value={sessionFilter} onValueChange={(v) => setSessionFilter(v as SessionFilter)}>
+        <TabsList className="bg-muted/50 w-full sm:w-auto grid grid-cols-4 sm:flex gap-1">
+          <TabsTrigger value="all" className="text-xs sm:text-sm gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            <span>All</span>
+            <span className="hidden sm:inline text-muted-foreground">({sessionCounts.all})</span>
+          </TabsTrigger>
+          <TabsTrigger value="active" className="text-xs sm:text-sm gap-1.5">
+            <PlayCircle className="h-3.5 w-3.5 text-green-500" />
+            <span>Mining</span>
+            <span className="hidden sm:inline text-muted-foreground">({sessionCounts.active})</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs sm:text-sm gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+            <span>Completed</span>
+            <span className="hidden sm:inline text-muted-foreground">({sessionCounts.completed})</span>
+          </TabsTrigger>
+          <TabsTrigger value="never" className="text-xs sm:text-sm gap-1.5">
+            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Never</span>
+            <span className="hidden sm:inline text-muted-foreground">({sessionCounts.never})</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Search */}
       <div className="relative">
@@ -550,7 +616,17 @@ const AdminUsers = () => {
                                 <p className="font-medium">{format(new Date(user.created_at), "MMM d, yyyy")}</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground text-xs">Total Mined (Sessions)</p>
+                                <p className="text-muted-foreground text-xs">Sessions (Active/Completed)</p>
+                                <p className="font-medium">
+                                  <span className={user.active_session ? "text-green-500" : ""}>
+                                    {user.active_session ? 1 : 0}
+                                  </span>
+                                  <span className="text-muted-foreground"> / </span>
+                                  <span className="text-blue-400">{user.completed_sessions}</span>
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Total Mined</p>
                                 <p className="font-medium">{formatNumber(user.total_arx_mined)}</p>
                               </div>
                             </div>
