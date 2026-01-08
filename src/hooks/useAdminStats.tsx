@@ -85,8 +85,8 @@ export const useAdminStats = () => {
         totalMinersEver,
       };
     },
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time feel
-    staleTime: 10000, // Consider data stale after 10 seconds
+    refetchInterval: 15000, // Faster refresh every 15 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 };
 

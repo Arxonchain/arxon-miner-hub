@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
 
-interface Task {
+export interface Task {
   id: string;
   title: string;
   description: string;
@@ -12,13 +12,15 @@ interface Task {
   task_type: string;
   external_url: string | null;
   is_active: boolean;
+  requires_screenshot: boolean;
 }
 
-interface UserTask {
+export interface UserTask {
   id: string;
   task_id: string;
   status: string;
   proof_url: string | null;
+  screenshot_url: string | null;
   points_awarded: number;
   completed_at: string | null;
 }
@@ -34,12 +36,15 @@ export const useTasks = () => {
     try {
       const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select('id, title, description, points_reward, task_type, external_url, is_active, requires_screenshot')
         .eq('is_active', true)
         .order('points_reward', { ascending: false });
 
       if (error) throw error;
-      setTasks(data || []);
+      setTasks((data || []).map(t => ({
+        ...t,
+        requires_screenshot: t.requires_screenshot ?? false,
+      })));
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }

@@ -49,7 +49,8 @@ const AdminSignups = () => {
         .map(([date, signups]) => ({ date, signups }))
         .sort((a, b) => a.date.localeCompare(b.date));
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 15000, // Faster refresh every 15 seconds
+    staleTime: 5000,
   });
 
   // Real-time subscription for new signups

@@ -273,12 +273,32 @@ const AdminUsers = () => {
 
       return userData.sort((a, b) => b.total_points - a.total_points);
     },
-    refetchInterval: 60000,
+    refetchInterval: 15000, // Faster refresh - every 15 seconds
+    staleTime: 5000,
   });
 
-  // NOTE: Real-time invalidation of the full "admin-users-comprehensive" query was causing
-  // massive repeated full-table reads as the dataset grows (slow UI + backend timeouts).
-  // We rely on slower polling + the per-user snapshot (edge function) for detailed live updates.
+  // Real-time subscription for mining sessions to update active status immediately
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-mining-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mining_sessions',
+        },
+        () => {
+          // Invalidate the query to refresh data
+          queryClient.invalidateQueries({ queryKey: ['admin-users-comprehensive'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
 
   // Fetch detailed user snapshot via admin endpoint
