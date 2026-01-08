@@ -10,6 +10,7 @@ import {
   User,
   Menu,
   CalendarDays,
+  Scale,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const navItems = [
   { icon: Users, label: "Users & Miners", path: "/admin/users" },
   { icon: CalendarDays, label: "Daily Signups", path: "/admin/signups" },
   { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
+  { icon: Scale, label: "Reconciliation", path: "/admin/reconciliation" },
 ];
 
 const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {
