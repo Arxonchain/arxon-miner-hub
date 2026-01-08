@@ -443,6 +443,87 @@ export type Database = {
         }
         Relationships: []
       }
+      points_audit_log: {
+        Row: {
+          action_taken: string
+          audit_type: string
+          computed_checkin_points: number
+          computed_mining_points: number
+          computed_referral_points: number
+          computed_social_points: number
+          computed_task_points: number
+          computed_total_points: number
+          created_at: string
+          created_by: string | null
+          id: string
+          mining_diff: number
+          notes: string | null
+          points_restored: number
+          referral_diff: number
+          social_diff: number
+          stored_mining_points: number
+          stored_referral_points: number
+          stored_social_points: number
+          stored_task_points: number
+          stored_total_points: number
+          task_diff: number
+          total_diff: number
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string
+          audit_type?: string
+          computed_checkin_points?: number
+          computed_mining_points?: number
+          computed_referral_points?: number
+          computed_social_points?: number
+          computed_task_points?: number
+          computed_total_points?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mining_diff?: number
+          notes?: string | null
+          points_restored?: number
+          referral_diff?: number
+          social_diff?: number
+          stored_mining_points?: number
+          stored_referral_points?: number
+          stored_social_points?: number
+          stored_task_points?: number
+          stored_total_points?: number
+          task_diff?: number
+          total_diff?: number
+          user_id: string
+        }
+        Update: {
+          action_taken?: string
+          audit_type?: string
+          computed_checkin_points?: number
+          computed_mining_points?: number
+          computed_referral_points?: number
+          computed_social_points?: number
+          computed_task_points?: number
+          computed_total_points?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mining_diff?: number
+          notes?: string | null
+          points_restored?: number
+          referral_diff?: number
+          social_diff?: number
+          stored_mining_points?: number
+          stored_referral_points?: number
+          stored_social_points?: number
+          stored_task_points?: number
+          stored_total_points?: number
+          task_diff?: number
+          total_diff?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
