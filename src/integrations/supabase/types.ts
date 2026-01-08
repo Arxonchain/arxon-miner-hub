@@ -578,6 +578,7 @@ export type Database = {
           is_active: boolean
           max_completions: number | null
           points_reward: number
+          requires_screenshot: boolean
           task_type: string
           title: string
         }
@@ -589,6 +590,7 @@ export type Database = {
           is_active?: boolean
           max_completions?: number | null
           points_reward?: number
+          requires_screenshot?: boolean
           task_type?: string
           title: string
         }
@@ -600,6 +602,7 @@ export type Database = {
           is_active?: boolean
           max_completions?: number | null
           points_reward?: number
+          requires_screenshot?: boolean
           task_type?: string
           title?: string
         }
@@ -719,6 +722,7 @@ export type Database = {
           id: string
           points_awarded: number
           proof_url: string | null
+          screenshot_url: string | null
           status: string
           task_id: string
           user_id: string
@@ -729,6 +733,7 @@ export type Database = {
           id?: string
           points_awarded?: number
           proof_url?: string | null
+          screenshot_url?: string | null
           status?: string
           task_id: string
           user_id: string
@@ -739,6 +744,7 @@ export type Database = {
           id?: string
           points_awarded?: number
           proof_url?: string | null
+          screenshot_url?: string | null
           status?: string
           task_id?: string
           user_id?: string
