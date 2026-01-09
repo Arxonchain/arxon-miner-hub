@@ -8,8 +8,7 @@ import {
   Users,
   Gift,
   Zap,
-  TrendingUp,
-  Camera
+  TrendingUp
 } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
 import { useTasks, Task } from "@/hooks/useTasks";
@@ -19,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import AuthDialog from "@/components/auth/AuthDialog";
-import { ScreenshotUploadDialog } from "@/components/tasks/ScreenshotUploadDialog";
 
 const Tasks = () => {
   const { user } = useAuth();
@@ -40,7 +38,7 @@ const Tasks = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [showPostDialog, setShowPostDialog] = useState(false);
   const [postUrl, setPostUrl] = useState("");
-  const [screenshotTask, setScreenshotTask] = useState<Task | null>(null);
+  
 
   const handleClaimTask = async (task: Task) => {
     if (!user) {
@@ -54,20 +52,12 @@ const Tasks = () => {
       return;
     }
 
-    // If task requires screenshot, open screenshot dialog
-    if (task.requires_screenshot) {
-      if (task.external_url) {
-        window.open(task.external_url, '_blank');
-      }
-      setScreenshotTask(task);
-      return;
-    }
-
-    // For non-screenshot tasks, use old logic
+    // Open external URL if available
     if (task.external_url) {
       window.open(task.external_url, '_blank');
     }
     
+    // Directly claim the task (no screenshot required)
     await claimTask(task.id);
   };
 
@@ -349,7 +339,7 @@ const Tasks = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-                    {task.external_url && !isCompleted && !task.requires_screenshot && (
+                    {task.external_url && !isCompleted && (
                       <a
                         href={task.external_url}
                         target="_blank"
@@ -365,12 +355,7 @@ const Tasks = () => {
                       className={`text-xs sm:text-sm ${isCompleted || isPending ? 'btn-claimed' : 'btn-claim'}`}
                       size="sm"
                     >
-                      {isCompleted ? 'Claimed' : isPending ? 'Pending Review' : task.requires_screenshot ? (
-                        <>
-                          <Camera className="h-3 w-3 mr-1" />
-                          Verify
-                        </>
-                      ) : 'Claim'}
+                      {isCompleted ? 'Claimed' : isPending ? 'Pending' : 'Claim'}
                     </Button>
                   </div>
                 </div>
@@ -433,17 +418,6 @@ const Tasks = () => {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Screenshot Upload Dialog */}
-      {screenshotTask && user && (
-        <ScreenshotUploadDialog
-          open={!!screenshotTask}
-          onOpenChange={(open) => !open && setScreenshotTask(null)}
-          task={screenshotTask}
-          userId={user.id}
-          onSuccess={refreshTasks}
-        />
-      )}
 
       <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
     </div>
