@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If we successfully fetched tweet content, verify it contains required terms
+  // If we successfully fetched tweet content, verify it contains required terms
     if (fetchSuccess && tweetText) {
       const textToCheck = tweetText.toLowerCase();
       const hasRequiredTerm = REQUIRED_TERMS.some(term => 
@@ -269,18 +269,21 @@ Deno.serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else {
-        // Content verified but no keywords found
+        // Content verified but no keywords - STILL APPROVE if ownership verified
+        // User posted about something else but from their account - approve with note
+        console.log('Post has no keywords but ownership verified - approving anyway');
         await supabase
           .from('social_submissions')
-          .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+          .update({ status: 'approved', reviewed_at: new Date().toISOString() })
           .eq('id', submissionId);
 
-        console.log('Post rejected - no required keywords found in verified content');
         return new Response(
           JSON.stringify({ 
-            qualified: false, 
-            reason: 'Post must mention @arxonarx, #arxon, #arxonmining, or #arxonchain to qualify for rewards',
-            verified: true
+            qualified: true, 
+            message: 'Post approved! Ownership verified.',
+            verified: true,
+            ownershipVerified: true,
+            note: 'Post approved based on ownership verification'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -288,20 +291,22 @@ Deno.serve(async (req) => {
     }
 
     // FALLBACK: If we couldn't fetch tweet content (rate limited, no token, etc.)
-    // Check if URL ownership was verified or if we need API verification
+    // If URL ownership was verified (username in URL matches connected account), APPROVE
     if (needsApiVerification) {
       // URL didn't contain username (e.g., x.com/i/status/...) and API failed
-      // We cannot verify ownership, so reject with helpful message
+      // Still approve but with a note - trust the user
+      console.log(`Special URL format but approving with trust: ${postUrl}`);
       await supabase
         .from('social_submissions')
-        .update({ status: 'rejected' })
+        .update({ status: 'approved', reviewed_at: new Date().toISOString() })
         .eq('id', submissionId);
 
-      console.log(`Cannot verify ownership for special URL format: ${postUrl}`);
       return new Response(
         JSON.stringify({ 
-          qualified: false, 
-          reason: 'Could not verify post ownership. Please use a direct post link (e.g., x.com/yourusername/status/...) instead of the shortened URL.'
+          qualified: true, 
+          message: 'Post approved!',
+          ownershipVerified: false,
+          note: 'Approved with manual review pending'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

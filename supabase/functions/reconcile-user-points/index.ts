@@ -162,10 +162,11 @@ async function reconcileUser(
   ] = await Promise.all([
     supabase.from('user_points').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('profiles').select('username').eq('user_id', userId).maybeSingle(),
-    // Mining: sum of arx_mined from all sessions (completed = is_active false OR has ended_at)
+    // Mining: sum of arx_mined from FINALIZED sessions only (is_active = false)
     supabase.from('mining_sessions')
       .select('arx_mined')
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .eq('is_active', false),
     // Tasks: sum of points_awarded where status = completed
     supabase.from('user_tasks')
       .select('points_awarded')
