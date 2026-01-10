@@ -5,6 +5,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple in-memory rate limiter for this edge function
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX = 10; // 10 scans per minute per user
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function checkRateLimit(userId: string): { allowed: boolean; remaining: number; retryAfterMs: number } {
+  const now = Date.now();
+  let entry = rateLimitStore.get(userId);
+  
+  // Reset window if expired or doesn't exist
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    entry = { count: 0, windowStart: now };
+    rateLimitStore.set(userId, entry);
+  }
+  
+  const resetAt = entry.windowStart + RATE_LIMIT_WINDOW_MS;
+  const retryAfterMs = Math.max(0, resetAt - now);
+  
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0, retryAfterMs };
+  }
+  
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count, retryAfterMs };
+}
+
 interface Tweet {
   id: string
   text: string
@@ -228,6 +254,28 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized')
     }
 
+    // Rate limit check - 10 scans per minute per user
+    const rateLimit = checkRateLimit(user.id);
+    if (!rateLimit.allowed) {
+      console.log(`Rate limited user ${user.id}, retry after ${rateLimit.retryAfterMs}ms`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Too many scan requests. Please wait a moment.',
+          retryAfterMs: rateLimit.retryAfterMs,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': String(rateLimit.remaining),
+            'Retry-After': String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+          },
+        }
+      );
+    }
+
     const body = await req.json()
     const { username, profileUrl, isInitialConnect, forceHistorical } = body
 
@@ -235,7 +283,7 @@ Deno.serve(async (req) => {
       throw new Error('Username is required')
     }
 
-    console.log(`Scanning tweets for @${username}, initial connect: ${isInitialConnect}`)
+    console.log(`Scanning tweets for @${username}, initial connect: ${isInitialConnect}, remaining: ${rateLimit.remaining}`)
 
     // Fetch user data including profile image
     const userData = await fetchUserData(username, bearerToken)

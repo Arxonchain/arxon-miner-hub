@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
+import { throttle } from '@/lib/requestDeduplication';
 
 interface LeaderboardEntry {
   user_id: string;
@@ -12,6 +13,7 @@ interface LeaderboardEntry {
 }
 
 const POLL_MS = 10_000;
+const WAKE_THROTTLE_MS = 2000; // Prevent rapid fire on visibility + focus events
 
 export const useLeaderboard = (limit: number = 50) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -72,19 +74,21 @@ export const useLeaderboard = (limit: number = 50) => {
       void fetchLeaderboard();
     }, POLL_MS);
 
-    const onWake = () => {
-      if (document.visibilityState !== 'visible') return;
-      void fetchLeaderboard();
-    };
+    // Throttled wake handler to prevent duplicate fetches from visibility + focus firing together
+    const throttledFetch = throttle(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchLeaderboard();
+      }
+    }, WAKE_THROTTLE_MS);
 
-    document.addEventListener('visibilitychange', onWake);
-    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', throttledFetch);
+    window.addEventListener('focus', throttledFetch);
 
     return () => {
       mountedRef.current = false;
       window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', onWake);
-      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', throttledFetch);
+      window.removeEventListener('focus', throttledFetch);
     };
   }, [cacheKey, fetchLeaderboard]);
 
