@@ -43,19 +43,43 @@ export const useArenaMembership = () => {
     }
   }, [user]);
 
-  const registerMembership = async (club: 'alpha' | 'omega', fingerprintHash: string): Promise<boolean> => {
+  // Auto-assign to club with fewer members
+  const getAutoAssignedClub = async (): Promise<'alpha' | 'omega'> => {
+    const { count: alphaCount } = await supabase
+      .from('arena_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('club', 'alpha');
+
+    const { count: omegaCount } = await supabase
+      .from('arena_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('club', 'omega');
+
+    const alpha = alphaCount ?? 0;
+    const omega = omegaCount ?? 0;
+
+    // Assign to smaller club, or random if equal
+    if (alpha < omega) return 'alpha';
+    if (omega < alpha) return 'omega';
+    return Math.random() < 0.5 ? 'alpha' : 'omega';
+  };
+
+  const registerMembership = async (fingerprintHash: string): Promise<{ success: boolean; club: 'alpha' | 'omega' | null }> => {
     if (!user) {
       toast.error('You must be logged in to join the Arena');
-      return false;
+      return { success: false, club: null };
     }
 
     setRegistering(true);
     try {
+      // Auto-assign club
+      const assignedClub = await getAutoAssignedClub();
+
       const { data, error } = await supabase
         .from('arena_members')
         .insert({
           user_id: user.id,
-          club,
+          club: assignedClub,
           fingerprint_verified: true,
           fingerprint_hash: fingerprintHash,
         })
@@ -68,16 +92,15 @@ export const useArenaMembership = () => {
         } else {
           throw error;
         }
-        return false;
+        return { success: false, club: null };
       }
 
       setMembership(data as ArenaMember);
-      toast.success(`Welcome to Club ${club.toUpperCase()}!`);
-      return true;
+      return { success: true, club: assignedClub };
     } catch (error: any) {
       console.error('Error registering arena membership:', error);
       toast.error('Failed to register for the Arena');
-      return false;
+      return { success: false, club: null };
     } finally {
       setRegistering(false);
     }

@@ -156,8 +156,8 @@ const Arena = () => {
 
   // Show onboarding if user is not a member
   if (!membership) {
-    const handleOnboardingComplete = async (club: 'alpha' | 'omega', fingerprintHash: string) => {
-      await registerMembership(club, fingerprintHash);
+    const handleOnboardingComplete = async (fingerprintHash: string) => {
+      return await registerMembership(fingerprintHash);
     };
 
     return (

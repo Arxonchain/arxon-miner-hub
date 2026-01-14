@@ -1,38 +1,33 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, Shield, Zap, ArrowRight } from 'lucide-react';
+import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles } from 'lucide-react';
 import FingerprintScanner from './FingerprintScanner';
-import ClubSelection from './ClubSelection';
 
-type OnboardingStep = 'intro' | 'fingerprint' | 'club';
+type OnboardingStep = 'intro' | 'fingerprint' | 'assigned';
 
 interface ArenaOnboardingProps {
-  onComplete: (club: 'alpha' | 'omega', fingerprintHash: string) => void;
+  onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null }>;
   isLoading?: boolean;
 }
 
 const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps) => {
   const [step, setStep] = useState<OnboardingStep>('intro');
-  const [fingerprintHash, setFingerprintHash] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
+  const [assignedClub, setAssignedClub] = useState<'alpha' | 'omega' | null>(null);
 
   const handleFingerprintVerified = async () => {
     setIsVerifying(true);
-    // Generate a unique fingerprint hash based on timestamp and random data
+    // Generate a unique fingerprint hash
     const hash = `fp_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-    setFingerprintHash(hash);
-    setTimeout(() => {
-      setIsVerifying(false);
-      setStep('club');
-    }, 1000);
-  };
-
-  const handleClubSelected = (club: 'alpha' | 'omega') => {
-    if (fingerprintHash) {
-      setIsSelecting(true);
-      onComplete(club, fingerprintHash);
+    
+    // Register and get auto-assigned club
+    const result = await onComplete(hash);
+    
+    if (result.success && result.club) {
+      setAssignedClub(result.club);
+      setStep('assigned');
     }
+    setIsVerifying(false);
   };
 
   const features = [
@@ -93,6 +88,24 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                 ))}
               </div>
 
+              {/* Club Preview */}
+              <div className="mb-8 p-4 rounded-xl bg-secondary/30 border border-border/30">
+                <p className="text-sm text-muted-foreground text-center mb-3">
+                  You'll be assigned to one of two clubs:
+                </p>
+                <div className="flex items-center justify-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-amber-500" />
+                    <span className="font-bold text-amber-500">ALPHA</span>
+                  </div>
+                  <span className="text-muted-foreground">vs</span>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <span className="font-bold text-primary">OMEGA</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Start Button */}
               <motion.button
                 onClick={() => setStep('fingerprint')}
@@ -106,7 +119,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Info text */}
               <p className="text-xs text-muted-foreground text-center mt-4">
-                You'll need to verify your identity and choose a club to continue
+                Verify your identity to receive your club assignment
               </p>
             </motion.div>
           )}
@@ -121,38 +134,104 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
             >
               <FingerprintScanner
                 onVerified={handleFingerprintVerified}
-                isVerifying={isVerifying}
+                isVerifying={isVerifying || isLoading}
                 title="Secure Your Identity"
                 subtitle="Hold your thumb on the scanner for 2 seconds"
               />
+              
+              {isVerifying && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center mt-4"
+                >
+                  <div className="flex items-center justify-center gap-2 text-primary">
+                    <Sparkles className="w-4 h-4 animate-pulse" />
+                    <span className="text-sm">Assigning your club...</span>
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
-          {step === 'club' && (
+          {step === 'assigned' && assignedClub && (
             <motion.div
-              key="club"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="glass-card p-6 border border-border/50"
+              key="assigned"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card p-8 border border-border/50 text-center"
             >
-              <ClubSelection 
-                onClubSelected={handleClubSelected} 
-                isSelecting={isSelecting || isLoading}
-              />
+              {/* Celebration Animation */}
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', duration: 0.7, delay: 0.2 }}
+                className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-6 ${
+                  assignedClub === 'alpha' 
+                    ? 'bg-gradient-to-br from-amber-500/30 to-amber-600/20' 
+                    : 'bg-gradient-to-br from-primary/30 to-accent/20'
+                }`}
+              >
+                {assignedClub === 'alpha' ? (
+                  <Crown className="w-12 h-12 text-amber-500" />
+                ) : (
+                  <Shield className="w-12 h-12 text-primary" />
+                )}
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <h2 className="text-2xl font-black text-foreground mb-2">
+                  Welcome to Club
+                </h2>
+                <h1 className={`text-4xl font-black mb-4 ${
+                  assignedClub === 'alpha' ? 'text-amber-500' : 'text-primary'
+                }`}>
+                  {assignedClub.toUpperCase()}
+                </h1>
+                <p className="text-muted-foreground mb-6">
+                  {assignedClub === 'alpha' 
+                    ? 'The Pioneers - First to conquer, last to fall!'
+                    : 'The Endgame - The final word in every battle!'}
+                </p>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="space-y-4"
+              >
+                <div className={`p-4 rounded-xl ${
+                  assignedClub === 'alpha' 
+                    ? 'bg-amber-500/10 border border-amber-500/30' 
+                    : 'bg-primary/10 border border-primary/30'
+                }`}>
+                  <p className="text-sm text-foreground">
+                    Your votes will always support <span className="font-bold">{assignedClub.toUpperCase()}</span> in every battle!
+                  </p>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Entering the Arena in 3 seconds...
+                </p>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Step indicators */}
         <div className="flex justify-center gap-2 mt-6">
-          {(['intro', 'fingerprint', 'club'] as OnboardingStep[]).map((s, i) => (
+          {(['intro', 'fingerprint', 'assigned'] as OnboardingStep[]).map((s, i) => (
             <motion.div
               key={s}
               className={`h-2 rounded-full transition-colors ${
                 step === s
                   ? 'w-8 bg-primary'
-                  : (['intro', 'fingerprint', 'club'].indexOf(step) > i
+                  : (['intro', 'fingerprint', 'assigned'].indexOf(step) > i
                       ? 'w-2 bg-primary/50'
                       : 'w-2 bg-border')
               }`}
