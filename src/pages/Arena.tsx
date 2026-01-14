@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Swords, Lock, Trophy } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trophy, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
@@ -10,17 +10,14 @@ import { useArenaMembership } from '@/hooks/useArenaMembership';
 import { supabase } from '@/integrations/supabase/client';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import ArenaOnboarding from '@/components/arena/ArenaOnboarding';
-import ArenaBattleInterface from '@/components/arena/ArenaBattleInterface';
-import VoteExplorer from '@/components/arena/VoteExplorer';
-import ArenaLeaderboard from '@/components/arena/ArenaLeaderboard';
-import BattleHistory from '@/components/arena/BattleHistory';
-import ArenaAnalytics from '@/components/arena/ArenaAnalytics';
-import UserBadges from '@/components/arena/UserBadges';
-import ArenaHeader from '@/components/arena/ArenaHeader';
-import ArenaNavigation from '@/components/arena/ArenaNavigation';
+import BattleHero from '@/components/arena/BattleHero';
+import RoundTabs from '@/components/arena/RoundTabs';
+import ArenaBottomNav, { type ArenaTab } from '@/components/arena/ArenaBottomNav';
+import BattleRules from '@/components/arena/BattleRules';
+import MyRankings from '@/components/arena/MyRankings';
+import PrizePool from '@/components/arena/PrizePool';
+import VotePanel from '@/components/arena/VotePanel';
 import AuthDialog from '@/components/auth/AuthDialog';
-
-type ArenaTab = 'battle' | 'explorer' | 'leaderboard' | 'history' | 'analytics';
 
 const Arena = () => {
   const navigate = useNavigate();
@@ -33,7 +30,6 @@ const Arena = () => {
     userVote,
     participants,
     userBadges,
-    arenaBoosts,
     leaderboard,
     battleHistory,
     analytics,
@@ -44,11 +40,12 @@ const Arena = () => {
   } = useArena();
 
   const [showAuth, setShowAuth] = useState(false);
-  const [activeTab, setActiveTab] = useState<ArenaTab>('battle');
+  const [activeTab, setActiveTab] = useState<ArenaTab>('rules');
   const [arenaPublicAccess, setArenaPublicAccess] = useState<boolean | null>(null);
   const [accessLoading, setAccessLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch arena access setting from database
+  // Fetch arena access setting
   useEffect(() => {
     const fetchArenaAccess = async () => {
       const { data, error } = await supabase
@@ -66,10 +63,16 @@ const Arena = () => {
     fetchArenaAccess();
   }, []);
 
-  // Check if user has access to Arena
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Trigger data refetch
+    window.location.reload();
+  };
+
+  // Check access
   const hasArenaAccess = arenaPublicAccess === true || isAdmin;
 
-  // Show loading state
+  // Loading state
   if (accessLoading || adminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -83,7 +86,7 @@ const Arena = () => {
     );
   }
 
-  // Show access denied page if Arena is not public and user is not admin
+  // Access denied
   if (!hasArenaAccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
@@ -98,7 +101,7 @@ const Arena = () => {
           </motion.div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Arena Coming Soon</h1>
           <p className="text-muted-foreground mb-6">
-            The Arxon Arena is currently under construction. We're preparing epic battles for you. Stay tuned!
+            The Arxon Arena is currently under construction. Stay tuned!
           </p>
           <button
             onClick={() => navigate('/')}
@@ -126,7 +129,7 @@ const Arena = () => {
           </motion.div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Join the Arena</h1>
           <p className="text-muted-foreground mb-6">
-            Sign in to enter the battleground and compete for glory
+            Sign in to enter the battleground
           </p>
           <button
             onClick={() => setShowAuth(true)}
@@ -140,7 +143,7 @@ const Arena = () => {
     );
   }
 
-  // Show loading while checking membership
+  // Membership loading
   if (membershipLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -154,124 +157,116 @@ const Arena = () => {
     );
   }
 
-  // Show onboarding if user is not a member
+  // Onboarding for new members
   if (!membership) {
-    const handleOnboardingComplete = async (fingerprintHash: string) => {
-      return await registerMembership(fingerprintHash);
-    };
-
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <AnimatedBackground />
         <ArenaOnboarding 
-          onComplete={handleOnboardingComplete} 
+          onComplete={registerMembership} 
           isLoading={registering}
         />
       </div>
     );
   }
 
-  // Member is verified - show the Arena
-  const totalArenaBoost = getTotalArenaBoost();
-
+  // Main Arena Interface
   const handleVote = async (amount: number): Promise<boolean> => {
     if (!activeBattle) return false;
-    // Auto-vote for user's club side
     const side = membership.club === 'alpha' ? 'a' : 'b';
     return await castVote(activeBattle.id, side, amount);
   };
 
-  const totalPowerStaked = activeBattle 
-    ? activeBattle.side_a_power + activeBattle.side_b_power 
-    : 0;
-
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       <AnimatedBackground />
 
       {/* Header */}
-      <ArenaHeader 
-        totalPoints={points?.total_points || 0}
-        activeBoost={totalArenaBoost}
-      />
+      <header className="relative z-20 flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        
+        <h1 className="font-bold text-foreground">Boost Battle</h1>
+        
+        <button 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </header>
 
-      <main className="relative z-10 container mx-auto px-4 py-6 space-y-6">
-        {/* Navigation */}
-        <ArenaNavigation 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          participantCount={participants.length}
-        />
+      {/* Round Tabs */}
+      {battleHistory.length > 0 && (
+        <div className="relative z-10 border-b border-border/30">
+          <RoundTabs
+            battles={[...(activeBattle ? [{ ...activeBattle, user_participated: !!userVote }] : []), ...battleHistory]}
+            activeBattleId={activeBattle?.id || null}
+            onSelectBattle={() => {}}
+          />
+        </div>
+      )}
 
-        {/* Tab Content */}
-        {activeTab === 'battle' && (
-          <div className="space-y-6">
-            {activeBattle ? (
-              <ArenaBattleInterface
-                battle={activeBattle}
-                userClub={membership.club}
-                userVote={userVote}
-                participants={participants}
-                userBadges={userBadges}
-                availablePoints={points?.total_points || 0}
-                onVote={handleVote}
-                isVoting={voting}
-              />
-            ) : (
-              <div className="glass-card p-12 text-center border border-primary/20">
-                <motion.div
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    opacity: [0.5, 1, 0.5],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">No Active Battle</h2>
-                <p className="text-muted-foreground">
-                  The Arena is preparing for the next battle. Check back soon!
-                </p>
-              </div>
-            )}
+      {/* Scrollable Content */}
+      <main className="flex-1 overflow-y-auto relative z-10">
+        {activeTab === 'rules' && !loading && (
+          <>
+            <BattleHero
+              battle={activeBattle}
+              userClub={membership.club}
+              hasVoted={!!userVote}
+              onEnterBattle={() => setActiveTab('vote')}
+              isRegistered={true}
+            />
+            <BattleRules />
+          </>
+        )}
+
+        {activeTab === 'rankings' && (
+          <MyRankings
+            leaderboard={leaderboard}
+            userBadges={userBadges}
+            currentUserId={user?.id}
+            analytics={analytics}
+          />
+        )}
+
+        {activeTab === 'prizes' && (
+          <PrizePool battle={activeBattle} />
+        )}
+
+        {activeTab === 'vote' && (
+          <VotePanel
+            battle={activeBattle}
+            userClub={membership.club}
+            userVote={userVote}
+            availablePoints={points?.total_points || 0}
+            onVote={handleVote}
+            isVoting={voting}
+          />
+        )}
+
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            >
+              <Trophy className="w-8 h-8 text-primary" />
+            </motion.div>
           </div>
         )}
-
-        {activeTab === 'explorer' && (
-          <VoteExplorer
-            participants={participants}
-            totalVoters={participants.length}
-            totalPowerStaked={totalPowerStaked}
-            currentUserId={user?.id}
-          />
-        )}
-
-        {activeTab === 'leaderboard' && (
-          <ArenaLeaderboard
-            entries={leaderboard}
-            currentUserId={user?.id}
-          />
-        )}
-
-        {activeTab === 'history' && (
-          <BattleHistory
-            battles={battleHistory}
-            currentUserId={user?.id}
-          />
-        )}
-
-        {activeTab === 'analytics' && analytics && (
-          <ArenaAnalytics
-            totalBattles={analytics.totalBattles}
-            totalPowerStaked={analytics.totalPowerStaked}
-            totalParticipants={analytics.totalParticipants}
-            averageStakePerVoter={analytics.averageStakePerVoter}
-            largestSingleStake={analytics.largestSingleStake}
-            mostActiveVoter={analytics.mostActiveVoter}
-            userStats={analytics.userStats}
-          />
-        )}
       </main>
+
+      {/* Bottom Navigation */}
+      <div className="relative z-20">
+        <ArenaBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
     </div>
   );
 };
