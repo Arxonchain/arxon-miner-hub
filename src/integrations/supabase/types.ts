@@ -139,6 +139,39 @@ export type Database = {
           },
         ]
       }
+      arena_members: {
+        Row: {
+          club: string
+          fingerprint_hash: string | null
+          fingerprint_verified: boolean
+          id: string
+          joined_at: string
+          total_votes: number
+          total_wins: number
+          user_id: string
+        }
+        Insert: {
+          club: string
+          fingerprint_hash?: string | null
+          fingerprint_verified?: boolean
+          id?: string
+          joined_at?: string
+          total_votes?: number
+          total_wins?: number
+          user_id: string
+        }
+        Update: {
+          club?: string
+          fingerprint_hash?: string | null
+          fingerprint_verified?: boolean
+          id?: string
+          joined_at?: string
+          total_votes?: number
+          total_wins?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       arena_votes: {
         Row: {
           battle_id: string
@@ -148,6 +181,7 @@ export type Database = {
           power_spent: number
           side: string
           user_id: string
+          verified_with_fingerprint: boolean | null
         }
         Insert: {
           battle_id: string
@@ -157,6 +191,7 @@ export type Database = {
           power_spent: number
           side: string
           user_id: string
+          verified_with_fingerprint?: boolean | null
         }
         Update: {
           battle_id?: string
@@ -166,6 +201,7 @@ export type Database = {
           power_spent?: number
           side?: string
           user_id?: string
+          verified_with_fingerprint?: boolean | null
         }
         Relationships: [
           {
