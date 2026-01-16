@@ -41,14 +41,66 @@ export type Database = {
         }
         Relationships: []
       }
+      arena_battle_queue: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_hours: number
+          id: string
+          is_used: boolean | null
+          priority: number | null
+          side_a_color: string | null
+          side_a_name: string
+          side_b_color: string | null
+          side_b_name: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_hours: number
+          id?: string
+          is_used?: boolean | null
+          priority?: number | null
+          side_a_color?: string | null
+          side_a_name: string
+          side_b_color?: string | null
+          side_b_name: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_hours?: number
+          id?: string
+          is_used?: boolean | null
+          priority?: number | null
+          side_a_color?: string | null
+          side_a_name?: string
+          side_b_color?: string | null
+          side_b_name?: string
+          title?: string
+        }
+        Relationships: []
+      }
       arena_battles: {
         Row: {
           created_at: string
           created_by: string | null
           description: string | null
+          duration_hours: number | null
           ends_at: string
           id: string
           is_active: boolean
+          last_duration_hours: number | null
+          losing_pool_distributed: boolean | null
+          outcome_type: string | null
+          outcome_verified: boolean | null
+          outcome_verified_at: string | null
+          outcome_verified_by: string | null
           side_a_color: string
           side_a_image: string | null
           side_a_name: string
@@ -59,6 +111,7 @@ export type Database = {
           side_b_power: number
           starts_at: string
           title: string
+          total_rewards_distributed: number | null
           winner_boost_percentage: number
           winner_side: string | null
         }
@@ -66,9 +119,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_hours?: number | null
           ends_at?: string
           id?: string
           is_active?: boolean
+          last_duration_hours?: number | null
+          losing_pool_distributed?: boolean | null
+          outcome_type?: string | null
+          outcome_verified?: boolean | null
+          outcome_verified_at?: string | null
+          outcome_verified_by?: string | null
           side_a_color?: string
           side_a_image?: string | null
           side_a_name: string
@@ -79,6 +139,7 @@ export type Database = {
           side_b_power?: number
           starts_at?: string
           title: string
+          total_rewards_distributed?: number | null
           winner_boost_percentage?: number
           winner_side?: string | null
         }
@@ -86,9 +147,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duration_hours?: number | null
           ends_at?: string
           id?: string
           is_active?: boolean
+          last_duration_hours?: number | null
+          losing_pool_distributed?: boolean | null
+          outcome_type?: string | null
+          outcome_verified?: boolean | null
+          outcome_verified_at?: string | null
+          outcome_verified_by?: string | null
           side_a_color?: string
           side_a_image?: string | null
           side_a_name?: string
@@ -99,6 +167,7 @@ export type Database = {
           side_b_power?: number
           starts_at?: string
           title?: string
+          total_rewards_distributed?: number | null
           winner_boost_percentage?: number
           winner_side?: string | null
         }
@@ -171,6 +240,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      arena_staking_rewards: {
+        Row: {
+          battle_id: string
+          created_at: string | null
+          id: string
+          is_winner: boolean | null
+          loser_pool_share: number | null
+          multiplier: number | null
+          original_stake: number
+          stake_return: number | null
+          total_reward: number | null
+          user_id: string
+        }
+        Insert: {
+          battle_id: string
+          created_at?: string | null
+          id?: string
+          is_winner?: boolean | null
+          loser_pool_share?: number | null
+          multiplier?: number | null
+          original_stake: number
+          stake_return?: number | null
+          total_reward?: number | null
+          user_id: string
+        }
+        Update: {
+          battle_id?: string
+          created_at?: string | null
+          id?: string
+          is_winner?: boolean | null
+          loser_pool_share?: number | null
+          multiplier?: number | null
+          original_stake?: number
+          stake_return?: number | null
+          total_reward?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_staking_rewards_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       arena_votes: {
         Row: {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Share2, Lock } from 'lucide-react';
+import { Trophy, Share2, Flame, Target, Zap } from 'lucide-react';
 import type { ArenaBattle } from '@/hooks/useArena';
 
 interface BattleHeroProps {
@@ -43,8 +43,8 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Arxon Arena - Boost Battle',
-          text: 'Join me in the Arena and battle for rewards!',
+          title: `Arxon Arena - ${battle?.title || 'Boost Battle'}`,
+          text: `I'm betting on ${userClub.toUpperCase()}! Join me in the Arena and stake your prediction!`,
           url: window.location.href,
         });
       } catch (err) {
@@ -53,11 +53,15 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
     }
   };
 
+  // Map user's club to the battle side
+  const userSideName = battle 
+    ? (userClub === 'alpha' ? battle.side_a_name : battle.side_b_name)
+    : userClub.toUpperCase();
+
   return (
-    <div className="relative flex flex-col items-center px-4 py-8">
+    <div className="relative flex flex-col items-center px-4 py-6">
       {/* Spotlight Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Left spotlight */}
         <div 
           className="absolute top-0 left-1/4 w-32 h-96 opacity-20"
           style={{
@@ -66,7 +70,6 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
             filter: 'blur(40px)',
           }}
         />
-        {/* Center spotlight */}
         <div 
           className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-96 opacity-30"
           style={{
@@ -74,7 +77,6 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
             filter: 'blur(50px)',
           }}
         />
-        {/* Right spotlight */}
         <div 
           className="absolute top-0 right-1/4 w-32 h-96 opacity-20"
           style={{
@@ -90,20 +92,17 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', duration: 0.8 }}
-        className="relative z-10 mb-6"
+        className="relative z-10 mb-4"
       >
-        {/* Trophy glow base */}
         <div 
-          className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-48 h-8 rounded-full opacity-50"
+          className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-40 h-6 rounded-full opacity-50"
           style={{
             background: 'radial-gradient(ellipse, hsl(var(--primary) / 0.5) 0%, transparent 70%)',
             filter: 'blur(10px)',
           }}
         />
         
-        {/* Trophy with effects */}
         <div className="relative">
-          {/* Outer glow ring */}
           <motion.div
             className="absolute inset-0 rounded-full"
             animate={{
@@ -116,26 +115,23 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
             transition={{ duration: 2, repeat: Infinity }}
           />
           
-          {/* Trophy icon */}
-          <div className="w-40 h-40 rounded-full bg-gradient-to-br from-card via-secondary to-card border border-primary/30 flex items-center justify-center relative overflow-hidden">
-            {/* Inner glow */}
+          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-card via-secondary to-card border border-primary/30 flex items-center justify-center relative overflow-hidden">
             <div 
               className="absolute inset-0"
               style={{
                 background: 'radial-gradient(circle at 50% 30%, hsl(var(--primary) / 0.3) 0%, transparent 60%)',
               }}
             />
-            <Trophy className="w-20 h-20 text-primary relative z-10" strokeWidth={1.5} />
+            <Trophy className="w-16 h-16 text-primary relative z-10" strokeWidth={1.5} />
           </div>
 
-          {/* Particle effects */}
           {[...Array(6)].map((_, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 rounded-full bg-primary"
               style={{
-                left: `${50 + Math.cos((i / 6) * Math.PI * 2) * 60}%`,
-                top: `${50 + Math.sin((i / 6) * Math.PI * 2) * 60}%`,
+                left: `${50 + Math.cos((i / 6) * Math.PI * 2) * 55}%`,
+                top: `${50 + Math.sin((i / 6) * Math.PI * 2) * 55}%`,
               }}
               animate={{
                 opacity: [0, 1, 0],
@@ -151,30 +147,62 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
         </div>
       </motion.div>
 
-      {/* Title & Description */}
+      {/* Battle Topic */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-center mb-6 relative z-10"
+        className="text-center mb-4 relative z-10 max-w-sm"
       >
-        <h1 className="text-3xl font-black text-foreground mb-2">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Target className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Prediction Battle</span>
+        </div>
+        <h1 className="text-2xl font-black text-foreground mb-2">
           {battle?.title || 'Boost Battle'}
         </h1>
-        <p className="text-muted-foreground text-sm max-w-xs">
-          {battle?.description || 'Stake your power, boost your points and earn weekly rewards!'}
+        <p className="text-muted-foreground text-sm">
+          {battle?.description || 'Stake your power on the outcome you believe in!'}
         </p>
       </motion.div>
+
+      {/* VS Section - Teams */}
+      {battle && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="w-full max-w-sm mb-4 relative z-10"
+        >
+          <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-secondary/30 border border-border/30">
+            <div className="flex-1 text-center p-2 rounded-lg" style={{ backgroundColor: `${battle.side_a_color}20` }}>
+              <p className="text-xs text-muted-foreground mb-1">ALPHA</p>
+              <p className="font-bold text-sm" style={{ color: battle.side_a_color }}>
+                {battle.side_a_name}
+              </p>
+            </div>
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+              <Flame className="w-5 h-5 text-orange-500" />
+            </div>
+            <div className="flex-1 text-center p-2 rounded-lg" style={{ backgroundColor: `${battle.side_b_color}20` }}>
+              <p className="text-xs text-muted-foreground mb-1">OMEGA</p>
+              <p className="font-bold text-sm" style={{ color: battle.side_b_color }}>
+                {battle.side_b_name}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Countdown Timer */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-center mb-8 relative z-10"
+        transition={{ delay: 0.4 }}
+        className="text-center mb-6 relative z-10"
       >
-        <p className="text-muted-foreground text-sm mb-3">This event ends in:</p>
-        <div className="flex items-center justify-center gap-2">
+        <p className="text-muted-foreground text-xs mb-2">Stakes lock in:</p>
+        <div className="flex items-center justify-center gap-1">
           <TimerBlock value={timeLeft.days} label="D" />
           <TimerBlock value={timeLeft.hours} label="H" />
           <TimerBlock value={timeLeft.minutes} label="M" />
@@ -186,37 +214,44 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.5 }}
         className="w-full max-w-sm space-y-3 relative z-10"
       >
         <button
           onClick={onEnterBattle}
           disabled={!battle}
-          className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
         >
-          {hasVoted ? 'View Battle' : 'Enter Battle'}
+          <Zap className="w-5 h-5" />
+          {hasVoted ? 'View My Stake' : 'Stake Now'}
         </button>
 
         <button
           onClick={handleShare}
-          className="w-full py-4 bg-transparent border border-border hover:border-primary/50 text-foreground rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 bg-transparent border border-border hover:border-primary/50 text-foreground rounded-xl font-medium transition-all flex items-center justify-center gap-2"
         >
-          <Share2 className="w-5 h-5" />
-          Share
+          <Share2 className="w-4 h-4" />
+          Share Battle
         </button>
       </motion.div>
 
-      {/* Club Badge */}
+      {/* Your Side Badge */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="mt-6 px-4 py-2 rounded-full bg-secondary/50 border border-border/50 relative z-10"
+        transition={{ delay: 0.6 }}
+        className="mt-4 relative z-10"
       >
-        <span className="text-sm text-muted-foreground">Your Club: </span>
-        <span className={`font-bold ${userClub === 'alpha' ? 'text-amber-500' : 'text-primary'}`}>
-          {userClub.toUpperCase()}
-        </span>
+        <div className={`px-4 py-2 rounded-full border ${
+          userClub === 'alpha' 
+            ? 'bg-amber-500/10 border-amber-500/30' 
+            : 'bg-primary/10 border-primary/30'
+        }`}>
+          <span className="text-xs text-muted-foreground">You're voting: </span>
+          <span className={`font-bold text-sm ${userClub === 'alpha' ? 'text-amber-500' : 'text-primary'}`}>
+            {userSideName}
+          </span>
+        </div>
       </motion.div>
     </div>
   );
@@ -224,13 +259,13 @@ const BattleHero = ({ battle, userClub, hasVoted, onEnterBattle, isRegistered }:
 
 // Timer block component
 const TimerBlock = ({ value, label }: { value: number; label: string }) => (
-  <div className="flex items-center gap-1">
-    <div className="w-12 h-12 rounded-lg bg-secondary border border-border flex items-center justify-center">
-      <span className="text-xl font-black text-foreground">
+  <div className="flex items-center gap-0.5">
+    <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center">
+      <span className="text-lg font-black text-foreground">
         {value.toString().padStart(2, '0')}
       </span>
     </div>
-    <span className="text-muted-foreground text-sm font-medium">{label}</span>
+    <span className="text-muted-foreground text-xs font-medium">{label}</span>
   </div>
 );
 
