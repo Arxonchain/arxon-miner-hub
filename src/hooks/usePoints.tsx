@@ -31,7 +31,7 @@ type PointsContextType = {
   points: UserPoints | null;
   loading: boolean;
   rank: number | null;
-  addPoints: (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => Promise<void>;
+  addPoints: (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => Promise<void>;
   refreshPoints: () => Promise<void>;
   triggerConfetti: () => void;
 };
@@ -114,26 +114,29 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const addPoints = useCallback(
-    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral') => {
+    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => {
       if (!user) return;
 
-      const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 10000);
+      const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 500);
       if (safeAmount <= 0) return;
 
       try {
-        const { data, error } = await supabase.rpc('increment_user_points', {
-          p_user_id: user.id,
-          p_amount: safeAmount,
-          p_type: type,
+        // Use the secure backend endpoint instead of direct RPC
+        const { data, error } = await supabase.functions.invoke('award-points', {
+          body: {
+            type,
+            amount: safeAmount,
+            session_id: sessionId,
+          },
         });
 
         if (error) {
-          console.error('Error adding points via RPC:', error);
+          console.error('Error adding points via backend:', error);
           return;
         }
 
-        if (data) {
-          const next = data as UserPoints;
+        if (data?.success && data?.userPoints) {
+          const next = data.userPoints as UserPoints;
           setPoints(next);
           cacheSet(pointsCacheKey(user.id), next);
         }

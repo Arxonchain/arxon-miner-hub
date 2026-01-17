@@ -87,7 +87,8 @@ export const useSessionRecovery = () => {
               .maybeSingle();
 
             if (!updateError && updated && finalPoints > 0) {
-              await addPoints(finalPoints, 'mining');
+              // Pass session ID for secure backend validation
+              await addPoints(finalPoints, 'mining', session.id);
               
               toast({
                 title: 'Mining Session Recovered! 🎉',

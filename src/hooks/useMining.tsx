@@ -254,7 +254,8 @@ export const useMining = (options?: UseMiningOptions) => {
         }
 
         if (pointsToCredit > 0) {
-          await addPoints(pointsToCredit, 'mining');
+          // Pass session ID for secure backend validation
+          await addPoints(pointsToCredit, 'mining', id);
         }
 
         setIsMining(false);
@@ -305,7 +306,8 @@ export const useMining = (options?: UseMiningOptions) => {
       if (!updated) return 0;
 
       if (finalPoints > 0) {
-        await addPoints(finalPoints, 'mining');
+        // Pass session ID for secure backend validation
+        await addPoints(finalPoints, 'mining', session.id);
       }
 
       return finalPoints;
@@ -611,7 +613,8 @@ export const useMining = (options?: UseMiningOptions) => {
     }
 
     try {
-      await addPoints(pointsToClaim, 'mining');
+      // Pass session ID for secure backend validation
+      await addPoints(pointsToClaim, 'mining', sessionId);
 
       setEarnedPoints(0);
       lastDbPointsRef.current = 0;
