@@ -431,6 +431,7 @@ export type Database = {
       mining_sessions: {
         Row: {
           arx_mined: number
+          credited_at: string | null
           ended_at: string | null
           id: string
           is_active: boolean
@@ -439,6 +440,7 @@ export type Database = {
         }
         Insert: {
           arx_mined?: number
+          credited_at?: string | null
           ended_at?: string | null
           id?: string
           is_active?: boolean
@@ -447,6 +449,7 @@ export type Database = {
         }
         Update: {
           arx_mined?: number
+          credited_at?: string | null
           ended_at?: string | null
           id?: string
           is_active?: boolean
