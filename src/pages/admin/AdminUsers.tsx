@@ -110,44 +110,54 @@ const AdminUsers = () => {
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
   const queryClient = useQueryClient();
 
-  // Fetch all users with comprehensive data
+  // Helper to fetch all rows from a table (bypasses 1000 row limit)
+  const fetchAllPaginated = async (
+    tableName: 'profiles' | 'user_points' | 'user_wallets' | 'mining_sessions' | 'referrals',
+    selectColumns: string
+  ): Promise<any[]> => {
+    const allData: any[] = [];
+    const pageSize = 1000;
+    let from = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(selectColumns)
+        .range(from, from + pageSize - 1);
+      
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allData.push(...data);
+        from += pageSize;
+        hasMore = data.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allData;
+  };
+
+  // Fetch all users with comprehensive data - using pagination to get ALL users
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users-comprehensive"],
     queryFn: async () => {
-      // Fetch profiles with auth info
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("user_id, username, referral_code, created_at, avatar_url");
+      // Fetch ALL profiles (not limited to 1000)
+      const profiles = await fetchAllPaginated("profiles", "user_id, username, referral_code, created_at, avatar_url");
 
-      if (profilesError) throw profilesError;
+      // Fetch ALL user points
+      const points = await fetchAllPaginated("user_points", "*");
 
-      // Fetch user points
-      const { data: points, error: pointsError } = await supabase
-        .from("user_points")
-        .select("*");
+      // Fetch ALL wallets
+      const wallets = await fetchAllPaginated("user_wallets", "user_id, wallet_address, is_primary");
 
-      if (pointsError) throw pointsError;
+      // Fetch ALL mining sessions
+      const sessions = await fetchAllPaginated("mining_sessions", "user_id, arx_mined, is_active, started_at, ended_at");
 
-      // Fetch wallets
-      const { data: wallets, error: walletsError } = await supabase
-        .from("user_wallets")
-        .select("user_id, wallet_address, is_primary");
-
-      if (walletsError) throw walletsError;
-
-      // Fetch mining sessions aggregated
-      const { data: sessions, error: sessionsError } = await supabase
-        .from("mining_sessions")
-        .select("user_id, arx_mined, is_active, started_at, ended_at");
-
-      if (sessionsError) throw sessionsError;
-
-      // Fetch referrals count
-      const { data: referrals, error: referralsError } = await supabase
-        .from("referrals")
-        .select("referrer_id");
-
-      if (referralsError) throw referralsError;
+      // Fetch ALL referrals
+      const referrals = await fetchAllPaginated("referrals", "referrer_id");
 
       // Fetch X profiles with all data
       const { data: xProfiles, error: xError } = await supabase
@@ -164,8 +174,8 @@ const AdminUsers = () => {
       if (arenaError) throw arenaError;
 
       // Build lookup maps
-      const pointsMap = new Map(points?.map(p => [p.user_id, p]) || []);
-      const walletMap = new Map(wallets?.filter(w => w.is_primary).map(w => [w.user_id, w.wallet_address]) || []);
+      const pointsMap = new Map(points?.map((p: any) => [p.user_id, p]) || []);
+      const walletMap = new Map(wallets?.filter((w: any) => w.is_primary).map((w: any) => [w.user_id, w.wallet_address]) || []);
       const xProfileMap = new Map<string, XProfileData>(xProfiles?.map(x => [x.user_id, {
         id: x.id,
         username: x.username,
@@ -184,7 +194,7 @@ const AdminUsers = () => {
       
       // Aggregate referrals by referrer
       const referralCounts = new Map<string, number>();
-      referrals?.forEach(r => {
+      referrals?.forEach((r: any) => {
         referralCounts.set(r.referrer_id, (referralCounts.get(r.referrer_id) || 0) + 1);
       });
 
@@ -207,7 +217,7 @@ const AdminUsers = () => {
         active: boolean;
         lastActive: Date | null;
       }>();
-      sessions?.forEach(s => {
+      sessions?.forEach((s: any) => {
         const existing = sessionStats.get(s.user_id) || {
           count: 0,
           activeCount: 0,
@@ -228,8 +238,8 @@ const AdminUsers = () => {
       });
 
       // Build user data
-      const userData: UserData[] = (profiles || []).map(profile => {
-        const userPoints = pointsMap.get(profile.user_id);
+      const userData: UserData[] = (profiles || []).map((profile: any) => {
+        const userPoints = pointsMap.get(profile.user_id) as any;
         const xProfile = xProfileMap.get(profile.user_id);
         const arena = arenaStats.get(profile.user_id) || { votes: 0, power: 0 };
         const sessionData = sessionStats.get(profile.user_id) || {
@@ -241,7 +251,8 @@ const AdminUsers = () => {
           lastActive: null,
         };
 
-        // Use actual mined from sessions as mining_points for display accuracy
+        // Use STORED values from user_points for admin visibility (shows the same as leaderboard)
+        const storedMiningPoints = Number(userPoints?.mining_points || 0);
         const actualMined = sessionData.totalMined;
 
         return {
@@ -251,7 +262,7 @@ const AdminUsers = () => {
           created_at: profile.created_at,
           wallet: walletMap.get(profile.user_id) || null,
           total_points: Number(userPoints?.total_points || 0),
-          mining_points: actualMined, // Use actual mined value for accuracy
+          mining_points: storedMiningPoints, // Use stored value to match leaderboard
           task_points: Number(userPoints?.task_points || 0),
           social_points: Number(userPoints?.social_points || 0),
           referral_points: Number(userPoints?.referral_points || 0),
@@ -262,7 +273,7 @@ const AdminUsers = () => {
           active_session: sessionData.active,
           completed_sessions: sessionData.completedCount,
           last_active: sessionData.lastActive?.toISOString() || null,
-          total_arx_mined: actualMined,
+          total_arx_mined: actualMined, // Actual from sessions for comparison
           x_profile: xProfileMap.get(profile.user_id) || null,
           arena_votes: arena.votes,
           arena_power_spent: arena.power,
@@ -271,9 +282,10 @@ const AdminUsers = () => {
         };
       });
 
+      // Sort by total_points descending (matches leaderboard order)
       return userData.sort((a, b) => b.total_points - a.total_points);
     },
-    refetchInterval: 15000, // Faster refresh - every 15 seconds
+    refetchInterval: 15000,
     staleTime: 5000,
   });
 
