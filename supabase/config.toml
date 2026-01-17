@@ -17,3 +17,15 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.reconcile-user-points]
+verify_jwt = false
+
+[functions.cleanup-stale-sessions]
+verify_jwt = false
+
+[functions.award-points]
+verify_jwt = false
+
+[functions.clamp-inflated-points]
+verify_jwt = false
