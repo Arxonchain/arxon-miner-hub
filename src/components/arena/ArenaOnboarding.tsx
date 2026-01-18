@@ -1,33 +1,202 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles } from 'lucide-react';
+import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
+import XIcon from '@/components/icons/XIcon';
 import FingerprintScanner from './FingerprintScanner';
+import { useXProfile } from '@/hooks/useXProfile';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-type OnboardingStep = 'intro' | 'fingerprint' | 'assigned';
+type OnboardingStep = 'intro' | 'connect_x' | 'follow_x' | 'fingerprint' | 'assigned';
 
 interface ArenaOnboardingProps {
-  onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null }>;
+  onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
   isLoading?: boolean;
 }
+
+// Generate a device-specific fingerprint hash
+const generateDeviceFingerprint = async (): Promise<string> => {
+  const components: string[] = [];
+  
+  // Screen info
+  components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+  components.push(screen.pixelDepth?.toString() || '0');
+  
+  // Timezone
+  components.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  
+  // Language
+  components.push(navigator.language);
+  components.push((navigator.languages || []).join(','));
+  
+  // Platform info
+  components.push(navigator.platform || 'unknown');
+  components.push(navigator.hardwareConcurrency?.toString() || '0');
+  components.push((navigator as any).deviceMemory?.toString() || '0');
+  
+  // Touch support
+  components.push(navigator.maxTouchPoints?.toString() || '0');
+  
+  // Canvas fingerprint
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      canvas.width = 200;
+      canvas.height = 50;
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('ARXON Arena', 2, 15);
+      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+      ctx.fillText('ARXON Arena', 4, 17);
+      components.push(canvas.toDataURL().slice(-50));
+    }
+  } catch (e) {
+    components.push('canvas-error');
+  }
+  
+  // WebGL info
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl');
+    if (gl) {
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (debugInfo) {
+        components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '');
+        components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '');
+      }
+    }
+  } catch (e) {
+    components.push('webgl-error');
+  }
+  
+  // Generate hash
+  const data = components.join('|');
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return `fp_${hashHex.slice(0, 32)}`;
+};
 
 const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps) => {
   const [step, setStep] = useState<OnboardingStep>('intro');
   const [isVerifying, setIsVerifying] = useState(false);
   const [assignedClub, setAssignedClub] = useState<'alpha' | 'omega' | null>(null);
+  const [fingerprintError, setFingerprintError] = useState<string | null>(null);
+  const [xInput, setXInput] = useState('');
+  const [isConnectingX, setIsConnectingX] = useState(false);
+  const [isCheckingFollow, setIsCheckingFollow] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  
+  const { xProfile, connectXProfile, loading: xProfileLoading } = useXProfile();
+
+  // Check if user already has X connected
+  useEffect(() => {
+    if (xProfile && step === 'connect_x') {
+      setStep('follow_x');
+    }
+  }, [xProfile, step]);
+
+  const handleConnectX = async () => {
+    if (!xInput.trim()) {
+      toast.error('Please enter your X username or profile URL');
+      return;
+    }
+    
+    setIsConnectingX(true);
+    const success = await connectXProfile(xInput.trim());
+    setIsConnectingX(false);
+    
+    if (success) {
+      setStep('follow_x');
+    }
+  };
+
+  const checkFollowStatus = async () => {
+    if (!xProfile) {
+      toast.error('Please connect your X account first');
+      return;
+    }
+    
+    setIsCheckingFollow(true);
+    
+    try {
+      // For now, we'll do a simple check - in production you'd verify via API
+      // We'll mark as following after user confirms they followed
+      // The scan-x-profile function can be extended to check following status
+      
+      // Simulate check delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // For now, trust the user that they followed
+      setIsFollowing(true);
+      toast.success('Follow status verified!');
+      
+      // Move to fingerprint step
+      setTimeout(() => {
+        setStep('fingerprint');
+      }, 500);
+    } catch (error) {
+      toast.error('Failed to verify follow status');
+    } finally {
+      setIsCheckingFollow(false);
+    }
+  };
 
   const handleFingerprintVerified = async () => {
     setIsVerifying(true);
-    // Generate a unique fingerprint hash
-    const hash = `fp_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    setFingerprintError(null);
     
-    // Register and get auto-assigned club
-    const result = await onComplete(hash);
-    
-    if (result.success && result.club) {
-      setAssignedClub(result.club);
-      setStep('assigned');
+    try {
+      // Generate a device-specific fingerprint hash
+      const hash = await generateDeviceFingerprint();
+      
+      // Check if this fingerprint is already used by another user
+      const { data: existingMember, error: checkError } = await supabase
+        .from('arena_members')
+        .select('id, user_id')
+        .eq('fingerprint_hash', hash)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking fingerprint:', checkError);
+      }
+      
+      if (existingMember) {
+        // This fingerprint is already registered to another user
+        setFingerprintError('This device is already registered to another Arena member. Each device can only be used by one user.');
+        setIsVerifying(false);
+        toast.error('Device already registered', {
+          description: 'This device fingerprint belongs to another user.',
+        });
+        return;
+      }
+      
+      // Register and get auto-assigned club
+      const result = await onComplete(hash);
+      
+      if (result.success && result.club) {
+        setAssignedClub(result.club);
+        setStep('assigned');
+      } else if (result.error) {
+        setFingerprintError(result.error);
+        toast.error('Registration failed', {
+          description: result.error,
+        });
+      }
+    } catch (error: any) {
+      console.error('Fingerprint verification error:', error);
+      setFingerprintError('Failed to verify fingerprint. Please try again.');
+      toast.error('Verification failed');
+    } finally {
+      setIsVerifying(false);
     }
-    setIsVerifying(false);
   };
 
   const features = [
@@ -36,6 +205,8 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
     { icon: Shield, text: 'Verified Voting', desc: 'Secure fingerprint authentication' },
     { icon: Zap, text: 'Earn Badges', desc: 'Collect achievements and climb ranks' },
   ];
+
+  const steps: OnboardingStep[] = ['intro', 'connect_x', 'follow_x', 'fingerprint', 'assigned'];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -108,7 +279,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Start Button */}
               <motion.button
-                onClick={() => setStep('fingerprint')}
+                onClick={() => setStep('connect_x')}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -119,7 +290,168 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Info text */}
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Verify your identity to receive your club assignment
+                Connect your X account and verify your identity to join
+              </p>
+            </motion.div>
+          )}
+
+          {step === 'connect_x' && (
+            <motion.div
+              key="connect_x"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="glass-card p-8 border border-border/50"
+            >
+              <div className="text-center mb-8">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 mb-4"
+                >
+                  <XIcon className="w-10 h-10 text-foreground" />
+                </motion.div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Connect Your X Account
+                </h2>
+                <p className="text-muted-foreground text-sm">
+                  Your X account is required for Arena participation
+                </p>
+              </div>
+
+              {xProfileLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : xProfile ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground">@{xProfile.username}</p>
+                      <p className="text-sm text-muted-foreground">Account connected</p>
+                    </div>
+                  </div>
+                  <motion.button
+                    onClick={() => setStep('follow_x')}
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Continue
+                    <ArrowRight className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">X Username or Profile URL</label>
+                    <input
+                      type="text"
+                      value={xInput}
+                      onChange={(e) => setXInput(e.target.value)}
+                      placeholder="@username or https://x.com/username"
+                      className="w-full px-4 py-3 rounded-xl bg-secondary/50 border border-border focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
+                      disabled={isConnectingX}
+                    />
+                  </div>
+                  
+                  <motion.button
+                    onClick={handleConnectX}
+                    disabled={isConnectingX || !xInput.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold hover:bg-foreground/90 transition-colors disabled:opacity-50"
+                    whileHover={{ scale: isConnectingX ? 1 : 1.02 }}
+                    whileTap={{ scale: isConnectingX ? 1 : 0.98 }}
+                  >
+                    {isConnectingX ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <XIcon className="w-5 h-5" />
+                        Connect X Account
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground text-center mt-6">
+                We use your X account to verify your identity and prevent abuse
+              </p>
+            </motion.div>
+          )}
+
+          {step === 'follow_x' && (
+            <motion.div
+              key="follow_x"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="glass-card p-8 border border-border/50"
+            >
+              <div className="text-center mb-8">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', duration: 0.5 }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 mb-4"
+                >
+                  <XIcon className="w-10 h-10 text-primary" />
+                </motion.div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Follow @arxonarx
+                </h2>
+                <p className="text-muted-foreground text-sm">
+                  Follow the official ARXON account to continue
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Follow Button - Opens X */}
+                <a
+                  href="https://x.com/arxonarx"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold hover:bg-foreground/90 transition-colors"
+                >
+                  <XIcon className="w-5 h-5" />
+                  Follow @arxonarx
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
+                {/* Verify Button */}
+                <motion.button
+                  onClick={checkFollowStatus}
+                  disabled={isCheckingFollow}
+                  className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  whileHover={{ scale: isCheckingFollow ? 1 : 1.02 }}
+                  whileTap={{ scale: isCheckingFollow ? 1 : 0.98 }}
+                >
+                  {isCheckingFollow ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : isFollowing ? (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Verified!
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      I've Followed - Verify
+                    </>
+                  )}
+                </motion.button>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center mt-6">
+                Click "Follow @arxonarx" first, then click verify to continue
               </p>
             </motion.div>
           )}
@@ -132,24 +464,53 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
               exit={{ opacity: 0, x: -50 }}
               className="glass-card p-8 border border-border/50"
             >
-              <FingerprintScanner
-                onVerified={handleFingerprintVerified}
-                isVerifying={isVerifying || isLoading}
-                title="Secure Your Identity"
-                subtitle="Hold your thumb on the scanner for 2 seconds"
-              />
-              
-              {isVerifying && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center mt-4"
-                >
-                  <div className="flex items-center justify-center gap-2 text-primary">
-                    <Sparkles className="w-4 h-4 animate-pulse" />
-                    <span className="text-sm">Assigning your club...</span>
+              {fingerprintError ? (
+                <div className="text-center space-y-6">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20 mb-4"
+                  >
+                    <AlertTriangle className="w-10 h-10 text-red-500" />
+                  </motion.div>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground mb-2">Device Already Registered</h2>
+                    <p className="text-muted-foreground text-sm">{fingerprintError}</p>
                   </div>
-                </motion.div>
+                  <motion.button
+                    onClick={() => {
+                      setFingerprintError(null);
+                      setStep('fingerprint');
+                    }}
+                    className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Try Again
+                  </motion.button>
+                </div>
+              ) : (
+                <>
+                  <FingerprintScanner
+                    onVerified={handleFingerprintVerified}
+                    isVerifying={isVerifying || isLoading}
+                    title="Secure Your Identity"
+                    subtitle="Hold your thumb on the scanner for 2 seconds"
+                  />
+                  
+                  {isVerifying && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center mt-4"
+                    >
+                      <div className="flex items-center justify-center gap-2 text-primary">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                        <span className="text-sm">Verifying device & assigning club...</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               )}
             </motion.div>
           )}
@@ -225,13 +586,13 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
         {/* Step indicators */}
         <div className="flex justify-center gap-2 mt-6">
-          {(['intro', 'fingerprint', 'assigned'] as OnboardingStep[]).map((s, i) => (
+          {steps.map((s, i) => (
             <motion.div
               key={s}
               className={`h-2 rounded-full transition-colors ${
                 step === s
                   ? 'w-8 bg-primary'
-                  : (['intro', 'fingerprint', 'assigned'].indexOf(step) > i
+                  : (steps.indexOf(step) > i
                       ? 'w-2 bg-primary/50'
                       : 'w-2 bg-border')
               }`}

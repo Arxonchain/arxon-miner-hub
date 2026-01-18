@@ -553,6 +553,42 @@ export type Database = {
           },
         ]
       }
+      nexus_members: {
+        Row: {
+          fingerprint_hash: string | null
+          fingerprint_verified: boolean
+          fully_verified: boolean
+          id: string
+          joined_at: string
+          updated_at: string
+          user_id: string
+          x_connected: boolean
+          x_following: boolean
+        }
+        Insert: {
+          fingerprint_hash?: string | null
+          fingerprint_verified?: boolean
+          fully_verified?: boolean
+          id?: string
+          joined_at?: string
+          updated_at?: string
+          user_id: string
+          x_connected?: boolean
+          x_following?: boolean
+        }
+        Update: {
+          fingerprint_hash?: string | null
+          fingerprint_verified?: boolean
+          fully_verified?: boolean
+          id?: string
+          joined_at?: string
+          updated_at?: string
+          user_id?: string
+          x_connected?: boolean
+          x_following?: boolean
+        }
+        Relationships: []
+      }
       nexus_privacy_settings: {
         Row: {
           hide_amount: boolean
