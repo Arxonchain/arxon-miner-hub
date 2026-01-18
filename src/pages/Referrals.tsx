@@ -15,10 +15,10 @@ const Referrals = () => {
   const { isMining } = useMiningStatus();
   const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals(user);
 
-  // Separate active and inactive referrals
+  // Separate active and inactive referrals (safely handle missing is_active)
   const { activeReferrals, inactiveReferrals } = useMemo(() => {
-    const active = referrals.filter(r => r.is_active);
-    const inactive = referrals.filter(r => !r.is_active);
+    const active = referrals.filter(r => r.is_active === true);
+    const inactive = referrals.filter(r => r.is_active !== true);
     return { activeReferrals: active, inactiveReferrals: inactive };
   }, [referrals]);
 
@@ -62,45 +62,51 @@ const Referrals = () => {
     }
   };
 
-  const ReferralCard = ({ ref: refData, showStatus = true }: { ref: any; showStatus?: boolean }) => (
-    <div className="p-3 border-b border-border/30 last:border-0 space-y-2">
-      <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded-full shrink-0 ${refData.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-        <span className="text-sm text-foreground font-medium">{refData.referred_username}</span>
-        {showStatus && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded ${refData.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-            {refData.is_active ? 'Mining' : 'Inactive'}
-          </span>
-        )}
-        <span className="text-xs text-primary ml-auto">+{refData.points_awarded} ARX-P</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 text-[10px]">
-        <div>
-          <p className="text-muted-foreground">Joined</p>
-          <p className="text-foreground">{format(new Date(refData.created_at), 'MMM d, yyyy')}</p>
+  const ReferralCard = ({ ref: refData, showStatus = true }: { ref: any; showStatus?: boolean }) => {
+    const isActive = refData?.is_active === true;
+    return (
+      <div className="p-3 border-b border-border/30 last:border-0 space-y-2">
+        <div className="flex items-center gap-2">
+          <div className={`w-6 h-6 rounded-full shrink-0 ${isActive ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
+          <span className="text-sm text-foreground font-medium">{refData?.referred_username || 'Anonymous'}</span>
+          {showStatus && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+              {isActive ? 'Mining' : 'Inactive'}
+            </span>
+          )}
+          <span className="text-xs text-primary ml-auto">+{refData?.points_awarded || 0} ARX-P</span>
         </div>
-        <div>
-          <p className="text-muted-foreground">Code Used</p>
-          <p className="text-foreground">{refData.referral_code_used}</p>
+        <div className="grid grid-cols-2 gap-2 text-[10px]">
+          <div>
+            <p className="text-muted-foreground">Joined</p>
+            <p className="text-foreground">{refData?.created_at ? format(new Date(refData.created_at), 'MMM d, yyyy') : 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Code Used</p>
+            <p className="text-foreground">{refData?.referral_code_used || 'N/A'}</p>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const ReferralTableRow = ({ ref: refData }: { ref: any }) => (
-    <tr className="border-b border-border/30 last:border-0">
-      <td className="p-2.5 sm:p-3 lg:p-4">
-        <div className="flex items-center gap-2 lg:gap-3">
-          <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${refData.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-          <span className="text-foreground text-xs sm:text-sm">{refData.referred_username}</span>
-        </div>
-      </td>
-      <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
-        {format(new Date(refData.created_at), 'MMM d, yyyy')}
-      </td>
-      <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{refData.points_awarded} ARX-P</td>
-    </tr>
-  );
+  const ReferralTableRow = ({ ref: refData }: { ref: any }) => {
+    const isActive = refData?.is_active === true;
+    return (
+      <tr className="border-b border-border/30 last:border-0">
+        <td className="p-2.5 sm:p-3 lg:p-4">
+          <div className="flex items-center gap-2 lg:gap-3">
+            <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${isActive ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
+            <span className="text-foreground text-xs sm:text-sm">{refData?.referred_username || 'Anonymous'}</span>
+          </div>
+        </td>
+        <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
+          {refData?.created_at ? format(new Date(refData.created_at), 'MMM d, yyyy') : 'N/A'}
+        </td>
+        <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{refData?.points_awarded || 0} ARX-P</td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
