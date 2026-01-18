@@ -59,106 +59,48 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Calculate rank with multiple fallback layers - NEVER fails
-  // Priority: 1) Full calculation with tiebreaker, 2) Simple count, 3) Leaderboard position, 4) Cached value
-  const calculateRank = useCallback(async (currentPoints: number, userCreatedAt?: string) => {
+  // Calculate user's actual rank by fetching ordered leaderboard and finding their position
+  const calculateRank = useCallback(async () => {
     if (!user) return;
     
-    // Fallback to cached rank if points are invalid
-    if (currentPoints === undefined || currentPoints === null) {
-      const cached = cacheGet<number>(rankCacheKey(user.id));
-      if (cached?.data && cached.data > 0) {
-        setRank(cached.data);
-      } else {
-        setRank(1); // Default to rank 1 for new users with 0 points
-      }
-      return;
-    }
-    
     try {
-      // Get user's created_at if not provided (with fallback)
-      let createdAt = userCreatedAt;
-      if (!createdAt) {
-        const { data: userData } = await supabase
-          .from('user_points')
-          .select('created_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        createdAt = userData?.created_at || new Date().toISOString();
-      }
+      // Fetch the full leaderboard ordered by total_points descending
+      // This gives us the exact ranking - position in array + 1 = rank
+      const { data: leaderboard, error } = await supabase
+        .from('leaderboard_view')
+        .select('user_id, total_points')
+        .order('total_points', { ascending: false });
 
-      // Primary method: Count users with strictly higher points
-      const { count: higherCount, error: higherError } = await supabase
-        .from('user_points')
-        .select('*', { count: 'exact', head: true })
-        .gt('total_points', currentPoints);
-
-      if (higherError) {
-        console.error('Error counting higher points, trying fallback:', higherError);
-        // Fallback: Use leaderboard_view to find position
-        await calculateRankFromLeaderboard(currentPoints);
+      if (error) {
+        console.error('Error fetching leaderboard for rank:', error);
         return;
       }
 
-      // Try to get tiebreaker count, but don't fail if it errors
-      let tiedBeforeCount = 0;
-      try {
-        const { count, error: tiedError } = await supabase
-          .from('user_points')
-          .select('*', { count: 'exact', head: true })
-          .eq('total_points', currentPoints)
-          .lt('created_at', createdAt)
-          .neq('user_id', user.id);
-
-        if (!tiedError && count !== null) {
-          tiedBeforeCount = count;
-        }
-      } catch {
-        // Ignore tiebreaker errors - just use higher count
+      if (!leaderboard || leaderboard.length === 0) {
+        setRank(1); // Only user
+        cacheSet(rankCacheKey(user.id), 1);
+        return;
       }
 
-      const userRank = Math.max(1, (higherCount || 0) + tiedBeforeCount + 1);
-      setRank(userRank);
-      cacheSet(rankCacheKey(user.id), userRank);
-    } catch (error) {
-      console.error('Error calculating rank, using fallback:', error);
-      // Ultimate fallback: use cached or estimate from leaderboard
-      await calculateRankFromLeaderboard(currentPoints);
-    }
-  }, [user]);
-
-  // Fallback rank calculation using leaderboard_view
-  const calculateRankFromLeaderboard = useCallback(async (currentPoints: number) => {
-    if (!user) return;
-    
-    try {
-      // Count how many users have more points in leaderboard_view
-      const { count, error } = await supabase
-        .from('leaderboard_view')
-        .select('*', { count: 'exact', head: true })
-        .gt('total_points', currentPoints);
-
-      if (!error && count !== null) {
-        const userRank = Math.max(1, count + 1);
+      // Find user's position in the sorted leaderboard
+      const userIndex = leaderboard.findIndex(entry => entry.user_id === user.id);
+      
+      if (userIndex === -1) {
+        // User not in leaderboard yet (new user with 0 points)
+        // Their rank is total users + 1
+        const userRank = leaderboard.length + 1;
         setRank(userRank);
         cacheSet(rankCacheKey(user.id), userRank);
         return;
       }
-    } catch {
-      // Leaderboard fallback failed
-    }
 
-    // Final fallback: use cached value or default
-    const cached = cacheGet<number>(rankCacheKey(user.id));
-    if (cached?.data && cached.data > 0) {
-      setRank(cached.data);
-    } else {
-      // If all else fails, estimate based on points (rough approximation)
-      // Users with 0 points = rank based on total users, otherwise estimate
-      const estimatedRank = currentPoints > 0 ? Math.max(1, Math.ceil(1000 / Math.max(1, currentPoints / 100))) : 1;
-      setRank(Math.min(estimatedRank, 10000)); // Cap at reasonable number
-      cacheSet(rankCacheKey(user.id), estimatedRank);
+      // Rank = position + 1 (0-indexed to 1-indexed)
+      const userRank = userIndex + 1;
+      setRank(userRank);
+      cacheSet(rankCacheKey(user.id), userRank);
+    } catch (error) {
+      console.error('Error calculating rank:', error);
+      // Keep existing rank on error
     }
   }, [user]);
 
@@ -203,10 +145,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       setPoints(nextPoints);
       cacheSet(pointsCacheKey(user.id), nextPoints);
 
-      // Calculate rank based on actual total_points
-      if (nextPoints?.total_points !== undefined) {
-        await calculateRank(nextPoints.total_points);
-      }
+      // Calculate rank from leaderboard
+      await calculateRank();
     } catch (error) {
       // Keep any cached/previous values; don't block UI
       console.error('Error fetching points:', error);
@@ -306,9 +246,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             cacheSet(pointsCacheKey(user.id), next);
             
             // Recalculate rank when points update in real-time
-            if (next?.total_points !== undefined) {
-              void calculateRank(next.total_points);
-            }
+            void calculateRank();
           }
         }
       )
