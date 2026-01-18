@@ -42,26 +42,44 @@ const Arena = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<ArenaTab>('rules');
   const [arenaPublicAccess, setArenaPublicAccess] = useState<boolean | null>(null);
+  const [isEmailWhitelisted, setIsEmailWhitelisted] = useState(false);
   const [accessLoading, setAccessLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch arena access setting
+  // Fetch arena access setting and check email whitelist
   useEffect(() => {
-    const fetchArenaAccess = async () => {
-      const { data, error } = await supabase
-        .from('mining_settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-      
-      if (!error && data) {
-        setArenaPublicAccess((data as any).arena_public_access ?? false);
+    const checkArenaAccess = async () => {
+      try {
+        // Check public access setting
+        const { data: settings } = await supabase
+          .from('mining_settings')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        
+        if (settings) {
+          setArenaPublicAccess((settings as any).arena_public_access ?? false);
+        }
+
+        // Check if user's email is whitelisted (if logged in)
+        if (user?.email) {
+          const { data: whitelist } = await supabase
+            .from('arena_email_whitelist')
+            .select('email')
+            .eq('email', user.email.toLowerCase())
+            .maybeSingle();
+          
+          setIsEmailWhitelisted(!!whitelist);
+        }
+      } catch (error) {
+        console.error('Error checking arena access:', error);
+      } finally {
+        setAccessLoading(false);
       }
-      setAccessLoading(false);
     };
 
-    fetchArenaAccess();
-  }, []);
+    checkArenaAccess();
+  }, [user?.email]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -70,7 +88,8 @@ const Arena = () => {
   };
 
   // Check access
-  const hasArenaAccess = arenaPublicAccess === true || isAdmin;
+  // Access: admin, public access enabled, or email whitelisted
+  const hasArenaAccess = arenaPublicAccess === true || isAdmin || isEmailWhitelisted;
 
   // Loading state
   if (accessLoading || adminLoading) {

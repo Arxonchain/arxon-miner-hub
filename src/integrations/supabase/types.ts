@@ -208,6 +208,30 @@ export type Database = {
           },
         ]
       }
+      arena_email_whitelist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: []
+      }
       arena_members: {
         Row: {
           club: string
