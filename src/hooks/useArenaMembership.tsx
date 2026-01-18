@@ -72,28 +72,11 @@ export const useArenaMembership = () => {
 
     setRegistering(true);
     try {
-      // Double-check fingerprint uniqueness before registration
-      const { data: existingFingerprint, error: fpError } = await supabase
-        .from('arena_members')
-        .select('id, user_id')
-        .eq('fingerprint_hash', fingerprintHash)
-        .maybeSingle();
-
-      if (fpError) {
-        console.error('Error checking fingerprint:', fpError);
-      }
-
-      if (existingFingerprint && existingFingerprint.user_id !== user.id) {
-        const errorMsg = 'This device is already registered to another Arena member.';
-        toast.error('Device already registered', {
-          description: 'Each device can only be used by one user.',
-        });
-        return { success: false, club: null, error: errorMsg };
-      }
-
       // Auto-assign club
       const assignedClub = await getAutoAssignedClub();
 
+      // Store the user's fingerprint - this is tied to THIS user only
+      // The fingerprint will be used to verify votes later
       const { data, error } = await supabase
         .from('arena_members')
         .insert({
@@ -107,11 +90,6 @@ export const useArenaMembership = () => {
 
       if (error) {
         if (error.code === '23505') {
-          // Check if it's a user duplicate or fingerprint duplicate
-          if (error.message?.includes('fingerprint')) {
-            toast.error('This device is already registered');
-            return { success: false, club: null, error: 'Device already registered to another user' };
-          }
           toast.error('You are already registered in the Arena');
           return { success: false, club: null, error: 'Already registered' };
         } else {
@@ -120,7 +98,9 @@ export const useArenaMembership = () => {
       }
 
       setMembership(data as ArenaMember);
-      toast.success(`Welcome to Club ${assignedClub.toUpperCase()}!`);
+      toast.success(`Welcome to Club ${assignedClub.toUpperCase()}!`, {
+        description: 'Your fingerprint has been recorded. Use it to verify your votes!'
+      });
       return { success: true, club: assignedClub };
     } catch (error: any) {
       console.error('Error registering arena membership:', error);

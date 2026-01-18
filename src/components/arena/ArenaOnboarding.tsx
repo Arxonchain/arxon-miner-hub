@@ -4,7 +4,6 @@ import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle
 import XIcon from '@/components/icons/XIcon';
 import FingerprintScanner from './FingerprintScanner';
 import { useXProfile } from '@/hooks/useXProfile';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type OnboardingStep = 'intro' | 'connect_x' | 'follow_x' | 'fingerprint' | 'assigned';
@@ -13,76 +12,6 @@ interface ArenaOnboardingProps {
   onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
   isLoading?: boolean;
 }
-
-// Generate a device-specific fingerprint hash
-const generateDeviceFingerprint = async (): Promise<string> => {
-  const components: string[] = [];
-  
-  // Screen info
-  components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
-  components.push(screen.pixelDepth?.toString() || '0');
-  
-  // Timezone
-  components.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  
-  // Language
-  components.push(navigator.language);
-  components.push((navigator.languages || []).join(','));
-  
-  // Platform info
-  components.push(navigator.platform || 'unknown');
-  components.push(navigator.hardwareConcurrency?.toString() || '0');
-  components.push((navigator as any).deviceMemory?.toString() || '0');
-  
-  // Touch support
-  components.push(navigator.maxTouchPoints?.toString() || '0');
-  
-  // Canvas fingerprint
-  try {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      canvas.width = 200;
-      canvas.height = 50;
-      ctx.textBaseline = 'alphabetic';
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#f60';
-      ctx.fillRect(125, 1, 62, 20);
-      ctx.fillStyle = '#069';
-      ctx.fillText('ARXON Arena', 2, 15);
-      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-      ctx.fillText('ARXON Arena', 4, 17);
-      components.push(canvas.toDataURL().slice(-50));
-    }
-  } catch (e) {
-    components.push('canvas-error');
-  }
-  
-  // WebGL info
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl');
-    if (gl) {
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '');
-        components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '');
-      }
-    }
-  } catch (e) {
-    components.push('webgl-error');
-  }
-  
-  // Generate hash
-  const data = components.join('|');
-  const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(data);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return `fp_${hashHex.slice(0, 32)}`;
-};
 
 const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps) => {
   const [step, setStep] = useState<OnboardingStep>('intro');
@@ -149,37 +78,19 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
     }
   };
 
-  const handleFingerprintVerified = async () => {
+  const handleFingerprintVerified = async (fingerprintHash?: string) => {
+    if (!fingerprintHash) {
+      toast.error('Failed to capture fingerprint');
+      return;
+    }
+    
     setIsVerifying(true);
     setFingerprintError(null);
     
     try {
-      // Generate a device-specific fingerprint hash
-      const hash = await generateDeviceFingerprint();
-      
-      // Check if this fingerprint is already used by another user
-      const { data: existingMember, error: checkError } = await supabase
-        .from('arena_members')
-        .select('id, user_id')
-        .eq('fingerprint_hash', hash)
-        .maybeSingle();
-      
-      if (checkError) {
-        console.error('Error checking fingerprint:', checkError);
-      }
-      
-      if (existingMember) {
-        // This fingerprint is already registered to another user
-        setFingerprintError('This device is already registered to another Arena member. Each device can only be used by one user.');
-        setIsVerifying(false);
-        toast.error('Device already registered', {
-          description: 'This device fingerprint belongs to another user.',
-        });
-        return;
-      }
-      
-      // Register and get auto-assigned club
-      const result = await onComplete(hash);
+      // Register with the captured fingerprint hash
+      // This fingerprint is tied to THIS user - they'll need to use it for voting
+      const result = await onComplete(fingerprintHash);
       
       if (result.success && result.club) {
         setAssignedClub(result.club);
@@ -474,7 +385,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                     <AlertTriangle className="w-10 h-10 text-red-500" />
                   </motion.div>
                   <div>
-                    <h2 className="text-xl font-bold text-foreground mb-2">Device Already Registered</h2>
+                    <h2 className="text-xl font-bold text-foreground mb-2">Registration Failed</h2>
                     <p className="text-muted-foreground text-sm">{fingerprintError}</p>
                   </div>
                   <motion.button
@@ -494,8 +405,8 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                   <FingerprintScanner
                     onVerified={handleFingerprintVerified}
                     isVerifying={isVerifying || isLoading}
-                    title="Secure Your Identity"
-                    subtitle="Hold your thumb on the scanner for 2 seconds"
+                    title="Register Your Fingerprint"
+                    subtitle="This fingerprint will be required for all your votes"
                   />
                   
                   {isVerifying && (
