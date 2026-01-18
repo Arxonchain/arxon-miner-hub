@@ -648,6 +648,9 @@ export const useMining = (options?: UseMiningOptions) => {
     }
   };
 
+  // Track if session has reached max time (waiting for manual claim)
+  const [sessionMaxed, setSessionMaxed] = useState(false);
+
   // Timer and points calculation - computed from server start time for accuracy.
   const recomputeFromStartTime = useCallback(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
@@ -659,16 +662,25 @@ export const useMining = (options?: UseMiningOptions) => {
     const elapsedMs = Date.now() - startTime;
     const newElapsed = Math.floor(elapsedMs / 1000);
 
+    // When max time reached, DON'T auto-end - let user manually claim
     if (newElapsed >= maxTimeSeconds) {
-      if (endingRef.current) return;
-      if (isPending) return;
-      endingRef.current = true;
-
-      const finalPoints = Math.min(480, Math.floor((newElapsed / 3600) * cappedPointsPerHour));
-      void endSession(sessionId, finalPoints);
+      setElapsedTime(maxTimeSeconds);
+      const finalPoints = Math.min(480, Math.floor((maxTimeSeconds / 3600) * cappedPointsPerHour));
+      setEarnedPoints(finalPoints);
+      setSessionMaxed(true);
+      
+      // Update DB with final points (but don't end session)
+      if (!isPending && !endingRef.current) {
+        const wholePoints = Math.floor(finalPoints);
+        if (wholePoints > lastDbPointsRef.current) {
+          lastDbPointsRef.current = wholePoints;
+          void supabase.from('mining_sessions').update({ arx_mined: wholePoints }).eq('id', sessionId);
+        }
+      }
       return;
     }
 
+    setSessionMaxed(false);
     setElapsedTime(newElapsed);
 
     const secondsElapsed = elapsedMs / 1000;
@@ -688,7 +700,7 @@ export const useMining = (options?: UseMiningOptions) => {
         void supabase.from('mining_sessions').update({ arx_mined: wholePoints }).eq('id', sessionId);
       }
     }
-  }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour, endSession]);
+  }, [isMining, sessionId, maxTimeSeconds, cappedPointsPerHour]);
 
   useEffect(() => {
     if (!isMining || !sessionId || !sessionStartTimeRef.current) return;
@@ -1004,5 +1016,6 @@ export const useMining = (options?: UseMiningOptions) => {
     pointsPerHour: cappedPointsPerHour,
     pointsPerSecond,
     miningSettings,
+    sessionMaxed, // New: indicates session reached max time, waiting for manual claim
   };
 };
