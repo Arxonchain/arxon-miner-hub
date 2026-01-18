@@ -60,20 +60,46 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Separate function to calculate rank based on current points
+  // Uses tiebreaker: users with same points ranked by earliest created_at
   const calculateRank = useCallback(async (currentPoints: number) => {
-    if (!user || currentPoints === undefined) return;
+    if (!user || currentPoints === undefined || currentPoints === null) return;
     
     try {
-      const { count, error: rankError } = await supabase
+      // Count users with strictly higher points
+      const { count: higherCount, error: higherError } = await supabase
         .from('user_points')
         .select('*', { count: 'exact', head: true })
         .gt('total_points', currentPoints);
 
-      if (!rankError && count !== null) {
-        const userRank = count + 1;
-        setRank(userRank);
-        cacheSet(rankCacheKey(user.id), userRank);
+      if (higherError) {
+        console.error('Error calculating rank:', higherError);
+        return;
       }
+
+      // For same points, count users who created their account earlier (tiebreaker)
+      const { data: userData } = await supabase
+        .from('user_points')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .single();
+
+      let tiedBeforeCount = 0;
+      if (userData?.created_at) {
+        const { count: tiedCount, error: tiedError } = await supabase
+          .from('user_points')
+          .select('*', { count: 'exact', head: true })
+          .eq('total_points', currentPoints)
+          .lt('created_at', userData.created_at)
+          .neq('user_id', user.id);
+
+        if (!tiedError && tiedCount !== null) {
+          tiedBeforeCount = tiedCount;
+        }
+      }
+
+      const userRank = (higherCount || 0) + tiedBeforeCount + 1;
+      setRank(userRank);
+      cacheSet(rankCacheKey(user.id), userRank);
     } catch (error) {
       console.error('Error calculating rank:', error);
     }
