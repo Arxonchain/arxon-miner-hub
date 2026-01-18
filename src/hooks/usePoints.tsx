@@ -68,15 +68,16 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // Fetch points and rank in parallel
-      const [pointsResult, rankResult] = await Promise.all([
-        supabase.from('user_points').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('leaderboard_view').select('user_id').order('total_points', { ascending: false }).limit(1000),
-      ]);
+      // Fetch points first
+      const { data: pointsData, error: pointsError } = await supabase
+        .from('user_points')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (pointsResult.error) throw pointsResult.error;
+      if (pointsError) throw pointsError;
 
-      let nextPoints = pointsResult.data as UserPoints | null;
+      let nextPoints = pointsData as UserPoints | null;
 
       if (!nextPoints) {
         // Ensure row exists (avoid unique race)
@@ -99,11 +100,18 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       setPoints(nextPoints);
       cacheSet(pointsCacheKey(user.id), nextPoints);
 
-      if (rankResult.data) {
-        const userRank = rankResult.data.findIndex((p) => p.user_id === user.id) + 1;
-        const nextRank = userRank > 0 ? userRank : null;
-        setRank(nextRank);
-        cacheSet(rankCacheKey(user.id), nextRank);
+      // Fetch accurate rank by counting users with more points
+      if (nextPoints?.total_points !== undefined) {
+        const { count, error: rankError } = await supabase
+          .from('user_points')
+          .select('*', { count: 'exact', head: true })
+          .gt('total_points', nextPoints.total_points);
+
+        if (!rankError && count !== null) {
+          const userRank = count + 1; // User's rank = count of people above + 1
+          setRank(userRank);
+          cacheSet(rankCacheKey(user.id), userRank);
+        }
       }
     } catch (error) {
       // Keep any cached/previous values; don't block UI

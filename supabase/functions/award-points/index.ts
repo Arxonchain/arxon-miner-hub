@@ -11,11 +11,11 @@ const corsHeaders = {
  * This replaces direct client-side RPC calls to increment_user_points.
  * Only the backend (service_role) can execute the actual point increment.
  * 
- * Supported types:
- * - mining: Requires a valid session_id that hasn't been credited yet
- * - task: Requires a valid task completion
- * - social: Requires a valid social submission
- * - referral: Handled by database trigger on referral creation
+ * CRITICAL SECURITY:
+ * - Mining points REQUIRE a valid session_id that hasn't been credited yet
+ * - Points are calculated server-side based on actual elapsed time
+ * - Double-crediting is prevented via credited_at timestamp
+ * - All amounts are validated and capped server-side
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,18 +58,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Validate amount
-    const safeAmount = Math.min(Math.max(Math.floor(Number(amount) || 0), 0), 500)
-    if (safeAmount <= 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid amount' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // For mining points, verify the session exists, belongs to user, and hasn't been credited
+    // For mining points, ALWAYS require session_id and validate server-side
     if (type === 'mining') {
       if (!session_id) {
+        console.error('Mining points requested without session_id')
         return new Response(
           JSON.stringify({ success: false, error: 'Session ID required for mining points' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -79,7 +71,7 @@ Deno.serve(async (req) => {
       // Check if session exists, belongs to user, and hasn't been credited
       const { data: session, error: sessionError } = await supabase
         .from('mining_sessions')
-        .select('id, user_id, is_active, arx_mined, credited_at, started_at')
+        .select('id, user_id, is_active, arx_mined, credited_at, started_at, ended_at')
         .eq('id', session_id)
         .eq('user_id', user.id)
         .maybeSingle()
@@ -92,75 +84,91 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Prevent double-crediting
+      // Prevent double-crediting - this is critical
       if (session.credited_at) {
-        console.log('Session already credited:', session_id)
+        console.log('Session already credited:', session_id, 'at', session.credited_at)
         return new Response(
           JSON.stringify({ success: true, message: 'Already credited', points: 0 }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Calculate maximum allowed points based on elapsed time
+      // Calculate points SERVER-SIDE based on actual elapsed time
       const startTime = new Date(session.started_at).getTime()
-      const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+      const endTime = session.ended_at ? new Date(session.ended_at).getTime() : Date.now()
+      const elapsedMs = Math.max(0, endTime - startTime)
+      const elapsedSeconds = Math.floor(elapsedMs / 1000)
+      
       const maxHours = 8
       const maxSeconds = maxHours * 60 * 60
-      const effectiveSeconds = Math.min(elapsed, maxSeconds)
+      const effectiveSeconds = Math.min(elapsedSeconds, maxSeconds)
 
-      // Fetch user's boost percentages
-      const { data: userPoints } = await supabase
-        .from('user_points')
-        .select('referral_bonus_percentage, x_post_boost_percentage, daily_streak')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      // Fetch user's boost percentages for accurate calculation
+      const [userPointsRes, xProfileRes, arenaBoostsRes, nexusBoostsRes] = await Promise.all([
+        supabase
+          .from('user_points')
+          .select('referral_bonus_percentage, x_post_boost_percentage, daily_streak')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('x_profiles')
+          .select('boost_percentage')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('arena_boosts')
+          .select('boost_percentage')
+          .eq('user_id', user.id)
+          .gte('expires_at', new Date().toISOString()),
+        supabase
+          .from('nexus_boosts')
+          .select('boost_percentage')
+          .eq('user_id', user.id)
+          .eq('claimed', true)
+          .gte('expires_at', new Date().toISOString()),
+      ])
 
-      const { data: xProfile } = await supabase
-        .from('x_profiles')
-        .select('boost_percentage')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      const { data: arenaBoosts } = await supabase
-        .from('arena_boosts')
-        .select('boost_percentage')
-        .eq('user_id', user.id)
-        .gte('expires_at', new Date().toISOString())
-
-      const { data: nexusBoosts } = await supabase
-        .from('nexus_boosts')
-        .select('boost_percentage')
-        .eq('user_id', user.id)
-        .eq('claimed', true)
-        .gte('expires_at', new Date().toISOString())
+      const userPoints = userPointsRes.data
+      const xProfile = xProfileRes.data
+      const arenaBoosts = arenaBoostsRes.data || []
+      const nexusBoosts = nexusBoostsRes.data || []
 
       const referralBoost = Math.min(userPoints?.referral_bonus_percentage || 0, 50)
       const xPostBoost = userPoints?.x_post_boost_percentage || 0
       const streakBoost = Math.min(userPoints?.daily_streak || 0, 30)
       const xProfileBoost = xProfile?.boost_percentage || 0
-      const arenaBoost = arenaBoosts?.reduce((sum, b) => sum + (b.boost_percentage || 0), 0) || 0
-      const nexusBoost = nexusBoosts?.reduce((sum, b) => sum + (b.boost_percentage || 0), 0) || 0
+      const arenaBoost = arenaBoosts.reduce((sum: number, b: any) => sum + (b.boost_percentage || 0), 0)
+      const nexusBoost = nexusBoosts.reduce((sum: number, b: any) => sum + (b.boost_percentage || 0), 0)
 
       const totalBoost = Math.min(referralBoost + xPostBoost + streakBoost + xProfileBoost + arenaBoost + nexusBoost, 500)
-      const pointsPerHour = Math.min(10 * (1 + totalBoost / 100), 60)
-      const maxAllowedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * pointsPerHour))
-
-      // Cap the requested amount to max allowed
-      const cappedAmount = Math.min(safeAmount, maxAllowedPoints)
+      const basePointsPerHour = 10
+      const pointsPerHour = Math.min(basePointsPerHour * (1 + totalBoost / 100), 60)
       
-      if (cappedAmount <= 0) {
+      // Calculate points based on actual elapsed time (max 480 for 8 hours)
+      const calculatedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * pointsPerHour))
+
+      // Use calculated points (ignore client-sent amount for mining)
+      const finalPoints = calculatedPoints
+
+      if (finalPoints <= 0) {
+        console.log('No points to award for session:', session_id, 'elapsed:', effectiveSeconds, 'seconds')
         return new Response(
           JSON.stringify({ success: true, message: 'No points to award', points: 0 }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Mark session as credited BEFORE awarding points (prevents race conditions)
-      const { error: creditError } = await supabase
+      // Mark session as credited ATOMICALLY before awarding points
+      const { data: creditUpdate, error: creditError } = await supabase
         .from('mining_sessions')
-        .update({ credited_at: new Date().toISOString() })
+        .update({ 
+          credited_at: new Date().toISOString(),
+          arx_mined: finalPoints
+        })
         .eq('id', session_id)
-        .is('credited_at', null) // Only update if not yet credited
+        .is('credited_at', null) // Only update if not yet credited (atomic check)
+        .select('id')
+        .maybeSingle()
 
       if (creditError) {
         console.error('Failed to mark session as credited:', creditError)
@@ -170,10 +178,19 @@ Deno.serve(async (req) => {
         )
       }
 
+      // If no rows updated, session was already credited by another request
+      if (!creditUpdate) {
+        console.log('Session was already credited by another request:', session_id)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Already credited', points: 0 }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       // Award points using service role
       const { data: result, error: pointsError } = await supabase.rpc('increment_user_points', {
         p_user_id: user.id,
-        p_amount: cappedAmount,
+        p_amount: finalPoints,
         p_type: 'mining',
       })
 
@@ -191,15 +208,24 @@ Deno.serve(async (req) => {
         )
       }
 
-      console.log(`Awarded ${cappedAmount} mining points to ${user.id} for session ${session_id}`)
+      console.log(`Awarded ${finalPoints} mining points to ${user.id} for session ${session_id} (${effectiveSeconds}s, ${totalBoost}% boost)`)
 
       return new Response(
-        JSON.stringify({ success: true, points: cappedAmount, userPoints: result }),
+        JSON.stringify({ success: true, points: finalPoints, userPoints: result }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // For task/social points, just increment (these are already validated elsewhere)
+    // For task/social points, validate and cap the amount
+    const safeAmount = Math.min(Math.max(Math.floor(Number(amount) || 0), 0), 500)
+    if (safeAmount <= 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid amount' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Award points using service role
     const { data: result, error: pointsError } = await supabase.rpc('increment_user_points', {
       p_user_id: user.id,
       p_amount: safeAmount,
