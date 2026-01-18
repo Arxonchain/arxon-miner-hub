@@ -267,6 +267,7 @@ const Arena = () => {
             availablePoints={points?.total_points || 0}
             onVote={handleVote}
             isVoting={voting}
+            storedFingerprintHash={membership.fingerprint_hash}
           />
         )}
 

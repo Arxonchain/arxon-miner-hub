@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Crown, Shield, Fingerprint, CheckCircle, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ArenaBattle, ArenaVote } from '@/hooks/useArena';
 import FingerprintScanner from './FingerprintScanner';
 
@@ -11,6 +12,8 @@ interface VotePanelProps {
   availablePoints: number;
   onVote: (amount: number) => Promise<boolean>;
   isVoting: boolean;
+  /** The user's registered fingerprint hash from arena_members */
+  storedFingerprintHash?: string | null;
 }
 
 const VotePanel = ({ 
@@ -19,7 +22,8 @@ const VotePanel = ({
   userVote, 
   availablePoints, 
   onVote, 
-  isVoting 
+  isVoting,
+  storedFingerprintHash
 }: VotePanelProps) => {
   const [stakeAmount, setStakeAmount] = useState(0);
   const [showFingerprint, setShowFingerprint] = useState(false);
@@ -91,13 +95,19 @@ const VotePanel = ({
     }
   };
 
-  const handleFingerprintVerified = async () => {
+  const handleFingerprintVerified = async (fingerprintHash?: string) => {
     const success = await onVote(pendingAmount);
     if (success) {
       setShowFingerprint(false);
       setStakeAmount(0);
       setPendingAmount(0);
     }
+  };
+
+  const handleFingerprintFailed = () => {
+    toast.error("Fingerprint mismatch! This isn't your registered fingerprint.", {
+      description: "You can only vote with the same fingerprint you used when joining the Arena."
+    });
   };
 
   // Already voted
@@ -141,9 +151,11 @@ const VotePanel = ({
         <div className="glass-card p-6 border border-border/50">
           <FingerprintScanner
             onVerified={handleFingerprintVerified}
+            onVerificationFailed={handleFingerprintFailed}
+            storedFingerprintHash={storedFingerprintHash || undefined}
             isVerifying={isVoting}
-            title="Confirm Your Stake"
-            subtitle={`Staking ${pendingAmount.toLocaleString()} ARX-P for ${userClub.toUpperCase()}`}
+            title="Verify Your Identity"
+            subtitle={`Confirm your fingerprint to stake ${pendingAmount.toLocaleString()} ARX-P`}
           />
           <button
             onClick={() => setShowFingerprint(false)}
