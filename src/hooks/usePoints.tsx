@@ -59,6 +59,26 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  // Separate function to calculate rank based on current points
+  const calculateRank = useCallback(async (currentPoints: number) => {
+    if (!user || currentPoints === undefined) return;
+    
+    try {
+      const { count, error: rankError } = await supabase
+        .from('user_points')
+        .select('*', { count: 'exact', head: true })
+        .gt('total_points', currentPoints);
+
+      if (!rankError && count !== null) {
+        const userRank = count + 1;
+        setRank(userRank);
+        cacheSet(rankCacheKey(user.id), userRank);
+      }
+    } catch (error) {
+      console.error('Error calculating rank:', error);
+    }
+  }, [user]);
+
   const fetchPoints = useCallback(async () => {
     if (!user) {
       setPoints(null);
@@ -100,18 +120,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       setPoints(nextPoints);
       cacheSet(pointsCacheKey(user.id), nextPoints);
 
-      // Fetch accurate rank by counting users with more points
+      // Calculate rank based on actual total_points
       if (nextPoints?.total_points !== undefined) {
-        const { count, error: rankError } = await supabase
-          .from('user_points')
-          .select('*', { count: 'exact', head: true })
-          .gt('total_points', nextPoints.total_points);
-
-        if (!rankError && count !== null) {
-          const userRank = count + 1; // User's rank = count of people above + 1
-          setRank(userRank);
-          cacheSet(rankCacheKey(user.id), userRank);
-        }
+        await calculateRank(nextPoints.total_points);
       }
     } catch (error) {
       // Keep any cached/previous values; don't block UI
@@ -119,7 +130,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, calculateRank]);
 
   const addPoints = useCallback(
     async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => {
@@ -205,6 +216,11 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             const next = payload.new as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
+            
+            // Recalculate rank when points update in real-time
+            if (next?.total_points !== undefined) {
+              void calculateRank(next.total_points);
+            }
           }
         }
       )
@@ -213,7 +229,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, calculateRank]);
 
   const value = useMemo<PointsContextType>(
     () => ({
