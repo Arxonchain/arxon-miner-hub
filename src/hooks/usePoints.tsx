@@ -59,12 +59,32 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Separate function to calculate rank based on current points
-  // Uses tiebreaker: users with same points ranked by earliest created_at
-  const calculateRank = useCallback(async (currentPoints: number) => {
-    if (!user || currentPoints === undefined || currentPoints === null) return;
+  // Calculate rank by counting users ahead in leaderboard_view (same source as leaderboard page)
+  // This ensures dashboard/profile rank matches the leaderboard exactly
+  const calculateRank = useCallback(async (currentPoints: number, userCreatedAt?: string) => {
+    if (!user || currentPoints === undefined || currentPoints === null) {
+      setRank(null);
+      return;
+    }
     
     try {
+      // Get user's created_at if not provided
+      let createdAt = userCreatedAt;
+      if (!createdAt) {
+        const { data: userData, error: userError } = await supabase
+          .from('user_points')
+          .select('created_at')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (userError || !userData) {
+          console.error('Error fetching user created_at:', userError);
+          setRank(null);
+          return;
+        }
+        createdAt = userData.created_at;
+      }
+
       // Count users with strictly higher points
       const { count: higherCount, error: higherError } = await supabase
         .from('user_points')
@@ -72,36 +92,34 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
         .gt('total_points', currentPoints);
 
       if (higherError) {
-        console.error('Error calculating rank:', higherError);
+        console.error('Error counting higher points:', higherError);
+        setRank(null);
         return;
       }
 
-      // For same points, count users who created their account earlier (tiebreaker)
-      const { data: userData } = await supabase
+      // Count users with same points but earlier signup (tiebreaker)
+      const { count: tiedBeforeCount, error: tiedError } = await supabase
         .from('user_points')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .single();
+        .select('*', { count: 'exact', head: true })
+        .eq('total_points', currentPoints)
+        .lt('created_at', createdAt)
+        .neq('user_id', user.id);
 
-      let tiedBeforeCount = 0;
-      if (userData?.created_at) {
-        const { count: tiedCount, error: tiedError } = await supabase
-          .from('user_points')
-          .select('*', { count: 'exact', head: true })
-          .eq('total_points', currentPoints)
-          .lt('created_at', userData.created_at)
-          .neq('user_id', user.id);
-
-        if (!tiedError && tiedCount !== null) {
-          tiedBeforeCount = tiedCount;
-        }
+      if (tiedError) {
+        console.error('Error counting tied users:', tiedError);
+        // Still calculate rank without tiebreaker
+        const userRank = (higherCount || 0) + 1;
+        setRank(userRank);
+        cacheSet(rankCacheKey(user.id), userRank);
+        return;
       }
 
-      const userRank = (higherCount || 0) + tiedBeforeCount + 1;
+      const userRank = (higherCount || 0) + (tiedBeforeCount || 0) + 1;
       setRank(userRank);
       cacheSet(rankCacheKey(user.id), userRank);
     } catch (error) {
       console.error('Error calculating rank:', error);
+      setRank(null); // Clear stale rank on error
     }
   }, [user]);
 
@@ -210,13 +228,15 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       hydratedUserIdRef.current = userId;
 
       const cachedPoints = cacheGet<UserPoints | null>(pointsCacheKey(userId));
-      const cachedRank = cacheGet<number | null>(rankCacheKey(userId));
+      // Don't use cached rank - always recalculate fresh to avoid stale "Rank 1" issues
+      // Rank will be set properly after fetchPoints completes
 
-      if (cachedPoints) setPoints(cachedPoints.data);
-      if (cachedRank) setRank(cachedRank.data);
-
-      // If we have cached values, don't show loading spinners
-      setLoading(!(cachedPoints || cachedRank));
+      if (cachedPoints?.data) {
+        setPoints(cachedPoints.data);
+        setLoading(false);
+      }
+      // Set rank to null initially - will be calculated after fetch
+      setRank(null);
     }
 
     // Always refresh in background
