@@ -97,6 +97,7 @@ export const useReferrals = (user: User | null) => {
       const totalEarnings = rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0);
 
       // Fetch usernames + active mining sessions for each referral
+      // Use a fresh query without caching issues
       const [profilesRes, activeSessionsRes] = await Promise.all([
         withTimeout(
           supabase.from('profiles').select('user_id, username').in('user_id', referredIds),
@@ -105,16 +106,26 @@ export const useReferrals = (user: User | null) => {
         withTimeout(
           supabase
             .from('mining_sessions')
-            .select('user_id')
+            .select('user_id, is_active, started_at')
             .in('user_id', referredIds)
-            .eq('is_active', true),
+            .eq('is_active', true)
+            .order('started_at', { ascending: false }),
           12_000
         ).catch(() => ({ data: [] } as any)),
       ]);
 
       const profiles = (profilesRes as any)?.data as any[] | undefined;
       const activeSessions = (activeSessionsRes as any)?.data as any[] | undefined;
-      const activeUserIds = new Set(activeSessions?.map((s) => s.user_id) || []);
+      
+      // Build a set of user IDs who have CURRENTLY active sessions
+      const activeUserIds = new Set<string>();
+      if (activeSessions && activeSessions.length > 0) {
+        for (const session of activeSessions) {
+          if (session.is_active === true && session.user_id) {
+            activeUserIds.add(session.user_id);
+          }
+        }
+      }
       const activeCount = activeUserIds.size;
 
       const referralsWithUsernames: ReferralData[] = rows.map((r) => ({
@@ -219,6 +230,9 @@ export const useReferrals = (user: User | null) => {
   useEffect(() => {
     if (!user) return;
 
+    // Get the referred user IDs to filter mining session updates
+    const referredIds = referrals.map(r => r.referred_id).filter(Boolean);
+
     const channel = supabase
       .channel('referrals-and-mining-changes')
       .on(
@@ -240,9 +254,12 @@ export const useReferrals = (user: User | null) => {
           schema: 'public',
           table: 'mining_sessions',
         },
-        () => {
-          // Refresh referrals to update active miners count when any session changes
-          void fetchReferrals();
+        (payload) => {
+          // Only refresh if this mining session belongs to one of our referrals
+          const sessionUserId = (payload.new as any)?.user_id || (payload.old as any)?.user_id;
+          if (referredIds.length === 0 || referredIds.includes(sessionUserId)) {
+            void fetchReferrals();
+          }
         }
       )
       .subscribe();
@@ -250,7 +267,7 @@ export const useReferrals = (user: User | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchReferrals]);
+  }, [user, fetchReferrals, referrals]);
 
   const getReferralLink = () => {
     if (!referralCode) return '';
