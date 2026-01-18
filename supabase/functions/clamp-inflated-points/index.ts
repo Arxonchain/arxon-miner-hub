@@ -109,13 +109,6 @@ Deno.serve(async (req) => {
     let totalReduced = 0
 
     for (const userPoints of suspiciousUsers || []) {
-      // Never clamp normal accounts: only touch obvious extreme inflation.
-      // This avoids any accidental reduction of legitimate users.
-      const storedTotal = Number(userPoints.total_points || 0)
-      if (storedTotal < 50000) {
-        continue
-      }
-
       // Fetch all provable points in parallel
       const [
         profileResult,
@@ -167,6 +160,7 @@ Deno.serve(async (req) => {
       const storedTask = Number(userPoints.task_points || 0)
       const storedSocial = Number(userPoints.social_points || 0)
       const storedReferral = Number(userPoints.referral_points || 0)
+      const storedTotal = Number(userPoints.total_points || 0)
 
       // Check if mining points exceed threshold
       const miningRatio = provableMining > 0 ? storedMining / provableMining : (storedMining > 0 ? Infinity : 1)
