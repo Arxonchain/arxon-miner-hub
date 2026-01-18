@@ -97,9 +97,10 @@ const Referrals = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
         <StatCard label="Total Referrals" value={stats.totalReferrals.toString()} />
         <StatCard label="Active Miners" value={stats.activeMiners.toString()} />
+        <StatCard label="Inactive" value={stats.inactiveMiners.toString()} />
         <StatCard label="Referral Earnings" value={`${stats.totalEarnings} ARX-P`} />
       </div>
 
@@ -123,8 +124,11 @@ const Referrals = () => {
             {referrals.map((ref) => (
               <div key={ref.id} className="p-3 border-b border-border/30 last:border-0 space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 shrink-0" />
+                  <div className={`w-6 h-6 rounded-full shrink-0 ${ref.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
                   <span className="text-sm text-foreground font-medium">{ref.referred_username}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${ref.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                    {ref.is_active ? 'Mining' : 'Inactive'}
+                  </span>
                   <span className="text-xs text-primary ml-auto">+{ref.points_awarded} ARX-P</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -147,8 +151,8 @@ const Referrals = () => {
               <thead>
                 <tr className="border-b border-border/50">
                   <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">User</th>
+                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Status</th>
                   <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Joined</th>
-                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Code Used</th>
                   <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Reward Earned</th>
                 </tr>
               </thead>
@@ -157,15 +161,17 @@ const Referrals = () => {
                   <tr key={ref.id} className="border-b border-border/30 last:border-0">
                     <td className="p-2.5 sm:p-3 lg:p-4">
                       <div className="flex items-center gap-2 lg:gap-3">
-                        <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 shrink-0" />
+                        <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${ref.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
                         <span className="text-foreground text-xs sm:text-sm">{ref.referred_username}</span>
                       </div>
                     </td>
+                    <td className="p-2.5 sm:p-3 lg:p-4">
+                      <span className={`text-xs px-2 py-1 rounded ${ref.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                        {ref.is_active ? 'Mining' : 'Inactive'}
+                      </span>
+                    </td>
                     <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
                       {format(new Date(ref.created_at), 'MMM d, yyyy')}
-                    </td>
-                    <td className="p-2.5 sm:p-3 lg:p-4">
-                      <span className="text-primary text-xs sm:text-sm">{ref.referral_code_used}</span>
                     </td>
                     <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{ref.points_awarded} ARX-P</td>
                   </tr>

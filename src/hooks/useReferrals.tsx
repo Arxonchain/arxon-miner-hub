@@ -11,11 +11,13 @@ interface ReferralData {
   points_awarded: number;
   created_at: string;
   referred_username?: string;
+  is_active?: boolean; // Whether this referral is currently mining
 }
 
 interface ReferralStats {
   totalReferrals: number;
   activeMiners: number;
+  inactiveMiners: number;
   totalEarnings: number;
 }
 
@@ -29,6 +31,7 @@ export const useReferrals = (user: User | null) => {
   const [stats, setStats] = useState<ReferralStats>({
     totalReferrals: 0,
     activeMiners: 0,
+    inactiveMiners: 0,
     totalEarnings: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -70,9 +73,9 @@ export const useReferrals = (user: User | null) => {
 
       if (rows.length === 0) {
         setReferrals([]);
-        setStats({ totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
+        setStats({ totalReferrals: 0, activeMiners: 0, inactiveMiners: 0, totalEarnings: 0 });
         cacheSet(referralsCacheKey(user.id), []);
-        cacheSet(referralStatsCacheKey(user.id), { totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
+        cacheSet(referralStatsCacheKey(user.id), { totalReferrals: 0, activeMiners: 0, inactiveMiners: 0, totalEarnings: 0 });
         return;
       }
 
@@ -82,6 +85,7 @@ export const useReferrals = (user: User | null) => {
         const nextStats = {
           totalReferrals: rows.length,
           activeMiners: 0,
+          inactiveMiners: 0,
           totalEarnings: rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0),
         };
         setStats(nextStats);
@@ -92,8 +96,8 @@ export const useReferrals = (user: User | null) => {
 
       const totalEarnings = rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0);
 
-      // Fetch usernames + active miner count in parallel
-      const [profilesRes, activeRes] = await Promise.all([
+      // Fetch usernames + active mining sessions for each referral
+      const [profilesRes, activeSessionsRes] = await Promise.all([
         withTimeout(
           supabase.from('profiles').select('user_id, username').in('user_id', referredIds),
           12_000
@@ -101,24 +105,28 @@ export const useReferrals = (user: User | null) => {
         withTimeout(
           supabase
             .from('mining_sessions')
-            .select('user_id', { count: 'exact', head: true })
+            .select('user_id')
             .in('user_id', referredIds)
             .eq('is_active', true),
           12_000
-        ).catch(() => ({ count: 0 } as any)),
+        ).catch(() => ({ data: [] } as any)),
       ]);
 
       const profiles = (profilesRes as any)?.data as any[] | undefined;
-      const activeCount = Number((activeRes as any)?.count || 0);
+      const activeSessions = (activeSessionsRes as any)?.data as any[] | undefined;
+      const activeUserIds = new Set(activeSessions?.map((s) => s.user_id) || []);
+      const activeCount = activeUserIds.size;
 
       const referralsWithUsernames: ReferralData[] = rows.map((r) => ({
         ...r,
         referred_username: profiles?.find((p) => p.user_id === r.referred_id)?.username || 'Anonymous',
+        is_active: activeUserIds.has(r.referred_id),
       }));
 
       const nextStats: ReferralStats = {
         totalReferrals: rows.length,
-        activeMiners: activeCount || 0,
+        activeMiners: activeCount,
+        inactiveMiners: rows.length - activeCount,
         totalEarnings,
       };
 
@@ -185,7 +193,7 @@ export const useReferrals = (user: User | null) => {
     if (!user) {
       setReferralCode(null);
       setReferrals([]);
-      setStats({ totalReferrals: 0, activeMiners: 0, totalEarnings: 0 });
+      setStats({ totalReferrals: 0, activeMiners: 0, inactiveMiners: 0, totalEarnings: 0 });
       setLoading(false);
       return;
     }
