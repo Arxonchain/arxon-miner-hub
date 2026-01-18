@@ -1,4 +1,4 @@
-import { ArrowRight, Copy, Users } from "lucide-react";
+import { ArrowRight, Copy, Users, Activity, UserX } from "lucide-react";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import { toast } from "@/hooks/use-toast";
@@ -7,12 +7,20 @@ import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/hooks/useAuth";
 import { useMiningStatus } from "@/hooks/useMiningStatus";
 import { format } from "date-fns";
+import { useMemo } from "react";
 
 const Referrals = () => {
   
   const { user } = useAuth();
   const { isMining } = useMiningStatus();
   const { referralCode, referrals, stats, loading, getReferralLink } = useReferrals(user);
+
+  // Separate active and inactive referrals
+  const { activeReferrals, inactiveReferrals } = useMemo(() => {
+    const active = referrals.filter(r => r.is_active);
+    const inactive = referrals.filter(r => !r.is_active);
+    return { activeReferrals: active, inactiveReferrals: inactive };
+  }, [referrals]);
 
   const copyReferralCode = () => {
     if (referralCode) {
@@ -53,6 +61,46 @@ const Referrals = () => {
       });
     }
   };
+
+  const ReferralCard = ({ ref: refData, showStatus = true }: { ref: any; showStatus?: boolean }) => (
+    <div className="p-3 border-b border-border/30 last:border-0 space-y-2">
+      <div className="flex items-center gap-2">
+        <div className={`w-6 h-6 rounded-full shrink-0 ${refData.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
+        <span className="text-sm text-foreground font-medium">{refData.referred_username}</span>
+        {showStatus && (
+          <span className={`text-[10px] px-1.5 py-0.5 rounded ${refData.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+            {refData.is_active ? 'Mining' : 'Inactive'}
+          </span>
+        )}
+        <span className="text-xs text-primary ml-auto">+{refData.points_awarded} ARX-P</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-[10px]">
+        <div>
+          <p className="text-muted-foreground">Joined</p>
+          <p className="text-foreground">{format(new Date(refData.created_at), 'MMM d, yyyy')}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Code Used</p>
+          <p className="text-foreground">{refData.referral_code_used}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const ReferralTableRow = ({ ref: refData }: { ref: any }) => (
+    <tr className="border-b border-border/30 last:border-0">
+      <td className="p-2.5 sm:p-3 lg:p-4">
+        <div className="flex items-center gap-2 lg:gap-3">
+          <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${refData.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
+          <span className="text-foreground text-xs sm:text-sm">{refData.referred_username}</span>
+        </div>
+      </td>
+      <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
+        {format(new Date(refData.created_at), 'MMM d, yyyy')}
+      </td>
+      <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{refData.points_awarded} ARX-P</td>
+    </tr>
+  );
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
@@ -118,68 +166,95 @@ const Referrals = () => {
           <p className="text-muted-foreground/70 text-xs sm:text-sm mt-1">Share your referral code to start earning!</p>
         </div>
       ) : (
-        <>
-          {/* Mobile Card View */}
-          <div className="glass-card overflow-hidden block sm:hidden">
-            {referrals.map((ref) => (
-              <div key={ref.id} className="p-3 border-b border-border/30 last:border-0 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full shrink-0 ${ref.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-                  <span className="text-sm text-foreground font-medium">{ref.referred_username}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${ref.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                    {ref.is_active ? 'Mining' : 'Inactive'}
-                  </span>
-                  <span className="text-xs text-primary ml-auto">+{ref.points_awarded} ARX-P</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px]">
-                  <div>
-                    <p className="text-muted-foreground">Joined</p>
-                    <p className="text-foreground">{format(new Date(ref.created_at), 'MMM d, yyyy')}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Code Used</p>
-                    <p className="text-foreground">{ref.referral_code_used}</p>
-                  </div>
-                </div>
+        <div className="space-y-4">
+          {/* Active Referrals Section */}
+          <div className="glass-card overflow-hidden">
+            <div className="p-3 sm:p-4 border-b border-border/50 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-green-400" />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                Active Miners ({activeReferrals.length})
+              </h3>
+              <span className="ml-auto text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded">Currently Mining</span>
+            </div>
+            
+            {activeReferrals.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-muted-foreground text-sm">No active miners at the moment</p>
               </div>
-            ))}
+            ) : (
+              <>
+                {/* Mobile Card View */}
+                <div className="block sm:hidden">
+                  {activeReferrals.map((ref) => (
+                    <ReferralCard key={ref.id} ref={ref} showStatus={false} />
+                  ))}
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full min-w-[400px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">User</th>
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Joined</th>
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Reward Earned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeReferrals.map((ref) => (
+                        <ReferralTableRow key={ref.id} ref={ref} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Desktop Table View */}
-          <div className="glass-card overflow-hidden hidden sm:block overflow-x-auto">
-            <table className="w-full min-w-[500px]">
-              <thead>
-                <tr className="border-b border-border/50">
-                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">User</th>
-                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Status</th>
-                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Joined</th>
-                  <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Reward Earned</th>
-                </tr>
-              </thead>
-              <tbody>
-                {referrals.map((ref) => (
-                  <tr key={ref.id} className="border-b border-border/30 last:border-0">
-                    <td className="p-2.5 sm:p-3 lg:p-4">
-                      <div className="flex items-center gap-2 lg:gap-3">
-                        <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${ref.is_active ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-                        <span className="text-foreground text-xs sm:text-sm">{ref.referred_username}</span>
-                      </div>
-                    </td>
-                    <td className="p-2.5 sm:p-3 lg:p-4">
-                      <span className={`text-xs px-2 py-1 rounded ${ref.is_active ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                        {ref.is_active ? 'Mining' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
-                      {format(new Date(ref.created_at), 'MMM d, yyyy')}
-                    </td>
-                    <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{ref.points_awarded} ARX-P</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Inactive Referrals Section */}
+          <div className="glass-card overflow-hidden">
+            <div className="p-3 sm:p-4 border-b border-border/50 flex items-center gap-2">
+              <UserX className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                Inactive ({inactiveReferrals.length})
+              </h3>
+              <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Not Mining</span>
+            </div>
+            
+            {inactiveReferrals.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-muted-foreground text-sm">All your referrals are actively mining! 🎉</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Card View */}
+                <div className="block sm:hidden">
+                  {inactiveReferrals.map((ref) => (
+                    <ReferralCard key={ref.id} ref={ref} showStatus={false} />
+                  ))}
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full min-w-[400px]">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">User</th>
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Joined</th>
+                        <th className="text-left p-2.5 sm:p-3 lg:p-4 text-muted-foreground font-medium text-xs sm:text-sm">Reward Earned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inactiveReferrals.map((ref) => (
+                        <ReferralTableRow key={ref.id} ref={ref} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
