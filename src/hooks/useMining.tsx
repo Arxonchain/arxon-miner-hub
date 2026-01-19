@@ -632,43 +632,87 @@ export const useMining = (options?: UseMiningOptions) => {
     }
 
     try {
-      // Pass session ID for secure backend validation
-      const result = await addPoints(pointsToClaim, 'mining', sessionId);
-      
-      // CRITICAL: Only reset session if backend confirmed success
-      if (!result.success) {
+      // First, end the current session in DB to lock it
+      const { error: endError } = await supabase
+        .from('mining_sessions')
+        .update({
+          is_active: false,
+          ended_at: new Date().toISOString(),
+          arx_mined: pointsToClaim,
+        })
+        .eq('id', sessionId)
+        .eq('is_active', true);
+
+      if (endError) {
+        console.error('Failed to end session for claim:', endError);
         toast({
           title: 'Claim Failed',
-          description: result.error || 'Points could not be credited. Please try again.',
+          description: 'Could not process session. Please try again.',
           variant: 'destructive',
         });
         return;
       }
 
-      // Backend confirmed - now safe to reset session
+      // Pass session ID for secure backend validation
+      const result = await addPoints(pointsToClaim, 'mining', sessionId);
+      
+      if (!result.success) {
+        // Points failed, but session is already ended - backfill will fix it
+        console.error('Points award failed but session ended:', result.error);
+        toast({
+          title: 'Session Complete',
+          description: 'Points are being processed and will appear shortly.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Points Claimed! 🎉',
+          description: `+${result.points || pointsToClaim} ARX-P added to your balance`,
+        });
+        triggerConfetti();
+      }
+
+      // CRITICAL: Create a NEW session instead of reusing the old one
+      const { data: newSession, error: newSessionError } = await supabase
+        .from('mining_sessions')
+        .insert({
+          user_id: user.id,
+          is_active: true,
+          arx_mined: 0,
+        })
+        .select('id, started_at')
+        .single();
+
+      if (newSessionError || !newSession) {
+        console.error('Failed to create new session after claim:', newSessionError);
+        // Reset local state - user will need to start mining again
+        setIsMining(false);
+        setSessionId(null);
+        setElapsedTime(0);
+        setEarnedPoints(0);
+        lastDbPointsRef.current = 0;
+        lastDbWriteAtRef.current = 0;
+        sessionStartTimeRef.current = null;
+        clearActiveSessionCache(user.id);
+        return;
+      }
+
+      // Update local state with new session
+      const startTime = new Date(newSession.started_at).getTime();
+      setSessionId(newSession.id);
+      setElapsedTime(0);
       setEarnedPoints(0);
       lastDbPointsRef.current = 0;
       lastDbWriteAtRef.current = 0;
+      sessionStartTimeRef.current = startTime;
 
-      const newStartTime = Date.now();
-      sessionStartTimeRef.current = newStartTime;
-
-      await supabase
-        .from('mining_sessions')
-        .update({
-          started_at: new Date(newStartTime).toISOString(),
-          arx_mined: 0,
-          credited_at: null, // Reset credited_at for the new session cycle
-        })
-        .eq('id', sessionId);
-
-      setElapsedTime(0);
-
-      toast({
-        title: 'Points Claimed! 🎉',
-        description: `+${result.points || pointsToClaim} ARX-P added to your balance`,
+      setActiveSessionCache(user.id, {
+        id: newSession.id,
+        started_at: newSession.started_at,
+        arx_mined: 0,
+        is_active: true,
       });
-      triggerConfetti();
+
     } catch (error) {
       console.error('Error claiming points:', error);
       toast({
