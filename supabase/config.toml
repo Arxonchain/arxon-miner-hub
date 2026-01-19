@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.clamp-inflated-points]
 verify_jwt = false
+
+[functions.backfill-uncredited-sessions]
+verify_jwt = false

@@ -31,7 +31,7 @@ type PointsContextType = {
   points: UserPoints | null;
   loading: boolean;
   rank: number | null;
-  addPoints: (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => Promise<void>;
+  addPoints: (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => Promise<{ success: boolean; points?: number; error?: string }>;
   refreshPoints: () => Promise<void>;
   triggerConfetti: () => void;
 };
@@ -156,11 +156,11 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   }, [user, calculateRank]);
 
   const addPoints = useCallback(
-    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string) => {
-      if (!user) return;
+    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string): Promise<{ success: boolean; points?: number; error?: string }> => {
+      if (!user) return { success: false, error: 'Not authenticated' };
 
       const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 500);
-      if (safeAmount <= 0) return;
+      if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
 
       try {
         // Use the secure backend endpoint instead of direct RPC
@@ -174,18 +174,27 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
 
         if (error) {
           console.error('Error adding points via backend:', error);
-          return;
+          return { success: false, error: error.message || 'Backend error' };
         }
 
-        if (data?.success && data?.userPoints) {
+        if (!data?.success) {
+          console.error('Backend returned failure:', data?.error);
+          return { success: false, error: data?.error || 'Unknown error' };
+        }
+
+        if (data?.userPoints) {
           const next = data.userPoints as UserPoints;
           setPoints(next);
           cacheSet(pointsCacheKey(user.id), next);
         }
 
-        if (safeAmount >= 10) triggerConfetti();
-      } catch (err) {
+        const awardedPoints = data?.points ?? safeAmount;
+        if (awardedPoints >= 10) triggerConfetti();
+        
+        return { success: true, points: awardedPoints };
+      } catch (err: any) {
         console.error('Error adding points:', err);
+        return { success: false, error: err?.message || 'Network error' };
       }
     },
     [triggerConfetti, user]

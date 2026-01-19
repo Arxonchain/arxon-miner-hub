@@ -240,6 +240,7 @@ export const useMining = (options?: UseMiningOptions) => {
       const pointsToCredit = Math.max(0, Math.floor(finalPoints));
 
       try {
+        // First, end the session in DB
         await supabase
           .from('mining_sessions')
           .update({
@@ -253,9 +254,25 @@ export const useMining = (options?: UseMiningOptions) => {
           clearActiveSessionCache(user.id);
         }
 
+        // Try to credit points if any
+        let credited = false;
+        let creditedPoints = 0;
+        
         if (pointsToCredit > 0) {
           // Pass session ID for secure backend validation
-          await addPoints(pointsToCredit, 'mining', id);
+          const result = await addPoints(pointsToCredit, 'mining', id);
+          credited = result.success;
+          creditedPoints = result.points || pointsToCredit;
+          
+          if (!credited) {
+            console.error('Failed to credit points for session:', id, result.error);
+            // Session ended but points not credited - backend will pick this up in backfill
+            toast({
+              title: 'Session Ended',
+              description: `Mining stopped. Points pending - they will be credited shortly.`,
+              variant: 'default',
+            });
+          }
         }
 
         setIsMining(false);
@@ -267,10 +284,12 @@ export const useMining = (options?: UseMiningOptions) => {
         sessionStartTimeRef.current = null;
         endingRef.current = false;
 
-        toast({
-          title: 'Mining Session Complete! 🎉',
-          description: `You earned ${pointsToCredit} ARX-P points`,
-        });
+        if (credited && creditedPoints > 0) {
+          toast({
+            title: 'Mining Session Complete! 🎉',
+            description: `You earned ${creditedPoints} ARX-P points`,
+          });
+        }
       } catch (error) {
         console.error('Error ending session:', error);
         // Allow another attempt if we failed to end
@@ -614,8 +633,19 @@ export const useMining = (options?: UseMiningOptions) => {
 
     try {
       // Pass session ID for secure backend validation
-      await addPoints(pointsToClaim, 'mining', sessionId);
+      const result = await addPoints(pointsToClaim, 'mining', sessionId);
+      
+      // CRITICAL: Only reset session if backend confirmed success
+      if (!result.success) {
+        toast({
+          title: 'Claim Failed',
+          description: result.error || 'Points could not be credited. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
+      // Backend confirmed - now safe to reset session
       setEarnedPoints(0);
       lastDbPointsRef.current = 0;
       lastDbWriteAtRef.current = 0;
@@ -628,6 +658,7 @@ export const useMining = (options?: UseMiningOptions) => {
         .update({
           started_at: new Date(newStartTime).toISOString(),
           arx_mined: 0,
+          credited_at: null, // Reset credited_at for the new session cycle
         })
         .eq('id', sessionId);
 
@@ -635,7 +666,7 @@ export const useMining = (options?: UseMiningOptions) => {
 
       toast({
         title: 'Points Claimed! 🎉',
-        description: `+${pointsToClaim} ARX-P added to your balance`,
+        description: `+${result.points || pointsToClaim} ARX-P added to your balance`,
       });
       triggerConfetti();
     } catch (error) {
