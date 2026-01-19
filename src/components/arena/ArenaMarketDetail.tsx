@@ -2,11 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Clock, Users, Trophy, TrendingUp, AlertTriangle, 
-  Zap, Fingerprint, Share2, Gift, CheckCircle, Target
+  Zap, Fingerprint, Share2, Gift, CheckCircle, Target, ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
 import FingerprintScanner from './FingerprintScanner';
+import BattlePoolDisplay from './BattlePoolDisplay';
+import BattleVoteExplorer from './BattleVoteExplorer';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ArenaMarketDetailProps {
   market: ArenaMarket;
@@ -19,6 +22,8 @@ interface ArenaMarketDetailProps {
   storedFingerprintHash?: string | null;
 }
 
+type DetailTab = 'vote' | 'explorer' | 'pools';
+
 const ArenaMarketDetail = ({
   market,
   userPosition,
@@ -29,10 +34,12 @@ const ArenaMarketDetail = ({
   isVoting,
   storedFingerprintHash,
 }: ArenaMarketDetailProps) => {
+  const { user } = useAuth();
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
   const [stakeAmount, setStakeAmount] = useState(0);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('pools');
 
   const totalPool = market.side_a_power + market.side_b_power;
   const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : 50;
@@ -179,24 +186,64 @@ const ArenaMarketDetail = ({
           )}
         </div>
 
-        {/* Pool Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
-            <Trophy className="w-4 h-4 mx-auto mb-1 text-primary" />
-            <p className="text-lg font-bold text-foreground">{totalPool.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Pool</p>
-          </div>
-          <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
-            <Users className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-lg font-bold text-foreground">{market.total_participants || 0}</p>
-            <p className="text-xs text-muted-foreground">Voters</p>
-          </div>
-          <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
-            <Zap className="w-4 h-4 mx-auto mb-1 text-primary" />
-            <p className="text-lg font-bold text-primary">+25%</p>
-            <p className="text-xs text-muted-foreground">Boost</p>
-          </div>
+        {/* Detail Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setActiveDetailTab('pools')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+              activeDetailTab === 'pools'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            Pools & Stats
+          </button>
+          <button
+            onClick={() => setActiveDetailTab('explorer')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+              activeDetailTab === 'explorer'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Vote Explorer
+          </button>
+          {isLive && !userPosition && (
+            <button
+              onClick={() => setActiveDetailTab('vote')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+                activeDetailTab === 'vote'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              Cast Vote
+            </button>
+          )}
         </div>
+
+        {/* Pools Tab */}
+        {activeDetailTab === 'pools' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <BattlePoolDisplay market={market} />
+          </motion.div>
+        )}
+
+        {/* Vote Explorer Tab */}
+        {activeDetailTab === 'explorer' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <BattleVoteExplorer market={market} currentUserId={user?.id} />
+          </motion.div>
+        )}
 
         {/* Already Voted / Winner Display */}
         {userPosition && (
@@ -241,8 +288,8 @@ const ArenaMarketDetail = ({
           </motion.div>
         )}
 
-        {/* Side Selection */}
-        {isLive && !userPosition && (
+        {/* Side Selection - Vote Tab */}
+        {activeDetailTab === 'vote' && isLive && !userPosition && (
           <>
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">Cast your prediction vote:</p>

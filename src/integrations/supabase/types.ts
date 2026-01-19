@@ -1322,6 +1322,7 @@ export type Database = {
           battle_id: string
           created_at: string
           power_spent: number
+          side: string
           user_id: string
           username: string
         }[]
