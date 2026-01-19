@@ -88,6 +88,8 @@ export type Database = {
       }
       arena_battles: {
         Row: {
+          bonus_percentage: number | null
+          category: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -101,6 +103,8 @@ export type Database = {
           outcome_verified: boolean | null
           outcome_verified_at: string | null
           outcome_verified_by: string | null
+          prize_pool: number | null
+          resolution_source: string | null
           side_a_color: string
           side_a_image: string | null
           side_a_name: string
@@ -111,11 +115,14 @@ export type Database = {
           side_b_power: number
           starts_at: string
           title: string
+          total_participants: number | null
           total_rewards_distributed: number | null
           winner_boost_percentage: number
           winner_side: string | null
         }
         Insert: {
+          bonus_percentage?: number | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -129,6 +136,8 @@ export type Database = {
           outcome_verified?: boolean | null
           outcome_verified_at?: string | null
           outcome_verified_by?: string | null
+          prize_pool?: number | null
+          resolution_source?: string | null
           side_a_color?: string
           side_a_image?: string | null
           side_a_name: string
@@ -139,11 +148,14 @@ export type Database = {
           side_b_power?: number
           starts_at?: string
           title: string
+          total_participants?: number | null
           total_rewards_distributed?: number | null
           winner_boost_percentage?: number
           winner_side?: string | null
         }
         Update: {
+          bonus_percentage?: number | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -157,6 +169,8 @@ export type Database = {
           outcome_verified?: boolean | null
           outcome_verified_at?: string | null
           outcome_verified_by?: string | null
+          prize_pool?: number | null
+          resolution_source?: string | null
           side_a_color?: string
           side_a_image?: string | null
           side_a_name?: string
@@ -167,6 +181,7 @@ export type Database = {
           side_b_power?: number
           starts_at?: string
           title?: string
+          total_participants?: number | null
           total_rewards_distributed?: number | null
           winner_boost_percentage?: number
           winner_side?: string | null
@@ -201,6 +216,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "arena_boosts_battle_id_fkey"
+            columns: ["battle_id"]
+            isOneToOne: false
+            referencedRelation: "arena_battles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_earnings: {
+        Row: {
+          battle_id: string
+          bonus_earned: number
+          created_at: string
+          id: string
+          is_winner: boolean
+          pool_share_earned: number
+          stake_amount: number
+          total_earned: number
+          user_id: string
+        }
+        Insert: {
+          battle_id: string
+          bonus_earned?: number
+          created_at?: string
+          id?: string
+          is_winner?: boolean
+          pool_share_earned?: number
+          stake_amount?: number
+          total_earned?: number
+          user_id: string
+        }
+        Update: {
+          battle_id?: string
+          bonus_earned?: number
+          created_at?: string
+          id?: string
+          is_winner?: boolean
+          pool_share_earned?: number
+          stake_amount?: number
+          total_earned?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_earnings_battle_id_fkey"
             columns: ["battle_id"]
             isOneToOne: false
             referencedRelation: "arena_battles"
@@ -1213,6 +1272,21 @@ export type Database = {
       }
     }
     Views: {
+      arena_earnings_leaderboard: {
+        Row: {
+          avatar_url: string | null
+          total_battles: number | null
+          total_bonus_earned: number | null
+          total_earned: number | null
+          total_pool_share_earned: number | null
+          total_staked: number | null
+          total_wins: number | null
+          user_id: string | null
+          username: string | null
+          win_rate: number | null
+        }
+        Relationships: []
+      }
       leaderboard_view: {
         Row: {
           avatar_url: string | null
