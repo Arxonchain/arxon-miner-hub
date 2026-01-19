@@ -214,7 +214,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           </span>
           <span className="flex items-center gap-1">
             <Users className="w-3.5 h-3.5" />
-            {market.total_participants || 0}
+            {market.total_participants || 0} voters
           </span>
         </div>
         <span className="flex items-center gap-1">

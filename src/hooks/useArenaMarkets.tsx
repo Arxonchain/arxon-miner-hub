@@ -213,10 +213,10 @@ export const useArenaMarkets = () => {
     };
   }, []);
 
-  // Place a bet on a market
-  const placeBet = async (marketId: string, side: 'a' | 'b', amount: number): Promise<boolean> => {
+  // Place a vote on a market
+  const placeVote = async (marketId: string, side: 'a' | 'b', amount: number): Promise<boolean> => {
     if (!user) {
-      toast.error('Please sign in to place a bet');
+      toast.error('Please sign in to cast your vote');
       return false;
     }
 
@@ -226,18 +226,18 @@ export const useArenaMarkets = () => {
     }
 
     if (amount < 100) {
-      toast.error('Minimum bet is 100 ARX-P');
+      toast.error('Minimum stake is 100 ARX-P');
       return false;
     }
 
     if (amount > 1000000) {
-      toast.error('Maximum bet is 1,000,000 ARX-P');
+      toast.error('Maximum stake is 1,000,000 ARX-P');
       return false;
     }
 
     // Check if user already has a position in this market
     if (userPositions.has(marketId)) {
-      toast.error('You already have a position in this market');
+      toast.error('You already voted on this prediction');
       return false;
     }
 
@@ -255,7 +255,7 @@ export const useArenaMarkets = () => {
 
       if (voteError) throw voteError;
 
-      toast.success('Bet placed successfully! +25% mining boost activated 🚀');
+      toast.success('Vote cast successfully! +25% mining boost activated 🚀');
       
       // Refresh data
       await Promise.all([
@@ -265,8 +265,8 @@ export const useArenaMarkets = () => {
 
       return true;
     } catch (error: any) {
-      console.error('Error placing bet:', error);
-      toast.error(error.message || 'Failed to place bet');
+      console.error('Error casting vote:', error);
+      toast.error(error.message || 'Failed to cast vote');
       return false;
     } finally {
       setVoting(false);
@@ -332,7 +332,7 @@ export const useArenaMarkets = () => {
     voting,
     selectedMarket,
     setSelectedMarket,
-    placeBet,
+    placeVote,
     calculatePotentialReturns,
     refreshMarkets: fetchMarkets,
     refreshLeaderboard: fetchEarningsLeaderboard,

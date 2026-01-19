@@ -189,7 +189,7 @@ const ArenaMarketDetail = ({
           <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
             <Users className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
             <p className="text-lg font-bold text-foreground">{market.total_participants || 0}</p>
-            <p className="text-xs text-muted-foreground">Bettors</p>
+            <p className="text-xs text-muted-foreground">Voters</p>
           </div>
           <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
             <Zap className="w-4 h-4 mx-auto mb-1 text-primary" />
@@ -245,7 +245,7 @@ const ArenaMarketDetail = ({
         {isLive && !userPosition && (
           <>
             <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">Choose your side:</p>
+              <p className="text-sm font-medium text-muted-foreground">Cast your prediction vote:</p>
               
               {/* Side A */}
               <motion.button
@@ -417,11 +417,11 @@ const ArenaMarketDetail = ({
                   className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                 >
                   <Fingerprint className="w-5 h-5" />
-                  {stakeAmount < 100 ? 'Min 100 ARX-P' : 'Verify & Place Bet'}
+                  {stakeAmount < 100 ? 'Min 100 ARX-P' : 'Verify & Cast Vote'}
                 </button>
 
                 <p className="text-xs text-muted-foreground text-center">
-                  ⚠️ Stakes are locked until the market resolves
+                  ⚠️ Stakes are locked until the prediction resolves
                 </p>
               </motion.div>
             )}
@@ -448,7 +448,7 @@ const ArenaMarketDetail = ({
                   onVerificationFailed={() => toast.error("Fingerprint mismatch!")}
                   storedFingerprintHash={storedFingerprintHash || undefined}
                   isVerifying={isVoting}
-                  title="Verify Your Bet"
+                  title="Confirm Your Vote"
                   subtitle={`Stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}`}
                 />
                 <button
