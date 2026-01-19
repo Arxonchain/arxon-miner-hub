@@ -193,7 +193,7 @@ const ArenaMarketExplorer = ({
           <p className="text-lg font-bold text-green-500">
             {liveMarkets.reduce((sum, m) => sum + (m.total_participants || 0), 0)}
           </p>
-          <p className="text-xs text-muted-foreground">Bettors</p>
+          <p className="text-xs text-muted-foreground">Voters</p>
         </div>
       </div>
 

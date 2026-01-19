@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, TrendingUp, TrendingDown, Clock, Trophy, Target, Zap, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
 
-interface ArenaMyBetsProps {
+interface ArenaMyVotesProps {
   liveMarkets: ArenaMarket[];
   endedMarkets: ArenaMarket[];
   userPositions: Map<string, MarketVote>;
@@ -11,14 +11,14 @@ interface ArenaMyBetsProps {
   availablePoints: number;
 }
 
-const ArenaMyBets = ({
+const ArenaMyVotes = ({
   liveMarkets,
   endedMarkets,
   userPositions,
   onSelectMarket,
   availablePoints,
-}: ArenaMyBetsProps) => {
-  const { activeBets, settledBets, stats } = useMemo(() => {
+}: ArenaMyVotesProps) => {
+  const { activeVotes, settledVotes, stats } = useMemo(() => {
     const active: { market: ArenaMarket; vote: MarketVote }[] = [];
     const settled: { market: ArenaMarket; vote: MarketVote; won: boolean; payout: number }[] = [];
     
@@ -28,7 +28,7 @@ const ArenaMyBets = ({
     let wins = 0;
     let losses = 0;
 
-    // Process active bets (live markets)
+    // Process active votes (live markets)
     liveMarkets.forEach(market => {
       const vote = userPositions.get(market.id);
       if (vote) {
@@ -37,7 +37,7 @@ const ArenaMyBets = ({
       }
     });
 
-    // Process settled bets (ended markets with winner)
+    // Process settled votes (ended markets with winner)
     endedMarkets.forEach(market => {
       const vote = userPositions.get(market.id);
       if (vote && market.winner_side) {
@@ -65,8 +65,8 @@ const ArenaMyBets = ({
     });
 
     return {
-      activeBets: active,
-      settledBets: settled,
+      activeVotes: active,
+      settledVotes: settled,
       stats: {
         totalStaked,
         totalWon,
@@ -152,34 +152,34 @@ const ArenaMyBets = ({
         </div>
       </div>
 
-      {/* Active Bets */}
+      {/* Active Votes */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
-            Active Bets
+            Active Votes
             <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
-              {activeBets.length}
+              {activeVotes.length}
             </span>
           </h3>
         </div>
 
         <AnimatePresence mode="popLayout">
-          {activeBets.length === 0 ? (
+          {activeVotes.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="p-6 rounded-xl bg-secondary/20 border border-dashed border-border/50 text-center"
             >
               <Zap className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No active bets</p>
+              <p className="text-sm text-muted-foreground">No active votes</p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Place your first prediction on a live market!
+                Cast your first prediction vote on a live market!
               </p>
             </motion.div>
           ) : (
             <div className="space-y-2">
-              {activeBets.map(({ market, vote }, index) => (
+              {activeVotes.map(({ market, vote }, index) => (
                 <motion.div
                   key={market.id}
                   layout
@@ -224,31 +224,31 @@ const ArenaMyBets = ({
         </AnimatePresence>
       </div>
 
-      {/* Settled Bets */}
+      {/* Settled Votes */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-muted-foreground" />
-            Settled Bets
+            Settled Votes
             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {settledBets.length}
+              {settledVotes.length}
             </span>
           </h3>
         </div>
 
         <AnimatePresence mode="popLayout">
-          {settledBets.length === 0 ? (
+          {settledVotes.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="p-6 rounded-xl bg-secondary/20 border border-dashed border-border/50 text-center"
             >
               <Trophy className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No settled bets yet</p>
+              <p className="text-sm text-muted-foreground">No settled votes yet</p>
             </motion.div>
           ) : (
             <div className="space-y-2">
-              {settledBets.slice(0, 10).map(({ market, vote, won, payout }, index) => (
+              {settledVotes.slice(0, 10).map(({ market, vote, won, payout }, index) => (
                 <motion.div
                   key={market.id}
                   layout
@@ -277,7 +277,7 @@ const ArenaMyBets = ({
                       </div>
                       <p className="text-sm font-medium text-foreground truncate">{market.title}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Picked: {vote.side === 'a' ? market.side_a_name : market.side_b_name}
+                        Voted: {vote.side === 'a' ? market.side_a_name : market.side_b_name}
                         {' • '}
                         Winner: {market.winner_side === 'a' ? market.side_a_name : market.side_b_name}
                       </p>
@@ -302,4 +302,4 @@ const ArenaMyBets = ({
   );
 };
 
-export default ArenaMyBets;
+export default ArenaMyVotes;

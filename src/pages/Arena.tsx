@@ -17,7 +17,7 @@ import ArenaBottomNav, { type ArenaTab } from '@/components/arena/ArenaBottomNav
 import VotePanel from '@/components/arena/VotePanel';
 import ArenaMarketExplorer from '@/components/arena/ArenaMarketExplorer';
 import ArenaEarningsLeaderboard from '@/components/arena/ArenaEarningsLeaderboard';
-import ArenaMyBets from '@/components/arena/ArenaMyBets';
+import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
 import AuthDialog from '@/components/auth/AuthDialog';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
@@ -50,7 +50,7 @@ const Arena = () => {
     earningsLeaderboard,
     loading: marketsLoading,
     voting: marketVoting,
-    placeBet,
+    placeVote,
     calculatePotentialReturns,
     availablePoints,
   } = useArenaMarkets();
@@ -172,7 +172,7 @@ const Arena = () => {
         userPosition={userPositions.get(selectedMarket.id)}
         availablePoints={availablePoints}
         onClose={() => setSelectedMarket(null)}
-        onPlaceBet={placeBet}
+        onPlaceBet={placeVote}
         calculateReturns={calculatePotentialReturns}
         isVoting={marketVoting}
         storedFingerprintHash={membership.fingerprint_hash}
@@ -220,8 +220,8 @@ const Arena = () => {
           />
         )}
 
-        {activeTab === 'bets' && (
-          <ArenaMyBets
+        {activeTab === 'votes' && (
+          <ArenaMyVotes
             liveMarkets={liveMarkets}
             endedMarkets={endedMarkets}
             userPositions={userPositions}
