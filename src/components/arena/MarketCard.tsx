@@ -109,10 +109,12 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       {/* Prize pool badge */}
       {market.prize_pool > 0 && (
         <div className="absolute top-3 right-3">
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
-            <Gift className="w-3 h-3 text-amber-500" />
-            <span className="text-xs font-bold text-amber-500">
-              {(market.prize_pool / 1000).toFixed(0)}K Prize
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 animate-pulse">
+            <Gift className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs font-bold text-amber-400">
+              {market.prize_pool >= 1000000 
+                ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
+                : `${(market.prize_pool / 1000).toFixed(0)}K`} Pool
             </span>
           </div>
         </div>

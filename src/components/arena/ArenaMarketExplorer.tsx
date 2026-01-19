@@ -163,6 +163,21 @@ const ArenaMarketExplorer = ({
       </div>
 
       {/* Stats Banner */}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        {(() => {
+          const totalPrizePool = liveMarkets.reduce((sum, m) => sum + (m.prize_pool || 0), 0);
+          return totalPrizePool > 0 && (
+            <div className="col-span-2 p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 text-center">
+              <p className="text-2xl font-black text-amber-400">
+                {totalPrizePool >= 1000000 
+                  ? `${(totalPrizePool / 1000000).toFixed(1)}M` 
+                  : `${(totalPrizePool / 1000).toFixed(0)}K`} ARX-P
+              </p>
+              <p className="text-xs text-amber-400/80 font-medium">🔥 Total Prize Pools Up For Grabs</p>
+            </div>
+          );
+        })()}
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <div className="p-3 rounded-xl bg-secondary/30 border border-border/30 text-center">
           <p className="text-lg font-bold text-foreground">{liveMarkets.length}</p>
