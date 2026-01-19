@@ -207,17 +207,27 @@ export const useArena = () => {
 
   const fetchLeaderboard = useCallback(async () => {
     try {
-      // Get all votes with user profiles
-      const { data: votes, error } = await supabase
+      // Get all votes separately (no FK join)
+      const { data: votes, error: votesError } = await supabase
         .from('arena_votes')
-        .select(`
-          user_id,
-          power_spent,
-          battle_id,
-          profiles!inner(username, avatar_url)
-        `);
+        .select('user_id, power_spent, battle_id, side');
 
-      if (error) throw error;
+      if (votesError) throw votesError;
+      if (!votes || votes.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(votes.map(v => v.user_id))];
+
+      // Fetch profiles separately
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, username, avatar_url')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a profile map
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
       // Get battle winners
       const { data: battles } = await supabase
@@ -231,10 +241,11 @@ export const useArena = () => {
       const userMap = new Map<string, LeaderboardEntry>();
 
       votes?.forEach((vote: any) => {
+        const profile = profileMap.get(vote.user_id);
         const existing = userMap.get(vote.user_id) || {
           user_id: vote.user_id,
-          username: vote.profiles?.username,
-          avatar_url: vote.profiles?.avatar_url,
+          username: profile?.username,
+          avatar_url: profile?.avatar_url,
           total_power_staked: 0,
           total_wins: 0,
           total_battles: 0,
@@ -245,8 +256,12 @@ export const useArena = () => {
         existing.total_battles += 1;
         existing.biggest_stake = Math.max(existing.biggest_stake, vote.power_spent);
 
-        // Check if user won this battle (we'd need side info but votes are private)
-        // For now, we'll track participation
+        // Check if user won this battle
+        const winningSide = winnerMap.get(vote.battle_id);
+        if (winningSide && vote.side === winningSide) {
+          existing.total_wins += 1;
+        }
+        
         userMap.set(vote.user_id, existing);
       });
 
