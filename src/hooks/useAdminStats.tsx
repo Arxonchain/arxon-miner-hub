@@ -10,6 +10,17 @@ export interface AdminStats {
   claimingEnabled: boolean;
   blockReward: number;
   totalMinersEver: number;
+  // New detailed breakdowns
+  totalTaskPoints: number;
+  totalSocialPoints: number;
+  totalReferralPoints: number;
+  totalCheckinPoints: number;
+  totalArenaEarnings: number;
+  totalSessions: number;
+  totalSessionsArxMined: number;
+  avgPointsPerUser: number;
+  todaySignups: number;
+  todayMiningPoints: number;
 }
 
 /**
@@ -34,12 +45,19 @@ export const useAdminStats = () => {
       // Unique miners who have ever mined
       const { data: allSessions } = await supabase
         .from("mining_sessions")
-        .select("user_id");
+        .select("user_id, arx_mined");
       const totalMinersEver = new Set(allSessions?.map(s => s.user_id)).size;
+      const totalSessions = allSessions?.length || 0;
+      const totalSessionsArxMined = allSessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
 
-      // Total points from user_points - use RPC or paginated fetch to get ALL rows
-      // Supabase default limit is 1000, so we need to fetch in batches
-      let allPointsData: { mining_points: number; total_points: number }[] = [];
+      // Total points from user_points - use paginated fetch to get ALL rows
+      let allPointsData: { 
+        mining_points: number; 
+        total_points: number;
+        task_points: number;
+        social_points: number;
+        referral_points: number;
+      }[] = [];
       let offset = 0;
       const batchSize = 1000;
       let hasMore = true;
@@ -47,7 +65,7 @@ export const useAdminStats = () => {
       while (hasMore) {
         const { data: batch } = await supabase
           .from("user_points")
-          .select("mining_points, total_points")
+          .select("mining_points, total_points, task_points, social_points, referral_points")
           .range(offset, offset + batchSize - 1);
         
         if (batch && batch.length > 0) {
@@ -61,11 +79,42 @@ export const useAdminStats = () => {
       
       const totalMiningPoints = allPointsData.reduce((sum, p) => sum + Number(p.mining_points || 0), 0);
       const totalPoints = allPointsData.reduce((sum, p) => sum + Number(p.total_points || 0), 0);
+      const totalTaskPoints = allPointsData.reduce((sum, p) => sum + Number(p.task_points || 0), 0);
+      const totalSocialPoints = allPointsData.reduce((sum, p) => sum + Number(p.social_points || 0), 0);
+      const totalReferralPoints = allPointsData.reduce((sum, p) => sum + Number(p.referral_points || 0), 0);
+      const avgPointsPerUser = allPointsData.length > 0 ? Math.round(totalPoints / allPointsData.length) : 0;
 
-      // Total referrals
+      // Total referrals count
       const { count: totalReferrals } = await supabase
         .from("referrals")
         .select("*", { count: "exact", head: true });
+
+      // Arena earnings
+      const { data: arenaEarnings } = await supabase
+        .from("arena_earnings")
+        .select("total_earned");
+      const totalArenaEarnings = arenaEarnings?.reduce((sum, e) => sum + Number(e.total_earned || 0), 0) || 0;
+
+      // Check-in points from daily_checkins
+      const { data: checkins } = await supabase
+        .from("daily_checkins")
+        .select("points_awarded");
+      const totalCheckinPoints = checkins?.reduce((sum, c) => sum + Number(c.points_awarded || 0), 0) || 0;
+
+      // Today's signups
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { count: todaySignups } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", todayStart.toISOString());
+
+      // Today's mining points from sessions started/ended today
+      const { data: todaySessions } = await supabase
+        .from("mining_sessions")
+        .select("arx_mined")
+        .gte("started_at", todayStart.toISOString());
+      const todayMiningPoints = todaySessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
 
       // Mining settings
       const { data: settings } = await supabase
@@ -83,6 +132,16 @@ export const useAdminStats = () => {
         claimingEnabled: settings?.claiming_enabled || false,
         blockReward: settings?.block_reward || 1000,
         totalMinersEver,
+        totalTaskPoints,
+        totalSocialPoints,
+        totalReferralPoints,
+        totalCheckinPoints,
+        totalArenaEarnings,
+        totalSessions,
+        totalSessionsArxMined,
+        avgPointsPerUser,
+        todaySignups: todaySignups || 0,
+        todayMiningPoints,
       };
     },
     refetchInterval: 15000, // Faster refresh every 15 seconds
@@ -91,7 +150,7 @@ export const useAdminStats = () => {
 };
 
 export const formatNumber = (num: number) => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toLocaleString();
 };

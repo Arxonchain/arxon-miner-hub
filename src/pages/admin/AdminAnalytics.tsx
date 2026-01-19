@@ -184,6 +184,17 @@ const AdminAnalytics = () => {
   const totalUsers = globalStats?.totalUsers || 0;
   const activeMiners = globalStats?.activeMiners || 0;
   const totalArxMined = globalStats?.totalPoints || 0;
+  const totalMiningPoints = globalStats?.totalMiningPoints || 0;
+  const totalTaskPoints = globalStats?.totalTaskPoints || 0;
+  const totalSocialPoints = globalStats?.totalSocialPoints || 0;
+  const totalReferralPoints = globalStats?.totalReferralPoints || 0;
+  const totalCheckinPoints = globalStats?.totalCheckinPoints || 0;
+  const totalArenaEarnings = globalStats?.totalArenaEarnings || 0;
+  const avgPointsPerUser = globalStats?.avgPointsPerUser || 0;
+  const todaySignups = globalStats?.todaySignups || 0;
+  const todayMiningPoints = globalStats?.todayMiningPoints || 0;
+  const totalSessions = globalStats?.totalSessions || 0;
+  const totalSessionsArxMined = globalStats?.totalSessionsArxMined || 0;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -296,37 +307,73 @@ const AdminAnalytics = () => {
         </Button>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card p-6 space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Users</p>
-          <p className="text-4xl font-bold text-foreground">{formatNumber(totalUsers)}</p>
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-500 text-xs">
+      {/* Stats Row - Primary Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="glass-card p-4 space-y-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Users</p>
+          <p className="text-2xl font-bold text-foreground">{formatNumber(totalUsers)}</p>
+          <p className="text-xs text-green-500 flex items-center gap-1">
             <TrendingUp className="h-3 w-3" />
-            Registered users
-          </div>
-          <p className="text-sm text-muted-foreground">Total users on the platform</p>
+            +{todaySignups} today
+          </p>
         </div>
 
-        <div className="glass-card p-6 space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Active Miners</p>
-          <p className="text-4xl font-bold text-foreground">{formatNumber(activeMiners)}</p>
-          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
-            activeMiners > 0 
-              ? 'bg-green-500/10 text-green-500' 
-              : 'bg-muted text-muted-foreground'
-          }`}>
-            {activeMiners > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            Currently mining
-          </div>
-          <p className="text-sm text-muted-foreground">Users with active mining sessions</p>
+        <div className="glass-card p-4 space-y-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Active Miners</p>
+          <p className="text-2xl font-bold text-primary">{formatNumber(activeMiners)}</p>
+          <p className="text-xs text-muted-foreground">{totalSessions.toLocaleString()} total sessions</p>
         </div>
 
-        <div className="glass-card p-6 space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total ARX-P Mined</p>
-          <p className="text-4xl font-bold text-foreground">{formatNumber(totalArxMined)}</p>
-          <p className="text-sm text-muted-foreground mt-4">Cumulative mining rewards distributed</p>
-          <p className="text-sm text-muted-foreground">{remainingPercentage}% of supply remaining</p>
+        <div className="glass-card p-4 space-y-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total ARX-P</p>
+          <p className="text-2xl font-bold text-foreground">{formatNumber(totalArxMined)}</p>
+          <p className="text-xs text-muted-foreground">Avg: {formatNumber(avgPointsPerUser)}/user</p>
+        </div>
+
+        <div className="glass-card p-4 space-y-2">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Today's Mining</p>
+          <p className="text-2xl font-bold text-green-500">{formatNumber(todayMiningPoints)}</p>
+          <p className="text-xs text-muted-foreground">ARX-P mined today</p>
+        </div>
+      </div>
+
+      {/* Points Breakdown */}
+      <div className="glass-card p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <Zap className="h-4 w-4 text-primary" />
+          Points Distribution Breakdown
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Mining</p>
+            <p className="text-lg font-bold text-primary">{formatNumber(totalMiningPoints)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalMiningPoints / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Tasks</p>
+            <p className="text-lg font-bold text-blue-400">{formatNumber(totalTaskPoints)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalTaskPoints / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
+          <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Referrals</p>
+            <p className="text-lg font-bold text-purple-400">{formatNumber(totalReferralPoints)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalReferralPoints / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
+          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Social</p>
+            <p className="text-lg font-bold text-green-400">{formatNumber(totalSocialPoints)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalSocialPoints / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Check-ins</p>
+            <p className="text-lg font-bold text-amber-400">{formatNumber(totalCheckinPoints)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalCheckinPoints / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
+          <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <p className="text-[10px] text-muted-foreground uppercase">Arena</p>
+            <p className="text-lg font-bold text-orange-400">{formatNumber(totalArenaEarnings)}</p>
+            <p className="text-[10px] text-muted-foreground">{((totalArenaEarnings / totalArxMined) * 100 || 0).toFixed(1)}%</p>
+          </div>
         </div>
       </div>
 
