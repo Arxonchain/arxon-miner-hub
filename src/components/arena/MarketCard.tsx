@@ -67,29 +67,24 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
   if (variant === 'compact') {
     return (
       <motion.div
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        whileTap={{ scale: 0.98 }}
         onClick={onClick}
-        className="p-4 rounded-xl bg-card/50 border border-border/50 cursor-pointer hover:border-primary/30 transition-all"
+        className="p-3 rounded-xl bg-card/50 border border-border/40 cursor-pointer active:bg-secondary/50 transition-all"
       >
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground truncate">{market.title}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${categoryBadge.color}`}>
-                {categoryBadge.label}
-              </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {market.total_participants || 0}
-              </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-muted-foreground">{categoryBadge.label}</span>
+              <span className="text-[10px] text-muted-foreground">•</span>
+              <span className="text-[10px] text-muted-foreground">{market.total_participants || 0} voters</span>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-primary">{totalPool.toLocaleString()} ARX-P</p>
-            <p className="text-xs text-muted-foreground">{timeLeft}</p>
+          <div className="text-right flex-shrink-0">
+            <p className="text-xs font-bold text-primary">{totalPool >= 1000 ? `${(totalPool/1000).toFixed(0)}K` : totalPool}</p>
+            <p className="text-[10px] text-muted-foreground">{timeLeft}</p>
           </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </div>
       </motion.div>
     );
@@ -97,153 +92,125 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
 
   return (
     <motion.div
-      whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl border cursor-pointer transition-all ${
+      className={`relative overflow-hidden rounded-xl border cursor-pointer active:bg-secondary/30 transition-all ${
         userPosition 
           ? 'bg-primary/5 border-primary/30' 
-          : 'bg-card/80 border-border/50 hover:border-primary/30'
-      } ${variant === 'featured' ? 'p-6' : 'p-4'}`}
+          : 'bg-card/60 border-border/40'
+      } ${variant === 'featured' ? 'p-4' : 'p-3'}`}
     >
-      {/* Prize pool badge */}
+      {/* Prize pool badge - Compact */}
       {market.prize_pool > 0 && (
-        <div className="absolute top-3 right-3">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 animate-pulse">
-            <Gift className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs font-bold text-amber-400">
-              {market.prize_pool >= 1000000 
-                ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
-                : `${(market.prize_pool / 1000).toFixed(0)}K`} Pool
+        <div className="absolute top-2 right-2">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
+            <Gift className="w-3 h-3 text-amber-400" />
+            <span className="text-[10px] font-bold text-amber-400">
+              {market.prize_pool >= 1000 ? `${(market.prize_pool / 1000).toFixed(0)}K` : market.prize_pool}
             </span>
           </div>
         </div>
       )}
 
-      {/* Category & Status */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`text-xs px-2 py-0.5 rounded-full ${categoryBadge.color}`}>
-          {categoryBadge.label}
-        </span>
-        {isEnded ? (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            Resolved
-          </span>
-        ) : isUpcoming ? (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
-            Upcoming
-          </span>
-        ) : (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            Live
-          </span>
-        )}
-        {userPosition && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary flex items-center gap-1">
-            <Zap className="w-3 h-3" />
-            Staked
-          </span>
-        )}
-      </div>
-
-      {/* Title */}
-      <h3 className={`font-bold text-foreground mb-2 ${variant === 'featured' ? 'text-xl' : 'text-base'}`}>
-        {market.title}
-      </h3>
-      
-      {variant === 'featured' && market.description && (
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-          {market.description}
-        </p>
-      )}
-
-      {/* Odds Bars */}
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium truncate max-w-[120px]" style={{ color: market.side_a_color }}>
-                {market.side_a_name}
+      {/* Header Row */}
+      <div className="flex items-start gap-2 mb-2">
+        <div className="flex-1 min-w-0 pr-14">
+          {/* Status indicators inline */}
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${categoryBadge.color}`}>
+              {categoryBadge.label}
+            </span>
+            {isEnded ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">Done</span>
+            ) : isUpcoming ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Soon</span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 flex items-center gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-green-500" />
+                Live
               </span>
-              <span className="text-xs font-bold" style={{ color: market.side_a_color }}>
-                {sideAPercent.toFixed(0)}%
+            )}
+            {userPosition && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                <Zap className="w-2.5 h-2.5 inline" />
               </span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: market.side_a_color }}
-                initial={{ width: 0 }}
-                animate={{ width: `${sideAPercent}%` }}
-                transition={{ duration: 0.5 }}
-              />
-            </div>
+            )}
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium truncate max-w-[120px]" style={{ color: market.side_b_color }}>
-                {market.side_b_name}
-              </span>
-              <span className="text-xs font-bold" style={{ color: market.side_b_color }}>
-                {sideBPercent.toFixed(0)}%
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: market.side_b_color }}
-                initial={{ width: 0 }}
-                animate={{ width: `${sideBPercent}%` }}
-                transition={{ duration: 0.5 }}
-              />
-            </div>
-          </div>
+          {/* Title */}
+          <h3 className={`font-bold text-foreground leading-tight ${variant === 'featured' ? 'text-base' : 'text-sm'}`}>
+            {market.title}
+          </h3>
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <Trophy className="w-3.5 h-3.5 text-primary" />
-            {totalPool.toLocaleString()} ARX-P
+      {/* Compact Odds Display */}
+      <div className="space-y-1.5 mb-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium truncate max-w-[40%]" style={{ color: market.side_a_color }}>
+            {market.side_a_name}
           </span>
-          <span className="flex items-center gap-1">
-            <Users className="w-3.5 h-3.5" />
-            {market.total_participants || 0} voters
+          <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
+            <motion.div
+              className="h-full"
+              style={{ backgroundColor: market.side_a_color }}
+              initial={{ width: '50%' }}
+              animate={{ width: `${sideAPercent}%` }}
+            />
+          </div>
+          <span className="font-bold text-[11px]" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium truncate max-w-[40%]" style={{ color: market.side_b_color }}>
+            {market.side_b_name}
+          </span>
+          <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
+            <motion.div
+              className="h-full"
+              style={{ backgroundColor: market.side_b_color }}
+              initial={{ width: '50%' }}
+              animate={{ width: `${sideBPercent}%` }}
+            />
+          </div>
+          <span className="font-bold text-[11px]" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
+        </div>
+      </div>
+
+      {/* Footer Stats - Single line */}
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-0.5">
+            <Trophy className="w-3 h-3 text-primary" />
+            {totalPool >= 1000 ? `${(totalPool/1000).toFixed(0)}K` : totalPool}
+          </span>
+          <span className="flex items-center gap-0.5">
+            <Users className="w-3 h-3" />
+            {market.total_participants || 0}
           </span>
         </div>
-        <span className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
+        <span className="flex items-center gap-0.5">
+          <Clock className="w-3 h-3" />
           {timeLeft}
         </span>
       </div>
 
-      {/* Winner badge for ended markets */}
+      {/* Winner - Compact */}
       {isEnded && market.winner_side && (
-        <div className="mt-3 pt-3 border-t border-border/30">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-bold text-amber-500">
-              Winner: {market.winner_side === 'a' ? market.side_a_name : market.side_b_name}
-            </span>
-          </div>
+        <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center gap-1.5">
+          <Trophy className="w-3 h-3 text-amber-500" />
+          <span className="text-[11px] font-bold text-amber-500">
+            {market.winner_side === 'a' ? market.side_a_name : market.side_b_name} won
+          </span>
         </div>
       )}
 
-      {/* Your position */}
+      {/* User position - Compact */}
       {userPosition && (
-        <div className="mt-3 pt-3 border-t border-primary/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Your stake:</span>
-            <span className="text-sm font-bold text-primary">
-              {userPosition.power_spent.toLocaleString()} ARX-P on {userPosition.side === 'a' ? market.side_a_name : market.side_b_name}
-            </span>
-          </div>
+        <div className="mt-2 pt-2 border-t border-primary/20 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Your stake</span>
+          <span className="text-[11px] font-bold text-primary">
+            {userPosition.power_spent >= 1000 ? `${(userPosition.power_spent/1000).toFixed(1)}K` : userPosition.power_spent} on {userPosition.side === 'a' ? market.side_a_name : market.side_b_name}
+          </span>
         </div>
       )}
     </motion.div>

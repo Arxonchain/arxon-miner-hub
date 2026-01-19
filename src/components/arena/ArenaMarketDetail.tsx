@@ -125,102 +125,99 @@ const ArenaMarketDetail = ({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      {/* Header - Compact */}
+      <header className="sticky top-0 z-20 flex items-center justify-between px-3 py-2.5 border-b border-border/50 bg-background/95 backdrop-blur-xl">
         <button 
           onClick={onClose}
-          className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+          className="p-1.5 -ml-1 text-muted-foreground active:text-foreground transition-colors"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
         
-        <h1 className="font-bold text-foreground truncate max-w-[200px]">{market.title}</h1>
+        <h1 className="font-bold text-sm text-foreground truncate max-w-[180px]">{market.title}</h1>
         
         <button 
           onClick={handleShare}
-          className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+          className="p-1.5 -mr-1 text-muted-foreground active:text-foreground transition-colors"
         >
-          <Share2 className="w-5 h-5" />
+          <Share2 className="w-4 h-4" />
         </button>
       </header>
 
-      {/* Content */}
-      <div className="px-4 py-6 space-y-5">
-        {/* Status & Timer */}
+      {/* Content - Compact spacing */}
+      <div className="px-3 py-4 space-y-3">
+        {/* Status & Timer - Single row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {isEnded ? (
-              <span className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
+              <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
                 Resolved
               </span>
             ) : isUpcoming ? (
-              <span className="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Starting in {timeLeft}
+              <span className="text-[10px] px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
+                Starts {timeLeft}
               </span>
             ) : (
-              <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
+              <span className="text-[10px] px-2 py-1 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Live • {timeLeft}
+                {timeLeft}
               </span>
             )}
           </div>
           {market.prize_pool > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40">
-              <Gift className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-black text-amber-400">
-                {market.prize_pool >= 1000000 
-                  ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
-                  : `${(market.prize_pool / 1000).toFixed(0)}K`} Prize Pool 🔥
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
+              <Gift className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] font-bold text-amber-400">
+                {market.prize_pool >= 1000 ? `${(market.prize_pool / 1000).toFixed(0)}K` : market.prize_pool} Pool
               </span>
             </div>
           )}
         </div>
 
-        {/* Market Title & Description */}
+        {/* Title & Description */}
         <div>
-          <h2 className="text-xl font-black text-foreground mb-2">{market.title}</h2>
+          <h2 className="text-lg font-black text-foreground leading-tight">{market.title}</h2>
           {market.description && (
-            <p className="text-sm text-muted-foreground">{market.description}</p>
+            <p className="text-xs text-muted-foreground mt-1">{market.description}</p>
           )}
         </div>
 
-        {/* Detail Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Tab Pills - Compact */}
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setActiveDetailTab('pools')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
               activeDetailTab === 'pools'
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
             }`}
           >
-            <Trophy className="w-4 h-4" />
-            Pools & Stats
+            <Trophy className="w-3.5 h-3.5" />
+            Pools
           </button>
           <button
             onClick={() => setActiveDetailTab('explorer')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
               activeDetailTab === 'explorer'
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
             }`}
           >
-            <Users className="w-4 h-4" />
-            Vote Explorer
+            <Users className="w-3.5 h-3.5" />
+            Votes
           </button>
           {isLive && !userPosition && (
             <button
               onClick={() => setActiveDetailTab('vote')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
                 activeDetailTab === 'vote'
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
               }`}
             >
-              <Zap className="w-4 h-4" />
-              Cast Vote
+              <Zap className="w-3.5 h-3.5" />
+              Vote
             </button>
           )}
         </div>
@@ -228,7 +225,7 @@ const ArenaMarketDetail = ({
         {/* Pools Tab */}
         {activeDetailTab === 'pools' && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <BattlePoolDisplay market={market} />
@@ -238,33 +235,35 @@ const ArenaMarketDetail = ({
         {/* Vote Explorer Tab */}
         {activeDetailTab === 'explorer' && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <BattleVoteExplorer market={market} currentUserId={user?.id} />
           </motion.div>
         )}
 
-        {/* Already Voted / Winner Display */}
+        {/* Already Voted Display */}
         {userPosition && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="p-4 rounded-xl bg-primary/10 border border-primary/30"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-3 rounded-xl bg-primary/10 border border-primary/30"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Your Position</p>
-                <p className="text-lg font-bold text-primary">
-                  {userPosition.power_spent.toLocaleString()} ARX-P
+                <p className="text-[10px] text-muted-foreground mb-0.5">Your Position</p>
+                <p className="text-base font-bold text-primary">
+                  {userPosition.power_spent >= 1000 
+                    ? `${(userPosition.power_spent / 1000).toFixed(1)}K` 
+                    : userPosition.power_spent.toLocaleString()} ARX-P
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">
                   on {userPosition.side === 'a' ? market.side_a_name : market.side_b_name}
                 </p>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/20">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-primary">+25% Boost Active</span>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/20">
+                <Zap className="w-3 h-3 text-primary" />
+                <span className="text-[10px] font-bold text-primary">+25% Boost</span>
               </div>
             </div>
           </motion.div>
@@ -272,15 +271,15 @@ const ArenaMarketDetail = ({
 
         {isEnded && market.winner_side && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30"
           >
-            <div className="flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-amber-500" />
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-500" />
               <div>
-                <p className="text-xs text-muted-foreground">Winner</p>
-                <p className="text-lg font-bold text-amber-500">
+                <p className="text-[10px] text-muted-foreground">Winner</p>
+                <p className="text-sm font-bold text-amber-500">
                   {market.winner_side === 'a' ? market.side_a_name : market.side_b_name}
                 </p>
               </div>
@@ -288,20 +287,18 @@ const ArenaMarketDetail = ({
           </motion.div>
         )}
 
-        {/* Side Selection - Vote Tab */}
+        {/* Side Selection - Vote Tab - Compact */}
         {activeDetailTab === 'vote' && isLive && !userPosition && (
           <>
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">Cast your prediction vote:</p>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Select your prediction:</p>
               
               {/* Side A */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedSide('a')}
-                className={`w-full p-4 rounded-xl border transition-all ${
-                  selectedSide === 'a'
-                    ? 'border-2'
-                    : 'border-border/50 hover:border-primary/30'
+                className={`w-full p-3 rounded-xl border transition-all ${
+                  selectedSide === 'a' ? 'border-2' : 'border-border/40'
                 }`}
                 style={{ 
                   borderColor: selectedSide === 'a' ? market.side_a_color : undefined,
@@ -309,29 +306,11 @@ const ArenaMarketDetail = ({
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: market.side_a_color }}
-                    />
-                    <span className="font-bold text-foreground">{market.side_a_name}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: market.side_a_color }} />
+                    <span className="font-bold text-sm text-foreground">{market.side_a_name}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold" style={{ color: market.side_a_color }}>
-                      {sideAPercent.toFixed(0)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {market.side_a_power.toLocaleString()} ARX-P
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: market.side_a_color }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${sideAPercent}%` }}
-                  />
+                  <span className="text-sm font-bold" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
                 </div>
               </motion.button>
 
@@ -339,10 +318,8 @@ const ArenaMarketDetail = ({
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedSide('b')}
-                className={`w-full p-4 rounded-xl border transition-all ${
-                  selectedSide === 'b'
-                    ? 'border-2'
-                    : 'border-border/50 hover:border-primary/30'
+                className={`w-full p-3 rounded-xl border transition-all ${
+                  selectedSide === 'b' ? 'border-2' : 'border-border/40'
                 }`}
                 style={{ 
                   borderColor: selectedSide === 'b' ? market.side_b_color : undefined,
@@ -350,58 +327,40 @@ const ArenaMarketDetail = ({
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: market.side_b_color }}
-                    />
-                    <span className="font-bold text-foreground">{market.side_b_name}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: market.side_b_color }} />
+                    <span className="font-bold text-sm text-foreground">{market.side_b_name}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold" style={{ color: market.side_b_color }}>
-                      {sideBPercent.toFixed(0)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {market.side_b_power.toLocaleString()} ARX-P
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: market.side_b_color }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${sideBPercent}%` }}
-                  />
+                  <span className="text-sm font-bold" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
                 </div>
               </motion.button>
             </div>
 
-            {/* Stake Amount */}
+            {/* Stake Amount - Compact */}
             {selectedSide && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
+                className="space-y-3"
               >
-                <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 border border-border/30">
-                  <span className="text-sm text-muted-foreground">Available</span>
-                  <span className="font-bold text-foreground">{availablePoints.toLocaleString()} ARX-P</span>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40 border border-border/30">
+                  <span className="text-xs text-muted-foreground">Available</span>
+                  <span className="text-sm font-bold text-foreground">{availablePoints.toLocaleString()} ARX-P</span>
                 </div>
 
-                {/* Quick Stakes */}
-                <div className="grid grid-cols-4 gap-2">
+                {/* Quick Stakes - Compact */}
+                <div className="grid grid-cols-4 gap-1.5">
                   {stakeTiers.map((tier) => (
                     <button
                       key={tier.label}
                       onClick={() => setStakeAmount(Math.max(tier.value, 100))}
                       disabled={tier.value < 100}
-                      className={`py-2.5 rounded-xl font-bold text-sm transition-all ${
+                      className={`py-2 rounded-lg font-bold text-xs transition-all ${
                         stakeAmount === tier.value
                           ? 'bg-primary text-primary-foreground'
                           : tier.value < 100
-                            ? 'bg-secondary/30 text-muted-foreground cursor-not-allowed'
-                            : 'bg-secondary/50 text-foreground hover:bg-secondary'
+                            ? 'bg-secondary/20 text-muted-foreground/50'
+                            : 'bg-secondary/40 text-foreground active:bg-secondary'
                       }`}
                     >
                       {tier.label}
@@ -409,7 +368,7 @@ const ArenaMarketDetail = ({
                   ))}
                 </div>
 
-                {/* Slider */}
+                {/* Slider - Compact */}
                 <div>
                   <input
                     type="range"
@@ -417,58 +376,53 @@ const ArenaMarketDetail = ({
                     max={Math.max(availablePoints, 100)}
                     value={Math.max(stakeAmount, 100)}
                     onChange={(e) => setStakeAmount(Number(e.target.value))}
-                    className="w-full h-2 rounded-full bg-secondary appearance-none cursor-pointer accent-primary"
+                    className="w-full h-1.5 rounded-full bg-secondary appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                    <span>100</span>
-                    <span className="font-bold text-foreground text-base">{stakeAmount.toLocaleString()} ARX-P</span>
-                    <span>{availablePoints.toLocaleString()}</span>
+                  <div className="flex justify-between items-center mt-1.5">
+                    <span className="text-[10px] text-muted-foreground">100</span>
+                    <span className="font-bold text-sm text-foreground">{stakeAmount.toLocaleString()} ARX-P</span>
+                    <span className="text-[10px] text-muted-foreground">{availablePoints >= 1000 ? `${(availablePoints/1000).toFixed(0)}K` : availablePoints}</span>
                   </div>
                 </div>
 
-                {/* Potential Returns */}
+                {/* Potential Returns - Compact */}
                 {potentialReturns && stakeAmount >= 100 && (
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-green-500" />
-                          <span className="text-sm font-bold text-green-500">IF YOU WIN</span>
-                          {potentialReturns.isUnderdog && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">UNDERDOG</span>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{potentialReturns.multiplier.toFixed(1)}x</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+                      <div className="flex items-center gap-1 mb-1">
+                        <TrendingUp className="w-3 h-3 text-green-500" />
+                        <span className="text-[10px] font-bold text-green-500">WIN</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{potentialReturns.multiplier.toFixed(1)}x</span>
                       </div>
-                      <p className="text-2xl font-black text-green-500">
-                        +{potentialReturns.totalWin.toLocaleString()} ARX-P
+                      <p className="text-lg font-black text-green-500">
+                        +{potentialReturns.totalWin >= 1000 ? `${(potentialReturns.totalWin/1000).toFixed(1)}K` : potentialReturns.totalWin}
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="w-4 h-4 text-red-500" />
-                        <span className="text-sm font-bold text-red-500">IF YOU LOSE</span>
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+                      <div className="flex items-center gap-1 mb-1">
+                        <AlertTriangle className="w-3 h-3 text-red-500" />
+                        <span className="text-[10px] font-bold text-red-500">LOSE</span>
                       </div>
-                      <p className="text-2xl font-black text-red-500">
-                        -{potentialReturns.totalLoss.toLocaleString()} ARX-P
+                      <p className="text-lg font-black text-red-500">
+                        -{potentialReturns.totalLoss >= 1000 ? `${(potentialReturns.totalLoss/1000).toFixed(1)}K` : potentialReturns.totalLoss}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Confirm Button */}
+                {/* Confirm Button - Compact */}
                 <button
                   onClick={handleConfirmBet}
                   disabled={stakeAmount < 100 || availablePoints < 100}
-                  className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-primary to-accent text-white active:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Fingerprint className="w-5 h-5" />
-                  {stakeAmount < 100 ? 'Min 100 ARX-P' : 'Verify & Cast Vote'}
+                  <Fingerprint className="w-4 h-4" />
+                  {stakeAmount < 100 ? 'Min 100 ARX-P' : 'Verify & Vote'}
                 </button>
 
-                <p className="text-xs text-muted-foreground text-center">
-                  ⚠️ Stakes are locked until the prediction resolves
+                <p className="text-[10px] text-muted-foreground text-center">
+                  ⚠️ Stakes locked until resolution
                 </p>
               </motion.div>
             )}

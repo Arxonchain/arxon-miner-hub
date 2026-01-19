@@ -17,28 +17,21 @@ const tabs = [
 
 const ArenaBottomNav = ({ activeTab, onTabChange }: ArenaBottomNavProps) => {
   return (
-    <div className="border-t border-border bg-card/80 backdrop-blur-xl">
-      <div className="flex items-center justify-between px-2">
+    <div className="border-t border-border/50 bg-background/95 backdrop-blur-xl safe-area-pb">
+      <div className="flex items-center justify-around px-1 py-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`
-              relative flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors
-              ${activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}
+              relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-lg transition-all
+              ${activeTab === tab.id 
+                ? 'text-primary bg-primary/10' 
+                : 'text-muted-foreground active:bg-secondary/50'}
             `}
           >
-            <tab.icon className="w-5 h-5" />
-            <span className="text-xs font-medium truncate">{tab.label}</span>
-            
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="activeTabIndicator"
-                className="absolute top-0 left-0 right-0 h-0.5 bg-primary"
-                initial={false}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
-            )}
+            <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-primary' : ''}`} />
+            <span className="text-[10px] font-medium">{tab.label}</span>
           </button>
         ))}
       </div>

@@ -24,20 +24,20 @@ const BattlePoolDisplay = ({ market }: BattlePoolDisplayProps) => {
   const sideBMultiplier = calculateMultiplier(market.side_b_power, market.side_a_power);
 
   return (
-    <div className="space-y-4">
-      {/* Dual Pool Cards */}
-      <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-3">
+      {/* Dual Pool Cards - Compact */}
+      <div className="grid grid-cols-2 gap-2">
         {/* Fixed Prize Pool */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30"
+          className="p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/30"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-bold text-amber-400 uppercase">Fixed Prize Pool</span>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[10px] font-bold text-amber-400 uppercase">Prize Pool</span>
           </div>
-          <p className="text-xl font-black text-amber-400">
+          <p className="text-lg font-black text-amber-400">
             {market.prize_pool >= 1000000 
               ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
               : market.prize_pool >= 1000
@@ -45,27 +45,21 @@ const BattlePoolDisplay = ({ market }: BattlePoolDisplayProps) => {
                 : market.prize_pool.toLocaleString()
             }
           </p>
-          <p className="text-xs text-muted-foreground">ARX-P</p>
-          {market.bonus_percentage && (
-            <div className="mt-2 flex items-center gap-1">
-              <Flame className="w-3 h-3 text-orange-400" />
-              <span className="text-xs font-bold text-orange-400">{market.bonus_percentage}% Bonus</span>
-            </div>
-          )}
+          <p className="text-[10px] text-muted-foreground">ARX-P</p>
         </motion.div>
 
         {/* Staking Pool */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-primary/10 via-accent/10 to-primary/10 border border-primary/30"
+          transition={{ delay: 0.05 }}
+          className="p-3 rounded-xl bg-gradient-to-br from-primary/10 to-accent/5 border border-primary/30"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-primary uppercase">Staking Pool</span>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Target className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] font-bold text-primary uppercase">Staked</span>
           </div>
-          <p className="text-xl font-black text-primary">
+          <p className="text-lg font-black text-primary">
             {totalStaked >= 1000000 
               ? `${(totalStaked / 1000000).toFixed(1)}M` 
               : totalStaked >= 1000
@@ -73,77 +67,43 @@ const BattlePoolDisplay = ({ market }: BattlePoolDisplayProps) => {
                 : totalStaked.toLocaleString()
             }
           </p>
-          <p className="text-xs text-muted-foreground">ARX-P Staked</p>
-          <div className="mt-2 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-green-400" />
-            <span className="text-xs font-bold text-green-400">
-              {market.total_participants || 0} Voters
-            </span>
-          </div>
+          <p className="text-[10px] text-muted-foreground">{market.total_participants || 0} voters</p>
         </motion.div>
       </div>
 
-      {/* Team Power Distribution */}
-      <div className="p-4 rounded-xl bg-secondary/30 border border-border/30">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-center flex-1">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: market.side_a_color }}
-              />
-              <span className="font-bold text-sm" style={{ color: market.side_a_color }}>
-                {market.side_a_name}
-              </span>
-            </div>
-            <p className="text-lg font-black text-foreground">
-              {market.side_a_power.toLocaleString()}
-            </p>
-            <p className="text-xs text-muted-foreground">{sideAPercent.toFixed(1)}%</p>
-            <span className="text-xs px-2 py-0.5 mt-1 inline-block rounded-full bg-muted text-muted-foreground">
-              {sideAMultiplier.toFixed(1)}x
+      {/* Team Distribution - Compact */}
+      <div className="p-3 rounded-xl bg-secondary/20 border border-border/30">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-center">
+            <span className="text-xs font-bold" style={{ color: market.side_a_color }}>
+              {market.side_a_name}
             </span>
+            <p className="text-sm font-black text-foreground">{sideAPercent.toFixed(0)}%</p>
+            <span className="text-[10px] text-muted-foreground">{sideAMultiplier.toFixed(1)}x</span>
           </div>
-
-          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-background/50 flex items-center justify-center border border-border/50">
-            <Flame className="w-5 h-5 text-orange-500" />
-          </div>
-
-          <div className="text-center flex-1">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className="font-bold text-sm" style={{ color: market.side_b_color }}>
-                {market.side_b_name}
-              </span>
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: market.side_b_color }}
-              />
-            </div>
-            <p className="text-lg font-black text-foreground">
-              {market.side_b_power.toLocaleString()}
-            </p>
-            <p className="text-xs text-muted-foreground">{sideBPercent.toFixed(1)}%</p>
-            <span className="text-xs px-2 py-0.5 mt-1 inline-block rounded-full bg-muted text-muted-foreground">
-              {sideBMultiplier.toFixed(1)}x
+          
+          <Flame className="w-4 h-4 text-orange-500" />
+          
+          <div className="text-center">
+            <span className="text-xs font-bold" style={{ color: market.side_b_color }}>
+              {market.side_b_name}
             </span>
+            <p className="text-sm font-black text-foreground">{sideBPercent.toFixed(0)}%</p>
+            <span className="text-[10px] text-muted-foreground">{sideBMultiplier.toFixed(1)}x</span>
           </div>
         </div>
 
-        {/* Visual Power Bar */}
-        <div className="h-3 rounded-full overflow-hidden bg-muted flex">
+        {/* Power Bar */}
+        <div className="h-2 rounded-full overflow-hidden bg-muted flex">
           <motion.div
             className="h-full"
             style={{ backgroundColor: market.side_a_color }}
-            initial={{ width: '50%' }}
             animate={{ width: `${sideAPercent}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
           />
           <motion.div
             className="h-full"
             style={{ backgroundColor: market.side_b_color }}
-            initial={{ width: '50%' }}
             animate={{ width: `${sideBPercent}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
           />
         </div>
       </div>
