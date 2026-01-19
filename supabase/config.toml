@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.backfill-uncredited-sessions]
 verify_jwt = false
+
+[functions.auto-resolve-battles]
+verify_jwt = false
