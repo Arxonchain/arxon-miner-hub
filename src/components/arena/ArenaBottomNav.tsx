@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { BookOpen, Trophy, Gift, ListTodo } from 'lucide-react';
+import { LayoutGrid, Trophy, Wallet, Flame } from 'lucide-react';
 
-export type ArenaTab = 'rules' | 'rankings' | 'prizes' | 'vote';
+export type ArenaTab = 'markets' | 'leaderboard' | 'bets' | 'vote';
 
 interface ArenaBottomNavProps {
   activeTab: ArenaTab;
@@ -9,10 +9,10 @@ interface ArenaBottomNavProps {
 }
 
 const tabs = [
-  { id: 'rules' as const, label: 'Battle Rules', icon: BookOpen },
-  { id: 'rankings' as const, label: 'My Rankings', icon: Trophy },
-  { id: 'prizes' as const, label: 'Prize Pool', icon: Gift },
-  { id: 'vote' as const, label: 'Vote Now', icon: ListTodo },
+  { id: 'markets' as const, label: 'Markets', icon: LayoutGrid },
+  { id: 'leaderboard' as const, label: 'Leaderboard', icon: Trophy },
+  { id: 'bets' as const, label: 'My Bets', icon: Wallet },
+  { id: 'vote' as const, label: 'Battle', icon: Flame },
 ];
 
 const ArenaBottomNav = ({ activeTab, onTabChange }: ArenaBottomNavProps) => {
