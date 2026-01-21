@@ -11,6 +11,7 @@ import {
   Menu,
   CalendarDays,
   Scale,
+  Trophy,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { icon: Users, label: "Users & Miners", path: "/admin/users" },
   { icon: CalendarDays, label: "Daily Signups", path: "/admin/signups" },
   { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
+  { icon: Trophy, label: "Arena Markets", path: "/admin/arena" },
   { icon: Scale, label: "Reconciliation", path: "/admin/reconciliation" },
 ];
 

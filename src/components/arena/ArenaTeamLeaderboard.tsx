@@ -32,7 +32,6 @@ const ArenaTeamLeaderboard = ({
 
   const alphaTeam = getSortedTeam('alpha');
   const omegaTeam = getSortedTeam('omega');
-  const currentTeam = activeTeam === 'alpha' ? alphaTeam : omegaTeam;
 
   // Team stats
   const alphaStats = {
@@ -40,6 +39,7 @@ const ArenaTeamLeaderboard = ({
     totalProfit: alphaTeam.reduce((sum, e) => sum + (e.net_profit || 0), 0),
     members: alphaTeam.length,
     totalWins: alphaTeam.reduce((sum, e) => sum + (e.total_wins || 0), 0),
+    bestStreak: Math.max(...alphaTeam.map(e => e.best_win_streak || 0), 0),
   };
 
   const omegaStats = {
@@ -47,6 +47,7 @@ const ArenaTeamLeaderboard = ({
     totalProfit: omegaTeam.reduce((sum, e) => sum + (e.net_profit || 0), 0),
     members: omegaTeam.length,
     totalWins: omegaTeam.reduce((sum, e) => sum + (e.total_wins || 0), 0),
+    bestStreak: Math.max(...omegaTeam.map(e => e.best_win_streak || 0), 0),
   };
 
   // Find current user's rank in their team
@@ -70,7 +71,6 @@ const ArenaTeamLeaderboard = ({
   };
 
   const getRankBg = (rank: number, isAlpha: boolean) => {
-    const baseColor = isAlpha ? 'cyan' : 'purple';
     switch (rank) {
       case 1:
         return 'bg-gradient-to-r from-amber-500/20 to-transparent border-amber-500/30';
@@ -85,6 +85,13 @@ const ArenaTeamLeaderboard = ({
 
   const getScore = (entry: EarningsLeaderboardEntry) => {
     return (entry.total_staked || 0) + (entry.net_profit || 0);
+  };
+
+  const getStreakBadge = (streak: number) => {
+    if (streak >= 10) return { text: '🔥 10+', color: 'text-red-500 bg-red-500/20' };
+    if (streak >= 5) return { text: '🔥 5+', color: 'text-orange-500 bg-orange-500/20' };
+    if (streak >= 3) return { text: '🔥 3', color: 'text-amber-500 bg-amber-500/20' };
+    return null;
   };
 
   return (
@@ -133,7 +140,11 @@ const ArenaTeamLeaderboard = ({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Score</p>
+              {(userEntry.current_win_streak || 0) >= 3 && (
+                <span className={`text-xs px-2 py-1 rounded-full ${getStreakBadge(userEntry.current_win_streak || 0)?.color}`}>
+                  {getStreakBadge(userEntry.current_win_streak || 0)?.text} Streak
+                </span>
+              )}
               <p className={`text-lg font-bold ${
                 userTeam === 'alpha' ? 'text-cyan-500' : 'text-purple-500'
               }`}>
@@ -141,7 +152,7 @@ const ArenaTeamLeaderboard = ({
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="grid grid-cols-4 gap-2 mt-4">
             <div className="text-center">
               <p className="text-lg font-bold text-foreground">{(userEntry.total_staked || 0).toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Staked</p>
@@ -155,6 +166,10 @@ const ArenaTeamLeaderboard = ({
             <div className="text-center">
               <p className="text-lg font-bold text-amber-500">{userEntry.total_wins || 0}</p>
               <p className="text-xs text-muted-foreground">Wins</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-orange-500">{userEntry.current_win_streak || 0}</p>
+              <p className="text-xs text-muted-foreground">Streak</p>
             </div>
           </div>
         </motion.div>
