@@ -32,6 +32,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminControls from "./pages/admin/AdminControls";
 import AdminSignups from "./pages/admin/AdminSignups";
 import AdminReconciliation from "./pages/admin/AdminReconciliation";
+import AdminArena from "./pages/admin/AdminArena";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,6 +96,7 @@ const App = () => (
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="signups" element={<AdminSignups />} />
                 <Route path="controls" element={<AdminControls />} />
+                <Route path="arena" element={<AdminArena />} />
                 <Route path="reconciliation" element={<AdminReconciliation />} />
               </Route>
 

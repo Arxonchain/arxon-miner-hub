@@ -43,12 +43,15 @@ export interface EarningsLeaderboardEntry {
   username: string | null;
   avatar_url: string | null;
   club: 'alpha' | 'omega' | null;
+  current_win_streak: number;
+  best_win_streak: number;
   total_battles: number;
   total_wins: number;
   total_staked: number;
   total_earned: number;
   total_bonus_earned: number;
   total_pool_share_earned: number;
+  total_streak_bonus: number;
   net_profit: number;
   win_rate: number;
 }

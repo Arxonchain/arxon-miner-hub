@@ -135,18 +135,53 @@ serve(async (req) => {
 
         let totalRewardsDistributed = 0;
 
-        // Process winners - they get stake back + multiplied bonus + share of loser pool
+        // Process winners - they get stake back + multiplied bonus + share of loser pool + streak bonus
         for (const vote of winningVotes) {
+          // Get current win streak for this user
+          const { data: memberData } = await supabase
+            .from("arena_members")
+            .select("current_win_streak, best_win_streak")
+            .eq("user_id", vote.user_id)
+            .single();
+
+          const currentStreak = (memberData?.current_win_streak || 0) + 1;
+          const bestStreak = Math.max(currentStreak, memberData?.best_win_streak || 0);
+
+          // Calculate streak bonus (3+ wins = 25%, 5+ = 50%, 10+ = 100%)
+          let streakBonusPercent = 0;
+          if (currentStreak >= 10) {
+            streakBonusPercent = 100;
+          } else if (currentStreak >= 5) {
+            streakBonusPercent = 50;
+          } else if (currentStreak >= 3) {
+            streakBonusPercent = 25;
+          }
+
           const stakeReturn = vote.power_spent; // Original stake back
-          const stakeBonus = vote.power_spent * (multiplier - 1); // Multiplier bonus (minus 1 since we already return stake)
+          const stakeBonus = vote.power_spent * (multiplier - 1); // Multiplier bonus
           const loserPoolShare = winningPool > 0 
             ? (vote.power_spent / winningPool) * losingPool 
             : 0;
           
-          const totalReward = stakeReturn + stakeBonus + loserPoolShare;
+          // Apply streak bonus to total earnings
+          const baseReward = stakeReturn + stakeBonus + loserPoolShare;
+          const streakBonus = baseReward * (streakBonusPercent / 100);
+          const totalReward = baseReward + streakBonus;
           totalRewardsDistributed += totalReward;
 
-          // Record the reward
+          console.log(`User ${vote.user_id}: Streak ${currentStreak}, Bonus ${streakBonusPercent}%, Reward ${totalReward}`);
+
+          // Update win streak
+          await supabase
+            .from("arena_members")
+            .update({
+              current_win_streak: currentStreak,
+              best_win_streak: bestStreak,
+              total_wins: (memberData as any)?.total_wins ? (memberData as any).total_wins + 1 : 1,
+            })
+            .eq("user_id", vote.user_id);
+
+          // Record the reward with streak bonus
           await supabase.from("arena_staking_rewards").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
@@ -158,10 +193,22 @@ serve(async (req) => {
             is_winner: true,
           });
 
+          // Record in arena_earnings with streak bonus
+          await supabase.from("arena_earnings").insert({
+            battle_id: battle.id,
+            user_id: vote.user_id,
+            stake_amount: vote.power_spent,
+            bonus_earned: stakeBonus,
+            pool_share_earned: loserPoolShare,
+            streak_bonus: streakBonus,
+            total_earned: totalReward,
+            is_winner: true,
+          });
+
           // Add ARX-P back to winner's balance
           await supabase.rpc("increment_user_points", {
             p_user_id: vote.user_id,
-            p_amount: Math.min(totalReward, 500), // Capped per RPC call
+            p_amount: Math.min(totalReward, 500),
             p_type: "mining",
           });
 
@@ -177,13 +224,14 @@ serve(async (req) => {
             remainingReward -= 500;
           }
 
-          // Award winner badge
+          // Award winner badge with streak info
           const sideName = winnerSide === "a" ? battle.side_a_name : battle.side_b_name;
+          const streakText = currentStreak >= 3 ? ` 🔥 ${currentStreak}-Win Streak!` : "";
           await supabase.from("user_badges").insert({
             user_id: vote.user_id,
             badge_type: "winner",
             badge_name: `${sideName} Champion`,
-            description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}" (${multiplier.toFixed(1)}x return)`,
+            description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}" (${multiplier.toFixed(1)}x return)${streakText}`,
             battle_id: battle.id,
           });
 
@@ -199,8 +247,14 @@ serve(async (req) => {
           });
         }
 
-        // Record loser entries (they get nothing back)
+        // Process losers - reset their streak, record loss
         for (const vote of losingVotes) {
+          // Reset win streak
+          await supabase
+            .from("arena_members")
+            .update({ current_win_streak: 0 })
+            .eq("user_id", vote.user_id);
+
           await supabase.from("arena_staking_rewards").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
@@ -209,6 +263,18 @@ serve(async (req) => {
             stake_return: 0,
             loser_pool_share: 0,
             total_reward: 0,
+            is_winner: false,
+          });
+
+          // Record loss in arena_earnings
+          await supabase.from("arena_earnings").insert({
+            battle_id: battle.id,
+            user_id: vote.user_id,
+            stake_amount: vote.power_spent,
+            bonus_earned: 0,
+            pool_share_earned: 0,
+            streak_bonus: 0,
+            total_earned: 0,
             is_winner: false,
           });
 

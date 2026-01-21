@@ -232,6 +232,7 @@ export type Database = {
           is_winner: boolean
           pool_share_earned: number
           stake_amount: number
+          streak_bonus: number
           total_earned: number
           user_id: string
         }
@@ -243,6 +244,7 @@ export type Database = {
           is_winner?: boolean
           pool_share_earned?: number
           stake_amount?: number
+          streak_bonus?: number
           total_earned?: number
           user_id: string
         }
@@ -254,6 +256,7 @@ export type Database = {
           is_winner?: boolean
           pool_share_earned?: number
           stake_amount?: number
+          streak_bonus?: number
           total_earned?: number
           user_id?: string
         }
@@ -293,7 +296,9 @@ export type Database = {
       }
       arena_members: {
         Row: {
+          best_win_streak: number
           club: string
+          current_win_streak: number
           fingerprint_hash: string | null
           fingerprint_verified: boolean
           id: string
@@ -303,7 +308,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          best_win_streak?: number
           club: string
+          current_win_streak?: number
           fingerprint_hash?: string | null
           fingerprint_verified?: boolean
           id?: string
@@ -313,7 +320,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          best_win_streak?: number
           club?: string
+          current_win_streak?: number
           fingerprint_hash?: string | null
           fingerprint_verified?: boolean
           id?: string
@@ -1275,13 +1284,16 @@ export type Database = {
       arena_earnings_leaderboard: {
         Row: {
           avatar_url: string | null
+          best_win_streak: number | null
           club: string | null
+          current_win_streak: number | null
           net_profit: number | null
           total_battles: number | null
           total_bonus_earned: number | null
           total_earned: number | null
           total_pool_share_earned: number | null
           total_staked: number | null
+          total_streak_bonus: number | null
           total_wins: number | null
           user_id: string | null
           username: string | null
@@ -1314,6 +1326,7 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_streak_bonus: { Args: { win_streak: number }; Returns: number }
       claim_nexus_reward: { Args: { p_transaction_id: string }; Returns: Json }
       generate_nexus_address: { Args: { p_username: string }; Returns: string }
       generate_referral_code: { Args: never; Returns: string }
