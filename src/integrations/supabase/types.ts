@@ -1275,6 +1275,8 @@ export type Database = {
       arena_earnings_leaderboard: {
         Row: {
           avatar_url: string | null
+          club: string | null
+          net_profit: number | null
           total_battles: number | null
           total_bonus_earned: number | null
           total_earned: number | null

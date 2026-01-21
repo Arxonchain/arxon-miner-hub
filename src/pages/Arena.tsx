@@ -16,7 +16,7 @@ import RoundTabs from '@/components/arena/RoundTabs';
 import ArenaBottomNav, { type ArenaTab } from '@/components/arena/ArenaBottomNav';
 import VotePanel from '@/components/arena/VotePanel';
 import ArenaMarketExplorer from '@/components/arena/ArenaMarketExplorer';
-import ArenaEarningsLeaderboard from '@/components/arena/ArenaEarningsLeaderboard';
+import ArenaTeamLeaderboard from '@/components/arena/ArenaTeamLeaderboard';
 import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
 import AuthDialog from '@/components/auth/AuthDialog';
@@ -213,7 +213,7 @@ const Arena = () => {
         )}
 
         {activeTab === 'leaderboard' && (
-          <ArenaEarningsLeaderboard
+          <ArenaTeamLeaderboard
             leaderboard={earningsLeaderboard}
             currentUserId={user?.id}
             loading={marketsLoading}
