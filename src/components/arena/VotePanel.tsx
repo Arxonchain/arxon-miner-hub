@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Crown, Shield, Fingerprint, CheckCircle, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { Flame, Crown, Shield, Fingerprint, CheckCircle, Zap, TrendingUp, AlertTriangle, Sparkles, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ArenaBattle, ArenaVote } from '@/hooks/useArena';
 import FingerprintScanner from './FingerprintScanner';
@@ -12,7 +12,6 @@ interface VotePanelProps {
   availablePoints: number;
   onVote: (amount: number) => Promise<boolean>;
   isVoting: boolean;
-  /** The user's registered fingerprint hash from arena_members */
   storedFingerprintHash?: string | null;
 }
 
@@ -25,42 +24,33 @@ const VotePanel = ({
   isVoting,
   storedFingerprintHash
 }: VotePanelProps) => {
-  const [stakeAmount, setStakeAmount] = useState(0);
+  const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [pendingAmount, setPendingAmount] = useState(0);
 
-  // Calculate potential returns based on current pool sizes
   const potentialReturns = useMemo(() => {
-    if (!battle || stakeAmount === 0) return null;
+    if (!battle || stakeAmount < 100) return null;
 
     const userSide = userClub === 'alpha' ? 'a' : 'b';
     const myPool = userSide === 'a' ? battle.side_a_power : battle.side_b_power;
     const theirPool = userSide === 'a' ? battle.side_b_power : battle.side_a_power;
     
-    // Simulate adding user's stake to their pool
     const newMyPool = myPool + stakeAmount;
     const totalPool = newMyPool + theirPool;
 
-    // Calculate multiplier if we win
     let multiplier: number;
     if (newMyPool >= theirPool) {
-      // Favorites - lower multiplier
       const ratio = theirPool / newMyPool;
       multiplier = Math.min(2 + (ratio * 3), 5);
     } else {
-      // Underdogs - max multiplier
       multiplier = 5;
     }
 
-    // Calculate potential winnings
     const stakeReturn = stakeAmount;
     const stakeBonus = stakeAmount * (multiplier - 1);
     const loserPoolShare = (stakeAmount / newMyPool) * theirPool;
     const totalWinnings = stakeReturn + stakeBonus + loserPoolShare;
-
-    // Calculate loss (you lose everything)
     const totalLoss = stakeAmount;
-
     const isUnderdog = newMyPool < theirPool;
 
     return {
@@ -76,20 +66,33 @@ const VotePanel = ({
   if (!battle) {
     return (
       <div className="px-4 py-12 text-center">
-        <p className="text-muted-foreground">No active battle to vote on</p>
+        <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+          <Target className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground font-medium">No active battle to vote on</p>
       </div>
     );
   }
 
   const stakeTiers = [
-    { label: '10%', value: Math.floor(availablePoints * 0.1) },
-    { label: '25%', value: Math.floor(availablePoints * 0.25) },
-    { label: '50%', value: Math.floor(availablePoints * 0.5) },
-    { label: 'MAX', value: availablePoints },
+    { label: '10%', value: Math.max(Math.floor(availablePoints * 0.1), 100) },
+    { label: '25%', value: Math.max(Math.floor(availablePoints * 0.25), 100) },
+    { label: '50%', value: Math.max(Math.floor(availablePoints * 0.5), 100) },
+    { label: 'MAX', value: Math.max(availablePoints, 100) },
   ];
 
+  const handleTierClick = (value: number) => {
+    const clampedValue = Math.min(Math.max(value, 100), availablePoints);
+    setStakeAmount(clampedValue);
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setStakeAmount(value);
+  };
+
   const handleConfirmVote = () => {
-    if (stakeAmount >= 100) {
+    if (stakeAmount >= 100 && stakeAmount <= availablePoints) {
       setPendingAmount(stakeAmount);
       setShowFingerprint(true);
     }
@@ -99,7 +102,7 @@ const VotePanel = ({
     const success = await onVote(pendingAmount);
     if (success) {
       setShowFingerprint(false);
-      setStakeAmount(0);
+      setStakeAmount(100);
       setPendingAmount(0);
     }
   };
@@ -115,28 +118,41 @@ const VotePanel = ({
     return (
       <div className="px-4 py-6">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-6 rounded-2xl bg-green-500/10 border border-green-500/30 text-center"
+          className="p-6 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/5 border border-green-500/30"
         >
-          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-green-500/20 flex items-center justify-center">
+              <CheckCircle className="w-7 h-7 text-green-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Vote Locked! 🔒</h3>
+              <p className="text-green-500 font-bold text-xl">
+                {userVote.power_spent.toLocaleString()} ARX-P
+              </p>
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-foreground mb-2">Vote Locked! 🔒</h3>
-          <p className="text-muted-foreground mb-4">
-            You've staked <span className="font-bold text-green-500">{userVote.power_spent.toLocaleString()} ARX-P</span>
-          </p>
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
-            userClub === 'alpha' ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'
+          
+          <div className={`flex items-center gap-3 p-3 rounded-xl ${
+            userClub === 'alpha' ? 'bg-amber-500/10' : 'bg-primary/10'
           }`}>
-            {userClub === 'alpha' ? <Crown className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-            <span className="font-bold">{userClub.toUpperCase()}</span>
+            {userClub === 'alpha' ? (
+              <Crown className="w-5 h-5 text-amber-500" />
+            ) : (
+              <Shield className="w-5 h-5 text-primary" />
+            )}
+            <span className={`font-bold ${
+              userClub === 'alpha' ? 'text-amber-500' : 'text-primary'
+            }`}>
+              TEAM {userClub.toUpperCase()}
+            </span>
           </div>
           
           <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/20">
             <div className="flex items-center justify-center gap-2 text-primary">
               <Zap className="w-4 h-4" />
-              <span className="text-sm font-medium">+25% Mining Boost Active!</span>
+              <span className="text-sm font-bold">+25% Mining Boost Active!</span>
             </div>
           </div>
         </motion.div>
@@ -148,7 +164,7 @@ const VotePanel = ({
   if (showFingerprint) {
     return (
       <div className="px-4 py-6">
-        <div className="glass-card p-6 border border-border/50">
+        <div className="glass-card p-6 border border-border/50 rounded-2xl">
           <FingerprintScanner
             onVerified={handleFingerprintVerified}
             onVerificationFailed={handleFingerprintFailed}
@@ -158,8 +174,9 @@ const VotePanel = ({
             subtitle={`Confirm your fingerprint to stake ${pendingAmount.toLocaleString()} ARX-P`}
           />
           <button
+            type="button"
             onClick={() => setShowFingerprint(false)}
-            className="w-full mt-4 py-3 text-muted-foreground hover:text-foreground transition-colors"
+            className="w-full mt-4 py-3 text-muted-foreground hover:text-foreground active:text-foreground transition-colors font-medium"
           >
             Cancel
           </button>
@@ -168,6 +185,8 @@ const VotePanel = ({
     );
   }
 
+  const canVote = stakeAmount >= 100 && availablePoints >= 100;
+
   // Vote form
   return (
     <div className="px-4 py-6 space-y-5">
@@ -175,18 +194,22 @@ const VotePanel = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`p-4 rounded-xl ${
+        className={`p-4 rounded-2xl ${
           userClub === 'alpha' 
-            ? 'bg-amber-500/10 border border-amber-500/30' 
-            : 'bg-primary/10 border border-primary/30'
+            ? 'bg-gradient-to-br from-amber-500/15 to-orange-500/5 border border-amber-500/30' 
+            : 'bg-gradient-to-br from-primary/15 to-accent/5 border border-primary/30'
         }`}
       >
-        <div className="flex items-center gap-3">
-          {userClub === 'alpha' ? (
-            <Crown className="w-8 h-8 text-amber-500" />
-          ) : (
-            <Shield className="w-8 h-8 text-primary" />
-          )}
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            userClub === 'alpha' ? 'bg-amber-500/20' : 'bg-primary/20'
+          }`}>
+            {userClub === 'alpha' ? (
+              <Crown className="w-6 h-6 text-amber-500" />
+            ) : (
+              <Shield className="w-6 h-6 text-primary" />
+            )}
+          </div>
           <div>
             <p className="text-sm text-muted-foreground">Staking for</p>
             <p className={`text-xl font-black ${
@@ -202,9 +225,9 @@ const VotePanel = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="p-3 rounded-xl bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30"
+        className="p-3 rounded-xl bg-gradient-to-r from-primary/20 via-accent/10 to-primary/20 border border-primary/30"
       >
-        <div className="flex items-center gap-2 text-center justify-center">
+        <div className="flex items-center gap-2 justify-center">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-bold text-primary">Instant +25% Mining Boost</span>
           <span className="text-xs text-muted-foreground">until battle ends</span>
@@ -212,47 +235,83 @@ const VotePanel = ({
       </motion.div>
 
       {/* Available Points */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 border border-border/30">
-        <span className="text-muted-foreground">Available Points</span>
-        <span className="font-bold text-foreground">{availablePoints.toLocaleString()} ARX-P</span>
+      <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 border border-border/40">
+        <span className="text-muted-foreground font-medium">Available Points</span>
+        <span className="font-bold text-foreground text-lg">{availablePoints.toLocaleString()} ARX-P</span>
       </div>
 
-      {/* Quick Stake Buttons */}
+      {/* Quick Stake Buttons - Fixed clickability */}
       <div className="grid grid-cols-4 gap-2">
-        {stakeTiers.map((tier) => (
-          <button
-            key={tier.label}
-            onClick={() => setStakeAmount(Math.max(tier.value, 100))}
-            disabled={tier.value < 100}
-            className={`py-3 rounded-xl font-bold transition-all ${
-              stakeAmount === tier.value
-                ? userClub === 'alpha'
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-primary text-primary-foreground'
-                : tier.value < 100
-                  ? 'bg-secondary/30 text-muted-foreground cursor-not-allowed'
-                  : 'bg-secondary/50 text-foreground hover:bg-secondary'
-            }`}
-          >
-            {tier.label}
-          </button>
-        ))}
+        {stakeTiers.map((tier) => {
+          const isSelected = stakeAmount === tier.value;
+          const isDisabled = tier.value > availablePoints;
+          
+          return (
+            <button
+              key={tier.label}
+              type="button"
+              onClick={() => !isDisabled && handleTierClick(tier.value)}
+              disabled={isDisabled}
+              className={`
+                py-3.5 rounded-xl font-bold text-sm transition-all duration-200
+                select-none touch-manipulation
+                ${isSelected
+                  ? userClub === 'alpha'
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+                    : 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                  : isDisabled
+                    ? 'bg-secondary/30 text-muted-foreground/50 cursor-not-allowed'
+                    : 'bg-secondary/60 text-foreground hover:bg-secondary active:bg-secondary active:scale-95'
+                }
+              `}
+            >
+              {tier.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Slider */}
-      <div>
-        <input
-          type="range"
-          min={100}
-          max={Math.max(availablePoints, 100)}
-          value={Math.max(stakeAmount, 100)}
-          onChange={(e) => setStakeAmount(Number(e.target.value))}
-          className="w-full h-2 rounded-full bg-secondary appearance-none cursor-pointer accent-primary"
-        />
-        <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-          <span>100</span>
-          <span className="font-bold text-foreground">{stakeAmount.toLocaleString()} ARX-P</span>
-          <span>{availablePoints.toLocaleString()}</span>
+      {/* Slider - Enhanced styling */}
+      <div className="space-y-3">
+        <div className="relative">
+          <input
+            type="range"
+            min={100}
+            max={Math.max(availablePoints, 100)}
+            value={stakeAmount}
+            onChange={handleSliderChange}
+            className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
+              bg-gradient-to-r from-secondary via-secondary to-secondary
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:w-6
+              [&::-webkit-slider-thumb]:h-6
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-primary
+              [&::-webkit-slider-thumb]:shadow-lg
+              [&::-webkit-slider-thumb]:shadow-primary/30
+              [&::-webkit-slider-thumb]:cursor-grab
+              [&::-webkit-slider-thumb]:active:cursor-grabbing
+              [&::-webkit-slider-thumb]:active:scale-110
+              [&::-webkit-slider-thumb]:transition-transform
+              [&::-moz-range-thumb]:w-6
+              [&::-moz-range-thumb]:h-6
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-primary
+              [&::-moz-range-thumb]:border-0
+              [&::-moz-range-thumb]:shadow-lg
+              [&::-moz-range-thumb]:cursor-grab
+              [&::-moz-range-thumb]:active:cursor-grabbing
+            "
+          />
+        </div>
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">100</span>
+          <span className={`font-bold text-lg ${
+            userClub === 'alpha' ? 'text-amber-500' : 'text-primary'
+          }`}>
+            {stakeAmount.toLocaleString()} ARX-P
+          </span>
+          <span className="text-muted-foreground">{availablePoints.toLocaleString()}</span>
         </div>
       </div>
 
@@ -261,39 +320,36 @@ const VotePanel = ({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-3"
+          className="grid grid-cols-2 gap-3"
         >
           {/* Win Scenario */}
-          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-bold text-green-500">IF YOU WIN</span>
-                {potentialReturns.isUnderdog && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">UNDERDOG</span>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">{potentialReturns.multiplier.toFixed(1)}x multiplier</span>
+          <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/15 to-emerald-500/5 border border-green-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-xs font-bold text-green-500">IF YOU WIN</span>
             </div>
             <p className="text-2xl font-black text-green-500">
-              +{potentialReturns.totalWinnings.toLocaleString()} ARX-P
+              +{potentialReturns.totalWinnings.toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Stake back + {potentialReturns.multiplier.toFixed(1)}x bonus + share of loser pool
-            </p>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-[10px] text-muted-foreground">{potentialReturns.multiplier.toFixed(1)}x</span>
+              {potentialReturns.isUnderdog && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">UNDERDOG</span>
+              )}
+            </div>
           </div>
 
           {/* Lose Scenario */}
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+          <div className="p-4 rounded-xl bg-gradient-to-br from-red-500/15 to-rose-500/5 border border-red-500/30">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="w-4 h-4 text-red-500" />
-              <span className="text-sm font-bold text-red-500">IF YOU LOSE</span>
+              <span className="text-xs font-bold text-red-500">IF YOU LOSE</span>
             </div>
             <p className="text-2xl font-black text-red-500">
-              -{potentialReturns.totalLoss.toLocaleString()} ARX-P
+              -{potentialReturns.totalLoss.toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              You lose your entire stake. High risk, high reward!
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Full stake lost
             </p>
           </div>
         </motion.div>
@@ -301,21 +357,25 @@ const VotePanel = ({
 
       {/* Vote Button */}
       <button
+        type="button"
         onClick={handleConfirmVote}
-        disabled={stakeAmount < 100 || availablePoints < 100}
-        className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
-          stakeAmount < 100 || availablePoints < 100
+        disabled={!canVote}
+        className={`
+          w-full py-4 rounded-xl font-bold text-lg transition-all duration-200
+          flex items-center justify-center gap-3 touch-manipulation select-none
+          ${!canVote
             ? 'bg-muted text-muted-foreground cursor-not-allowed'
             : userClub === 'alpha'
-              ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white hover:from-amber-500 hover:to-amber-400 shadow-lg shadow-amber-500/20'
-              : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 shadow-lg shadow-primary/20'
-        }`}
+              ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white hover:from-amber-500 hover:to-amber-400 active:scale-[0.98] shadow-lg shadow-amber-500/25'
+              : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 active:scale-[0.98] shadow-lg shadow-primary/25'
+          }
+        `}
       >
         <Fingerprint className="w-5 h-5" />
-        {stakeAmount < 100 ? 'Minimum 100 ARX-P' : 'Verify & Stake'}
+        {!canVote ? 'Minimum 100 ARX-P' : 'Verify & Stake'}
       </button>
 
-      <p className="text-xs text-muted-foreground text-center">
+      <p className="text-xs text-muted-foreground text-center px-4">
         ⚠️ Stakes are locked until battle ends. Winners take all!
       </p>
     </div>
