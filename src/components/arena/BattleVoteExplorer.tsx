@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Zap, Eye, EyeOff, Trophy, Clock } from 'lucide-react';
+import { Users, Zap, Eye, EyeOff, Trophy, Clock, TrendingUp, Flame } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdmin } from '@/hooks/useAdmin';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
@@ -39,7 +39,7 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
 
         const mapped = (data || []).map((v: any) => ({
           id: v.user_id + v.created_at,
-          side: v.side || (v.power_spent > 0 ? 'a' : 'b'), // fallback
+          side: v.side as 'a' | 'b',
           power_spent: v.power_spent,
           created_at: v.created_at,
           user_id: v.user_id,
@@ -86,31 +86,93 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
     return v.side === activeTab;
   });
 
-  const sideACounts = votes.filter(v => v.side === 'a');
-  const sideBCounts = votes.filter(v => v.side === 'b');
+  const sideAVotes = votes.filter(v => v.side === 'a');
+  const sideBVotes = votes.filter(v => v.side === 'b');
+  const sideATotalStaked = sideAVotes.reduce((sum, v) => sum + v.power_spent, 0);
+  const sideBTotalStaked = sideBVotes.reduce((sum, v) => sum + v.power_spent, 0);
 
   const tabs = [
-    { id: 'all' as const, label: 'All Votes', count: votes.length },
-    { id: 'a' as const, label: market.side_a_name, count: sideACounts.length, color: market.side_a_color },
-    { id: 'b' as const, label: market.side_b_name, count: sideBCounts.length, color: market.side_b_color },
+    { id: 'all' as const, label: 'All Votes', count: votes.length, color: undefined },
+    { id: 'a' as const, label: market.side_a_name, count: sideAVotes.length, color: market.side_a_color },
+    { id: 'b' as const, label: market.side_b_name, count: sideBVotes.length, color: market.side_b_color },
   ];
+
+  const getTeamLabel = (side: 'a' | 'b') => {
+    return side === 'a' ? market.side_a_name : market.side_b_name;
+  };
+
+  const getTeamColor = (side: 'a' | 'b') => {
+    return side === 'a' ? market.side_a_color : market.side_b_color;
+  };
 
   return (
     <div className="space-y-4">
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 gap-2">
+        <div 
+          className="p-3 rounded-xl border-2"
+          style={{ 
+            borderColor: `${market.side_a_color}40`,
+            backgroundColor: `${market.side_a_color}10`
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div 
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: market.side_a_color }}
+            />
+            <span className="text-xs font-medium text-muted-foreground">{market.side_a_name}</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">{sideAVotes.length}</div>
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Zap className="w-3 h-3" />
+            {sideATotalStaked.toLocaleString()} staked
+          </div>
+        </div>
+        <div 
+          className="p-3 rounded-xl border-2"
+          style={{ 
+            borderColor: `${market.side_b_color}40`,
+            backgroundColor: `${market.side_b_color}10`
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div 
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: market.side_b_color }}
+            />
+            <span className="text-xs font-medium text-muted-foreground">{market.side_b_name}</span>
+          </div>
+          <div className="text-lg font-bold text-foreground">{sideBVotes.length}</div>
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Zap className="w-3 h-3" />
+            {sideBTotalStaked.toLocaleString()} staked
+          </div>
+        </div>
+      </div>
+
       {/* Tab Selection */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium text-sm whitespace-nowrap transition-all touch-manipulation ${
               activeTab === tab.id
-                ? 'bg-primary text-primary-foreground'
+                ? 'text-primary-foreground'
                 : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
             }`}
-            style={tab.color && activeTab === tab.id ? { backgroundColor: tab.color } : undefined}
+            style={activeTab === tab.id ? { 
+              backgroundColor: tab.color || 'hsl(var(--primary))' 
+            } : undefined}
           >
-            <Users className="w-4 h-4" />
+            {tab.id === 'all' ? <Users className="w-4 h-4" /> : (
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: tab.color }}
+              />
+            )}
             {tab.label}
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               activeTab === tab.id
@@ -125,34 +187,35 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
 
       {/* Privacy Notice */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/30 border border-border/30">
-        <EyeOff className="w-4 h-4 text-muted-foreground" />
+        <EyeOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <span className="text-xs text-muted-foreground">
-          Voter identities are private. Only stake amounts are visible.
+          Voter identities are hidden. Only team and stake amounts are visible.
         </span>
       </div>
 
       {/* Votes List */}
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[400px] overflow-y-auto">
         <AnimatePresence mode="popLayout">
           {loading ? (
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className="h-16 rounded-xl bg-secondary/30 animate-pulse"
+                  className="h-14 rounded-xl bg-secondary/30 animate-pulse"
                 />
               ))}
             </div>
           ) : filteredVotes.length === 0 ? (
             <div className="py-8 text-center">
               <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-              <p className="text-muted-foreground">No votes yet. Be the first!</p>
+              <p className="text-muted-foreground text-sm">No votes yet</p>
+              <p className="text-muted-foreground/60 text-xs mt-1">Be the first to stake your prediction!</p>
             </div>
           ) : (
             filteredVotes.map((vote, index) => {
               const isCurrentUser = vote.user_id === currentUserId;
-              const sideName = vote.side === 'a' ? market.side_a_name : market.side_b_name;
-              const sideColor = vote.side === 'a' ? market.side_a_color : market.side_b_color;
+              const teamLabel = getTeamLabel(vote.side);
+              const teamColor = getTeamColor(vote.side);
 
               return (
                 <motion.div
@@ -169,64 +232,68 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
                   }`}
                 >
                   {/* Rank Badge */}
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
                     {index < 3 ? (
-                      <Trophy className={`w-4 h-4 ${
+                      <Trophy className={`w-3.5 h-3.5 ${
                         index === 0 ? 'text-yellow-400' : 
                         index === 1 ? 'text-gray-400' : 
                         'text-amber-600'
                       }`} />
                     ) : (
-                      <span className="text-xs font-bold text-muted-foreground">#{index + 1}</span>
+                      <span className="text-[10px] font-bold text-muted-foreground">#{index + 1}</span>
                     )}
                   </div>
 
                   {/* Team Badge */}
                   <div 
-                    className="px-2 py-1 rounded-lg text-xs font-bold"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
                     style={{ 
-                      backgroundColor: `${sideColor}20`,
-                      color: sideColor 
+                      backgroundColor: `${teamColor}20`,
+                      color: teamColor 
                     }}
                   >
-                    {sideName}
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: teamColor }}
+                    />
+                    {teamLabel}
                   </div>
 
-                  {/* User Info - Hidden for privacy (except admin or self) */}
+                  {/* User Identity - Hidden or Self */}
                   <div className="flex-1 min-w-0">
-                    {isAdmin || isCurrentUser ? (
+                    {isCurrentUser ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-primary text-sm">You</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                          Your Vote
+                        </span>
+                      </div>
+                    ) : isAdmin ? (
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground text-sm truncate">
                           {vote.username || 'Anonymous'}
                         </span>
-                        {isCurrentUser && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
-                            You
-                          </span>
-                        )}
-                        {isAdmin && !isCurrentUser && (
-                          <Eye className="w-3 h-3 text-muted-foreground" />
-                        )}
+                        <Eye className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-muted-foreground text-sm">
-                          Anonymous Voter
-                        </span>
-                        <EyeOff className="w-3 h-3 text-muted-foreground/50" />
+                      <div className="flex items-center gap-1.5">
+                        <EyeOff className="w-3 h-3 text-muted-foreground/50 flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground">Voter #{index + 1}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                      <Clock className="w-2.5 h-2.5" />
                       {formatDistanceToNow(new Date(vote.created_at), { addSuffix: true })}
                     </div>
                   </div>
 
                   {/* Stake Amount */}
-                  <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-background/50">
-                    <Zap className="w-4 h-4 text-primary" />
-                    <span className="font-bold text-foreground">
-                      {vote.power_spent.toLocaleString()}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/50 flex-shrink-0">
+                    <Zap className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-bold text-sm text-foreground">
+                      {vote.power_spent >= 1000 
+                        ? `${(vote.power_spent / 1000).toFixed(1)}K` 
+                        : vote.power_spent.toLocaleString()}
                     </span>
                   </div>
                 </motion.div>
@@ -235,6 +302,23 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
           )}
         </AnimatePresence>
       </div>
+
+      {/* Summary Footer */}
+      {votes.length > 0 && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/20 border border-border/20">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground">Total Participation</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-foreground">{votes.length} voters</span>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-xs font-bold text-primary">
+              {(sideATotalStaked + sideBTotalStaked).toLocaleString()} ARX-P
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
