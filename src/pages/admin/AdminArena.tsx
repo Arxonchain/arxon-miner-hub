@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Trophy, Plus, Calendar, Zap, Target, Clock, Gift, 
   Trash2, Play, Pause, CheckCircle, XCircle, RefreshCw,
-  TrendingUp, Users, DollarSign
+  TrendingUp, Users, DollarSign, Pencil
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -62,6 +62,9 @@ const AdminArena = () => {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingBattle, setEditingBattle] = useState<ArenaBattle | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [updating, setUpdating] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -73,6 +76,19 @@ const AdminArena = () => {
     side_b_color: '#f87171',
     category: 'crypto',
     duration_hours: '24',
+    prize_pool: '0',
+    bonus_percentage: '200',
+  });
+
+  // Edit form state (separate from create form)
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    side_a_name: '',
+    side_a_color: '#4ade80',
+    side_b_name: '',
+    side_b_color: '#f87171',
+    category: 'crypto',
     prize_pool: '0',
     bonus_percentage: '200',
   });
@@ -201,6 +217,61 @@ const AdminArena = () => {
       fetchBattles();
     } catch (error: any) {
       toast.error('Failed to update market');
+    }
+  };
+
+  const handleOpenEdit = (battle: ArenaBattle) => {
+    setEditingBattle(battle);
+    setEditFormData({
+      title: battle.title,
+      description: battle.description || '',
+      side_a_name: battle.side_a_name,
+      side_a_color: battle.side_a_color,
+      side_b_name: battle.side_b_name,
+      side_b_color: battle.side_b_color,
+      category: battle.category,
+      prize_pool: String(battle.prize_pool || 0),
+      bonus_percentage: String(battle.bonus_percentage || 200),
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingBattle) return;
+    
+    if (!editFormData.title || !editFormData.side_a_name || !editFormData.side_b_name) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('arena_battles')
+        .update({
+          title: editFormData.title,
+          description: editFormData.description || null,
+          side_a_name: editFormData.side_a_name,
+          side_a_color: editFormData.side_a_color,
+          side_b_name: editFormData.side_b_name,
+          side_b_color: editFormData.side_b_color,
+          category: editFormData.category,
+          prize_pool: parseFloat(editFormData.prize_pool) || 0,
+          bonus_percentage: parseFloat(editFormData.bonus_percentage) || 200,
+        })
+        .eq('id', editingBattle.id);
+
+      if (error) throw error;
+
+      toast.success('Market updated successfully!');
+      setShowEditDialog(false);
+      setEditingBattle(null);
+      fetchBattles();
+    } catch (error: any) {
+      console.error('Error updating battle:', error);
+      toast.error(error.message || 'Failed to update market');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -543,6 +614,16 @@ const AdminArena = () => {
                           </Button>
                         </>
                       )}
+
+                      {/* Edit */}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleOpenEdit(battle)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                       
                       {/* Pause/Resume */}
                       {!battle.winner_side && (
@@ -576,6 +657,140 @@ const AdminArena = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Market Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Market</DialogTitle>
+            <DialogDescription>
+              Update market details. Changes to title, description, side names, and colors are safe and won't affect ongoing voting.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Market Title *</Label>
+              <Input
+                id="edit-title"
+                placeholder="Will BTC hit $100K by end of week?"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                placeholder="Additional details about the prediction..."
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            {/* Sides */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Side A Name *</Label>
+                <Input
+                  placeholder="YES - It will hit"
+                  value={editFormData.side_a_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, side_a_name: e.target.value })}
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={editFormData.side_a_color}
+                    onChange={(e) => setEditFormData({ ...editFormData, side_a_color: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground">Color</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Side B Name *</Label>
+                <Input
+                  placeholder="NO - It won't"
+                  value={editFormData.side_b_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, side_b_name: e.target.value })}
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={editFormData.side_b_color}
+                    onChange={(e) => setEditFormData({ ...editFormData, side_b_color: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground">Color</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={editFormData.category}
+                onValueChange={(v) => setEditFormData({ ...editFormData, category: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prize Pool & Bonus (editable - affects future payouts only) */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Prize Pool (ARX-P)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={editFormData.prize_pool}
+                  onChange={(e) => setEditFormData({ ...editFormData, prize_pool: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Extra pool for winners</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Bonus %</Label>
+                <Input
+                  type="number"
+                  placeholder="200"
+                  value={editFormData.bonus_percentage}
+                  onChange={(e) => setEditFormData({ ...editFormData, bonus_percentage: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Heat bonus (200-500%)</p>
+              </div>
+            </div>
+
+            {editingBattle && (
+              <div className="p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+                <p><strong>Note:</strong> Duration and timing cannot be changed to protect ongoing votes. Created votes and power values remain unaffected.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={updating}>
+              {updating ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
