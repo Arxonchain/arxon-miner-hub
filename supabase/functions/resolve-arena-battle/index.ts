@@ -141,14 +141,32 @@ serve(async (req) => {
         let totalRewardsDistributed = 0;
         let prizePoolDistributed = 0;
 
-        // Prize pool distribution: 100% goes to winners proportionally based on stake
-        // Losers only get the instant mining boost (already applied by trigger)
-        const totalPrizePoolForWinners = prizePool; // 100% to winners
+        // Prize pool distribution: Winners get bonus % of their stake FROM the pool
+        // The pool is fixed (e.g., 100k), bonus % determines how much of stake as bonus
+        // If total requested bonuses exceed pool, scale down proportionally
         
-        console.log(`Prize Pool: ${prizePool}, Bonus %: ${bonusPercentage}%, Winners get 100%`);
+        console.log(`Prize Pool: ${prizePool}, Bonus %: ${bonusPercentage}%, Winners: ${winningVotes.length}`);
 
-        // Process winners - they get stake back + multiplied bonus + share of loser pool + prize pool share + streak bonus
+        // First pass: Calculate each winner's requested bonus (stake * bonus%)
+        const winnerBonusRequests: { vote: typeof winningVotes[0]; requestedBonus: number }[] = [];
+        let totalRequestedBonus = 0;
+
         for (const vote of winningVotes) {
+          // Each winner's bonus = their stake * (bonusPercentage / 100)
+          const requestedBonus = vote.power_spent * (bonusPercentage / 100);
+          winnerBonusRequests.push({ vote, requestedBonus });
+          totalRequestedBonus += requestedBonus;
+        }
+
+        // Calculate scale factor: if total requests exceed pool, scale down
+        const scaleFactor = totalRequestedBonus > prizePool && totalRequestedBonus > 0
+          ? prizePool / totalRequestedBonus
+          : 1;
+
+        console.log(`Total requested bonus: ${totalRequestedBonus}, Scale factor: ${scaleFactor}`);
+
+        // Second pass: Process winners with scaled bonuses
+        for (const { vote, requestedBonus } of winnerBonusRequests) {
           // Get current win streak for this user
           const { data: memberData } = await supabase
             .from("arena_members")
@@ -175,11 +193,9 @@ serve(async (req) => {
             ? (vote.power_spent / winningPool) * losingPool 
             : 0;
           
-          // Calculate winner's share of the ENTIRE prize pool (proportional to their stake)
-          // Apply bonus percentage from admin settings
-          const winnerPrizeShare = winningPool > 0 
-            ? (vote.power_spent / winningPool) * totalPrizePoolForWinners * (bonusPercentage / 100)
-            : 0;
+          // Winner's prize pool share = their requested bonus * scale factor
+          // This ensures we never exceed the total prize pool
+          const winnerPrizeShare = requestedBonus * scaleFactor;
           
           // Apply streak bonus to total earnings
           const baseReward = stakeReturn + stakeBonus + loserPoolShare + winnerPrizeShare;
