@@ -1,61 +1,93 @@
 import { motion } from 'framer-motion';
-import { Trophy, Zap, Medal, Award } from 'lucide-react';
+import { Trophy, Zap, Medal, Award, EyeOff, TrendingUp, Users } from 'lucide-react';
 import { ArenaParticipant } from '@/hooks/useArena';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ParticipantLeaderboardProps {
   participants: ArenaParticipant[];
   currentUserId?: string;
+  sideAName?: string;
+  sideBName?: string;
+  sideAColor?: string;
+  sideBColor?: string;
 }
 
 const getBadgeIcon = (rank: number) => {
   switch (rank) {
     case 1:
-      return <Trophy className="w-5 h-5 text-yellow-400" />;
+      return <Trophy className="w-4 h-4 text-yellow-400" />;
     case 2:
-      return <Medal className="w-5 h-5 text-gray-400" />;
+      return <Medal className="w-4 h-4 text-gray-400" />;
     case 3:
-      return <Award className="w-5 h-5 text-amber-600" />;
+      return <Award className="w-4 h-4 text-amber-600" />;
     default:
       return null;
   }
 };
 
-const getRankTitle = (rank: number) => {
-  switch (rank) {
-    case 1:
-      return 'Arena Legend';
-    case 2:
-      return 'Power Elite';
-    case 3:
-      return 'Rising Force';
-    default:
-      return 'Warrior';
-  }
-};
-
-const ParticipantLeaderboard = ({ participants, currentUserId }: ParticipantLeaderboardProps) => {
+const ParticipantLeaderboard = ({ 
+  participants, 
+  currentUserId,
+  sideAName = 'Team Alpha',
+  sideBName = 'Team Omega',
+  sideAColor = '#4ade80',
+  sideBColor = '#f87171',
+}: ParticipantLeaderboardProps) => {
   if (participants.length === 0) {
     return (
       <div className="glass-card p-6 text-center">
-        <p className="text-muted-foreground">No votes cast yet. Be the first to enter the Arena!</p>
+        <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+        <p className="text-muted-foreground text-sm">No votes cast yet</p>
+        <p className="text-muted-foreground/60 text-xs mt-1">Be the first to enter the Arena!</p>
       </div>
     );
   }
 
+  const totalStaked = participants.reduce((sum, p) => sum + p.power_spent, 0);
+
   return (
-    <div className="glass-card p-6 border border-primary/20">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-          <Trophy className="w-5 h-5 text-primary" />
+    <div className="glass-card p-4 border border-primary/20">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <Trophy className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">Arena Leaderboard</h3>
+            <p className="text-xs text-muted-foreground">Top voters this battle</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-foreground">Arena Leaderboard</h3>
-          <p className="text-sm text-muted-foreground">Top voters this battle</p>
+        <div className="flex items-center gap-1.5 text-muted-foreground text-xs bg-secondary/30 px-2 py-1 rounded-full">
+          <EyeOff className="w-3 h-3" />
+          <span>Private</span>
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Stats Row */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/20 border border-border/20 mb-4">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" />
+          <span className="text-xs text-muted-foreground">Total</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-foreground">{participants.length} voters</span>
+          <span className="text-xs text-muted-foreground">•</span>
+          <span className="text-xs font-bold text-primary">
+            {totalStaked >= 1000 
+              ? `${(totalStaked / 1000).toFixed(1)}K` 
+              : totalStaked.toLocaleString()} ARX-P
+          </span>
+        </div>
+      </div>
+
+      {/* Privacy Notice */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/30 border border-border/30 mb-4">
+        <EyeOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <span className="text-xs text-muted-foreground">
+          Voter identities are hidden. Only stake amounts are visible.
+        </span>
+      </div>
+
+      <div className="space-y-2">
         {participants.slice(0, 10).map((participant, index) => {
           const rank = index + 1;
           const isCurrentUser = participant.user_id === currentUserId;
@@ -65,49 +97,49 @@ const ParticipantLeaderboard = ({ participants, currentUserId }: ParticipantLead
               key={participant.user_id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
+              transition={{ delay: index * 0.03 }}
+              className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
                 isCurrentUser
                   ? 'bg-primary/10 border border-primary/30'
-                  : 'bg-background/30 hover:bg-background/50'
+                  : 'bg-background/30 border border-border/30 hover:bg-background/50'
               }`}
             >
               {/* Rank */}
-              <div className="w-8 flex-shrink-0 text-center">
+              <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
                 {rank <= 3 ? (
-                  getBadgeIcon(rank)
+                  <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
+                    {getBadgeIcon(rank)}
+                  </div>
                 ) : (
-                  <span className="text-muted-foreground font-mono">#{rank}</span>
+                  <span className="text-xs text-muted-foreground font-mono">#{rank}</span>
                 )}
               </div>
 
-              {/* Avatar */}
-              <Avatar className="w-10 h-10 border-2 border-border">
-                <AvatarImage src={participant.avatar_url || undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary">
-                  {participant.username?.[0]?.toUpperCase() || '?'}
-                </AvatarFallback>
-              </Avatar>
-
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground truncate">
-                    {participant.username || 'Anonymous'}
-                  </span>
-                  {isCurrentUser && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
-                      You
+                {isCurrentUser ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-primary text-sm">You</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                      Your Vote
                     </span>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">{getRankTitle(rank)}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <EyeOff className="w-3 h-3 text-muted-foreground/50" />
+                    <span className="text-xs text-muted-foreground">Voter #{rank}</span>
+                  </div>
+                )}
               </div>
 
               {/* Power */}
-              <div className="flex items-center gap-1 text-primary font-bold">
-                <Zap className="w-4 h-4" />
-                <span>{participant.power_spent.toLocaleString()}</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/50">
+                <Zap className="w-3.5 h-3.5 text-primary" />
+                <span className="font-bold text-sm text-foreground">
+                  {participant.power_spent >= 1000 
+                    ? `${(participant.power_spent / 1000).toFixed(1)}K` 
+                    : participant.power_spent.toLocaleString()}
+                </span>
               </div>
             </motion.div>
           );
@@ -115,7 +147,7 @@ const ParticipantLeaderboard = ({ participants, currentUserId }: ParticipantLead
       </div>
 
       {participants.length > 10 && (
-        <p className="text-center text-sm text-muted-foreground mt-4">
+        <p className="text-center text-xs text-muted-foreground mt-4 py-2 bg-secondary/20 rounded-lg">
           +{participants.length - 10} more participants
         </p>
       )}
