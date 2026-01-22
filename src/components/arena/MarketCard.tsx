@@ -66,10 +66,10 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
 
   if (variant === 'compact') {
     return (
-      <motion.div
-        whileTap={{ scale: 0.98 }}
+      <button
+        type="button"
         onClick={onClick}
-        className="p-3 rounded-xl bg-card/50 border border-border/40 cursor-pointer active:bg-secondary/50 transition-all"
+        className="w-full p-3 rounded-xl bg-card/50 border border-border/40 text-left touch-manipulation select-none transition-all duration-200 hover:bg-secondary/30 active:bg-secondary/50 active:scale-[0.98]"
       >
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
@@ -86,19 +86,24 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </div>
-      </motion.div>
+      </button>
     );
   }
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl border cursor-pointer active:bg-secondary/30 transition-all ${
-        userPosition 
-          ? 'bg-primary/5 border-primary/30' 
-          : 'bg-card/60 border-border/40'
-      } ${variant === 'featured' ? 'p-4' : 'p-3'}`}
+      className={`
+        relative overflow-hidden rounded-xl border w-full text-left
+        touch-manipulation select-none transition-all duration-200
+        ${userPosition 
+          ? 'bg-primary/5 border-primary/30 shadow-sm shadow-primary/10' 
+          : 'bg-card/60 border-border/40 hover:border-border active:bg-secondary/30'
+        } 
+        ${variant === 'featured' ? 'p-4' : 'p-3'}
+      `}
     >
       {/* Prize pool badge - Compact */}
       {market.prize_pool > 0 && (
@@ -213,7 +218,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           </span>
         </div>
       )}
-    </motion.div>
+    </motion.button>
   );
 };
 

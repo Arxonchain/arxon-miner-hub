@@ -36,7 +36,7 @@ const ArenaMarketDetail = ({
 }: ArenaMarketDetailProps) => {
   const { user } = useAuth();
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
-  const [stakeAmount, setStakeAmount] = useState(0);
+  const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('pools');
@@ -287,101 +287,167 @@ const ArenaMarketDetail = ({
           </motion.div>
         )}
 
-        {/* Side Selection - Vote Tab - Compact */}
+        {/* Side Selection - Vote Tab - Enhanced */}
         {activeDetailTab === 'vote' && isLive && !userPosition && (
           <>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Select your prediction:</p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">Select your prediction:</p>
               
               {/* Side A */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
+              <button
+                type="button"
                 onClick={() => setSelectedSide('a')}
-                className={`w-full p-3 rounded-xl border transition-all ${
-                  selectedSide === 'a' ? 'border-2' : 'border-border/40'
-                }`}
+                className={`
+                  w-full p-4 rounded-xl border-2 transition-all duration-200
+                  touch-manipulation select-none active:scale-[0.98]
+                  ${selectedSide === 'a' 
+                    ? 'shadow-lg' 
+                    : 'border-border/40 hover:border-border'
+                  }
+                `}
                 style={{ 
                   borderColor: selectedSide === 'a' ? market.side_a_color : undefined,
-                  backgroundColor: selectedSide === 'a' ? `${market.side_a_color}10` : undefined
+                  backgroundColor: selectedSide === 'a' ? `${market.side_a_color}15` : undefined,
+                  boxShadow: selectedSide === 'a' ? `0 8px 24px ${market.side_a_color}30` : undefined
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: market.side_a_color }} />
-                    <span className="font-bold text-sm text-foreground">{market.side_a_name}</span>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${market.side_a_color}20` }}
+                    >
+                      <TrendingUp className="w-5 h-5" style={{ color: market.side_a_color }} />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-bold text-base text-foreground block">{market.side_a_name}</span>
+                      <span className="text-xs text-muted-foreground">{market.side_a_power.toLocaleString()} staked</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
+                  <div className="text-right">
+                    <span className="text-2xl font-black" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
+                    {sideAPercent < sideBPercent && (
+                      <span className="block text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 mt-1">Underdog</span>
+                    )}
+                  </div>
                 </div>
-              </motion.button>
+              </button>
 
               {/* Side B */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
+              <button
+                type="button"
                 onClick={() => setSelectedSide('b')}
-                className={`w-full p-3 rounded-xl border transition-all ${
-                  selectedSide === 'b' ? 'border-2' : 'border-border/40'
-                }`}
+                className={`
+                  w-full p-4 rounded-xl border-2 transition-all duration-200
+                  touch-manipulation select-none active:scale-[0.98]
+                  ${selectedSide === 'b' 
+                    ? 'shadow-lg' 
+                    : 'border-border/40 hover:border-border'
+                  }
+                `}
                 style={{ 
                   borderColor: selectedSide === 'b' ? market.side_b_color : undefined,
-                  backgroundColor: selectedSide === 'b' ? `${market.side_b_color}10` : undefined
+                  backgroundColor: selectedSide === 'b' ? `${market.side_b_color}15` : undefined,
+                  boxShadow: selectedSide === 'b' ? `0 8px 24px ${market.side_b_color}30` : undefined
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: market.side_b_color }} />
-                    <span className="font-bold text-sm text-foreground">{market.side_b_name}</span>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${market.side_b_color}20` }}
+                    >
+                      <TrendingUp className="w-5 h-5" style={{ color: market.side_b_color }} />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-bold text-base text-foreground block">{market.side_b_name}</span>
+                      <span className="text-xs text-muted-foreground">{market.side_b_power.toLocaleString()} staked</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
+                  <div className="text-right">
+                    <span className="text-2xl font-black" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
+                    {sideBPercent < sideAPercent && (
+                      <span className="block text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 mt-1">Underdog</span>
+                    )}
+                  </div>
                 </div>
-              </motion.button>
+              </button>
             </div>
 
-            {/* Stake Amount - Compact */}
+            {/* Stake Amount - Enhanced */}
             {selectedSide && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-3"
+                className="space-y-4"
               >
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40 border border-border/30">
-                  <span className="text-xs text-muted-foreground">Available</span>
-                  <span className="text-sm font-bold text-foreground">{availablePoints.toLocaleString()} ARX-P</span>
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-secondary/50 border border-border/40">
+                  <span className="text-sm text-muted-foreground font-medium">Available</span>
+                  <span className="text-base font-bold text-foreground">{availablePoints.toLocaleString()} ARX-P</span>
                 </div>
 
-                {/* Quick Stakes - Compact */}
-                <div className="grid grid-cols-4 gap-1.5">
-                  {stakeTiers.map((tier) => (
-                    <button
-                      key={tier.label}
-                      onClick={() => setStakeAmount(Math.max(tier.value, 100))}
-                      disabled={tier.value < 100}
-                      className={`py-2 rounded-lg font-bold text-xs transition-all ${
-                        stakeAmount === tier.value
-                          ? 'bg-primary text-primary-foreground'
-                          : tier.value < 100
-                            ? 'bg-secondary/20 text-muted-foreground/50'
-                            : 'bg-secondary/40 text-foreground active:bg-secondary'
-                      }`}
-                    >
-                      {tier.label}
-                    </button>
-                  ))}
+                {/* Quick Stakes - Enhanced clickability */}
+                <div className="grid grid-cols-4 gap-2">
+                  {stakeTiers.map((tier) => {
+                    const isSelected = stakeAmount === Math.max(tier.value, 100);
+                    const isDisabled = tier.value > availablePoints;
+                    
+                    return (
+                      <button
+                        key={tier.label}
+                        type="button"
+                        onClick={() => !isDisabled && setStakeAmount(Math.min(Math.max(tier.value, 100), availablePoints))}
+                        disabled={isDisabled}
+                        className={`
+                          py-3 rounded-xl font-bold text-sm transition-all duration-200
+                          touch-manipulation select-none
+                          ${isSelected
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                            : isDisabled
+                              ? 'bg-secondary/20 text-muted-foreground/50 cursor-not-allowed'
+                              : 'bg-secondary/50 text-foreground hover:bg-secondary active:bg-secondary active:scale-95'
+                          }
+                        `}
+                      >
+                        {tier.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Slider - Compact */}
-                <div>
+                {/* Slider - Enhanced styling */}
+                <div className="space-y-2">
                   <input
                     type="range"
                     min={100}
                     max={Math.max(availablePoints, 100)}
-                    value={Math.max(stakeAmount, 100)}
+                    value={stakeAmount}
                     onChange={(e) => setStakeAmount(Number(e.target.value))}
-                    className="w-full h-1.5 rounded-full bg-secondary appearance-none cursor-pointer accent-primary"
+                    className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
+                      bg-secondary
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:w-6
+                      [&::-webkit-slider-thumb]:h-6
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-primary
+                      [&::-webkit-slider-thumb]:shadow-lg
+                      [&::-webkit-slider-thumb]:shadow-primary/30
+                      [&::-webkit-slider-thumb]:cursor-grab
+                      [&::-webkit-slider-thumb]:active:cursor-grabbing
+                      [&::-webkit-slider-thumb]:active:scale-110
+                      [&::-webkit-slider-thumb]:transition-transform
+                      [&::-moz-range-thumb]:w-6
+                      [&::-moz-range-thumb]:h-6
+                      [&::-moz-range-thumb]:rounded-full
+                      [&::-moz-range-thumb]:bg-primary
+                      [&::-moz-range-thumb]:border-0
+                      [&::-moz-range-thumb]:shadow-lg
+                    "
                   />
-                  <div className="flex justify-between items-center mt-1.5">
-                    <span className="text-[10px] text-muted-foreground">100</span>
-                    <span className="font-bold text-sm text-foreground">{stakeAmount.toLocaleString()} ARX-P</span>
-                    <span className="text-[10px] text-muted-foreground">{availablePoints >= 1000 ? `${(availablePoints/1000).toFixed(0)}K` : availablePoints}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">100</span>
+                    <span className="font-bold text-lg text-primary">{stakeAmount.toLocaleString()} ARX-P</span>
+                    <span className="text-xs text-muted-foreground">{availablePoints >= 1000 ? `${(availablePoints/1000).toFixed(0)}K` : availablePoints}</span>
                   </div>
                 </div>
 
@@ -411,18 +477,26 @@ const ArenaMarketDetail = ({
                   </div>
                 )}
 
-                {/* Confirm Button - Compact */}
+                {/* Confirm Button - Enhanced */}
                 <button
+                  type="button"
                   onClick={handleConfirmBet}
                   disabled={stakeAmount < 100 || availablePoints < 100}
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-primary to-accent text-white active:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className={`
+                    w-full py-4 rounded-xl font-bold text-base transition-all duration-200
+                    flex items-center justify-center gap-3 touch-manipulation select-none
+                    ${stakeAmount < 100 || availablePoints < 100
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                      : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 active:scale-[0.98] shadow-lg shadow-primary/25'
+                    }
+                  `}
                 >
-                  <Fingerprint className="w-4 h-4" />
-                  {stakeAmount < 100 ? 'Min 100 ARX-P' : 'Verify & Vote'}
+                  <Fingerprint className="w-5 h-5" />
+                  {stakeAmount < 100 ? 'Minimum 100 ARX-P' : 'Verify & Vote'}
                 </button>
 
-                <p className="text-[10px] text-muted-foreground text-center">
-                  ⚠️ Stakes locked until resolution
+                <p className="text-xs text-muted-foreground text-center">
+                  ⚠️ Votes locked until market resolves
                 </p>
               </motion.div>
             )}

@@ -44,7 +44,7 @@ const MarketBettingModal = ({
   storedFingerprintHash,
 }: MarketBettingModalProps) => {
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
-  const [stakeAmount, setStakeAmount] = useState(0);
+  const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -289,31 +289,42 @@ const MarketBettingModal = ({
               </div>
             </div>
 
-            {/* Side Selection */}
+            {/* Side Selection - Enhanced */}
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">Choose your prediction:</p>
               
               <button
+                type="button"
                 onClick={() => setSelectedSide('a')}
-                className={`w-full p-4 rounded-xl border-2 transition-all ${
-                  selectedSide === 'a'
-                    ? 'border-current bg-current/10'
-                    : 'border-border hover:border-current/50'
-                }`}
-                style={{ borderColor: selectedSide === 'a' ? market.side_a_color : undefined, color: market.side_a_color }}
+                className={`
+                  w-full p-4 rounded-xl border-2 transition-all duration-200
+                  touch-manipulation select-none active:scale-[0.98]
+                  ${selectedSide === 'a'
+                    ? 'shadow-lg'
+                    : 'border-border hover:border-border/80'
+                  }
+                `}
+                style={{ 
+                  borderColor: selectedSide === 'a' ? market.side_a_color : undefined, 
+                  backgroundColor: selectedSide === 'a' ? `${market.side_a_color}15` : undefined,
+                  boxShadow: selectedSide === 'a' ? `0 8px 24px ${market.side_a_color}30` : undefined
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedSide === 'a' ? 'bg-current/20' : 'bg-muted'}`}>
-                      <TrendingUp className="w-5 h-5" />
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: selectedSide === 'a' ? `${market.side_a_color}25` : undefined }}
+                    >
+                      <TrendingUp className="w-5 h-5" style={{ color: market.side_a_color }} />
                     </div>
                     <div className="text-left">
-                      <p className="font-bold">{market.side_a_name}</p>
-                      <p className="text-xs opacity-70">{market.side_a_power.toLocaleString()} ARX-P</p>
+                      <p className="font-bold text-foreground">{market.side_a_name}</p>
+                      <p className="text-xs text-muted-foreground">{market.side_a_power.toLocaleString()} ARX-P</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black">{sideAPercent.toFixed(0)}%</p>
+                    <p className="text-2xl font-black" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</p>
                     {sideAPercent < sideBPercent && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Underdog</span>
                     )}
@@ -322,26 +333,37 @@ const MarketBettingModal = ({
               </button>
 
               <button
+                type="button"
                 onClick={() => setSelectedSide('b')}
-                className={`w-full p-4 rounded-xl border-2 transition-all ${
-                  selectedSide === 'b'
-                    ? 'border-current bg-current/10'
-                    : 'border-border hover:border-current/50'
-                }`}
-                style={{ borderColor: selectedSide === 'b' ? market.side_b_color : undefined, color: market.side_b_color }}
+                className={`
+                  w-full p-4 rounded-xl border-2 transition-all duration-200
+                  touch-manipulation select-none active:scale-[0.98]
+                  ${selectedSide === 'b'
+                    ? 'shadow-lg'
+                    : 'border-border hover:border-border/80'
+                  }
+                `}
+                style={{ 
+                  borderColor: selectedSide === 'b' ? market.side_b_color : undefined, 
+                  backgroundColor: selectedSide === 'b' ? `${market.side_b_color}15` : undefined,
+                  boxShadow: selectedSide === 'b' ? `0 8px 24px ${market.side_b_color}30` : undefined
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedSide === 'b' ? 'bg-current/20' : 'bg-muted'}`}>
-                      <TrendingDown className="w-5 h-5" />
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: selectedSide === 'b' ? `${market.side_b_color}25` : undefined }}
+                    >
+                      <TrendingDown className="w-5 h-5" style={{ color: market.side_b_color }} />
                     </div>
                     <div className="text-left">
-                      <p className="font-bold">{market.side_b_name}</p>
-                      <p className="text-xs opacity-70">{market.side_b_power.toLocaleString()} ARX-P</p>
+                      <p className="font-bold text-foreground">{market.side_b_name}</p>
+                      <p className="text-xs text-muted-foreground">{market.side_b_power.toLocaleString()} ARX-P</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black">{sideBPercent.toFixed(0)}%</p>
+                    <p className="text-2xl font-black" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</p>
                     {sideBPercent < sideAPercent && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Underdog</span>
                     )}
@@ -364,35 +386,63 @@ const MarketBettingModal = ({
                   </p>
                 </div>
 
-                {/* Quick amounts */}
-                <div className="flex gap-2">
-                  {stakeTiers.map((tier) => (
-                    <button
-                      key={tier.label}
-                      onClick={() => setStakeAmount(Math.min(tier.value, availablePoints))}
-                      disabled={tier.value > availablePoints && tier.label !== 'MAX'}
-                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                        stakeAmount === tier.value
-                          ? 'bg-primary text-primary-foreground'
-                          : tier.value > availablePoints && tier.label !== 'MAX'
-                            ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                            : 'bg-secondary hover:bg-secondary/80 text-foreground'
-                      }`}
-                    >
-                      {tier.label}
-                    </button>
-                  ))}
+                {/* Quick amounts - Enhanced */}
+                <div className="grid grid-cols-5 gap-2">
+                  {stakeTiers.map((tier) => {
+                    const isSelected = stakeAmount === tier.value;
+                    const isDisabled = tier.value > availablePoints && tier.label !== 'MAX';
+                    
+                    return (
+                      <button
+                        key={tier.label}
+                        type="button"
+                        onClick={() => setStakeAmount(Math.min(tier.value, availablePoints))}
+                        disabled={isDisabled}
+                        className={`
+                          py-3 rounded-xl text-sm font-bold transition-all duration-200
+                          touch-manipulation select-none
+                          ${isSelected
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                            : isDisabled
+                              ? 'bg-muted text-muted-foreground/50 cursor-not-allowed'
+                              : 'bg-secondary hover:bg-secondary/80 active:scale-95 text-foreground'
+                          }
+                        `}
+                      >
+                        {tier.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Slider */}
-                <div>
+                {/* Slider - Enhanced */}
+                <div className="space-y-2">
                   <input
                     type="range"
                     min={100}
                     max={Math.max(availablePoints, 100)}
-                    value={Math.max(stakeAmount, 100)}
+                    value={stakeAmount}
                     onChange={(e) => setStakeAmount(Number(e.target.value))}
-                    className="w-full h-2 rounded-full bg-secondary appearance-none cursor-pointer accent-primary"
+                    className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
+                      bg-secondary
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:w-6
+                      [&::-webkit-slider-thumb]:h-6
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-primary
+                      [&::-webkit-slider-thumb]:shadow-lg
+                      [&::-webkit-slider-thumb]:shadow-primary/30
+                      [&::-webkit-slider-thumb]:cursor-grab
+                      [&::-webkit-slider-thumb]:active:cursor-grabbing
+                      [&::-webkit-slider-thumb]:active:scale-110
+                      [&::-webkit-slider-thumb]:transition-transform
+                      [&::-moz-range-thumb]:w-6
+                      [&::-moz-range-thumb]:h-6
+                      [&::-moz-range-thumb]:rounded-full
+                      [&::-moz-range-thumb]:bg-primary
+                      [&::-moz-range-thumb]:border-0
+                      [&::-moz-range-thumb]:shadow-lg
+                    "
                   />
                   <div className="flex justify-between mt-2 text-sm text-muted-foreground">
                     <span>100</span>
@@ -470,15 +520,19 @@ const MarketBettingModal = ({
                   </div>
                 )}
 
-                {/* Place Bet Button */}
+                {/* Place Bet Button - Enhanced */}
                 <button
+                  type="button"
                   onClick={handlePlaceBet}
                   disabled={stakeAmount < 100 || availablePoints < 100}
-                  className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
-                    stakeAmount < 100 || availablePoints < 100
+                  className={`
+                    w-full py-4 rounded-xl font-bold text-lg transition-all duration-200
+                    flex items-center justify-center gap-3 touch-manipulation select-none
+                    ${stakeAmount < 100 || availablePoints < 100
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                      : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 shadow-lg shadow-primary/20'
-                  }`}
+                      : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 active:scale-[0.98] shadow-lg shadow-primary/25'
+                    }
+                  `}
                 >
                   <Fingerprint className="w-5 h-5" />
                   {stakeAmount < 100 ? 'Minimum 100 ARX-P' : `Place Bet • ${stakeAmount.toLocaleString()} ARX-P`}
