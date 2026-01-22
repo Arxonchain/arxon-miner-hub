@@ -1343,6 +1343,7 @@ export type Database = {
         }[]
       }
       get_daily_send_count: { Args: { p_user_id: string }; Returns: number }
+      get_user_rank: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
