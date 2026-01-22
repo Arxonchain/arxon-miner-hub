@@ -59,45 +59,29 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Calculate user's actual rank by fetching ordered leaderboard and finding their position
+  // Calculate user's actual rank using efficient database function
+  // This works for ANY number of users (100k+) without row limits
   const calculateRank = useCallback(async () => {
     if (!user) return;
     
     try {
-      // Fetch the full leaderboard ordered by total_points descending
-      // This gives us the exact ranking - position in array + 1 = rank
-      const { data: leaderboard, error } = await supabase
-        .from('leaderboard_view')
-        .select('user_id, total_points')
-        .order('total_points', { ascending: false });
+      // Use the database function that counts users with higher points
+      // This bypasses Supabase's default 1000 row limit and works for any user count
+      const { data, error } = await supabase
+        .rpc('get_user_rank', { p_user_id: user.id });
 
       if (error) {
-        console.error('Error fetching leaderboard for rank:', error);
+        console.error('Error fetching rank from database function:', error);
         return;
       }
 
-      if (!leaderboard || leaderboard.length === 0) {
-        setRank(1); // Only user
-        cacheSet(rankCacheKey(user.id), 1);
-        return;
-      }
-
-      // Find user's position in the sorted leaderboard
-      const userIndex = leaderboard.findIndex(entry => entry.user_id === user.id);
+      // The function returns the exact rank (1-indexed)
+      const userRank = data as number;
       
-      if (userIndex === -1) {
-        // User not in leaderboard yet (new user with 0 points)
-        // Their rank is total users + 1
-        const userRank = leaderboard.length + 1;
+      if (userRank && userRank > 0) {
         setRank(userRank);
         cacheSet(rankCacheKey(user.id), userRank);
-        return;
       }
-
-      // Rank = position + 1 (0-indexed to 1-indexed)
-      const userRank = userIndex + 1;
-      setRank(userRank);
-      cacheSet(rankCacheKey(user.id), userRank);
     } catch (error) {
       console.error('Error calculating rank:', error);
       // Keep existing rank on error
