@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Clock, Users, Trophy, TrendingUp, AlertTriangle, 
-  Zap, Fingerprint, Share2, Gift, CheckCircle, Target, ChevronDown
+  Zap, Fingerprint, Share2, Gift, CheckCircle, Target, ChevronDown, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
 import FingerprintScanner from './FingerprintScanner';
-import BattlePoolDisplay from './BattlePoolDisplay';
+import LivePoolTracker from './LivePoolTracker';
+import LiveActivityFeed from './LiveActivityFeed';
 import BattleVoteExplorer from './BattleVoteExplorer';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -22,7 +23,7 @@ interface ArenaMarketDetailProps {
   storedFingerprintHash?: string | null;
 }
 
-type DetailTab = 'vote' | 'explorer' | 'pools';
+type DetailTab = 'vote' | 'explorer' | 'pools' | 'activity';
 
 const ArenaMarketDetail = ({
   market,
@@ -186,8 +187,9 @@ const ArenaMarketDetail = ({
         {/* Tab Pills - Compact */}
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
           <button
+            type="button"
             onClick={() => setActiveDetailTab('pools')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all touch-manipulation ${
               activeDetailTab === 'pools'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
@@ -197,8 +199,22 @@ const ArenaMarketDetail = ({
             Pools
           </button>
           <button
+            type="button"
+            onClick={() => setActiveDetailTab('activity')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all touch-manipulation ${
+              activeDetailTab === 'activity'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Live
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveDetailTab('explorer')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all touch-manipulation ${
               activeDetailTab === 'explorer'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
@@ -209,8 +225,9 @@ const ArenaMarketDetail = ({
           </button>
           {isLive && !userPosition && (
             <button
+              type="button"
               onClick={() => setActiveDetailTab('vote')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-xs whitespace-nowrap transition-all touch-manipulation ${
                 activeDetailTab === 'vote'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-secondary/40 text-muted-foreground active:bg-secondary'
@@ -228,7 +245,25 @@ const ArenaMarketDetail = ({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <BattlePoolDisplay market={market} />
+            <LivePoolTracker market={market} />
+          </motion.div>
+        )}
+
+        {/* Live Activity Tab */}
+        {activeDetailTab === 'activity' && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-3"
+          >
+            <LivePoolTracker market={market} />
+            <LiveActivityFeed
+              battleId={market.id}
+              sideAName={market.side_a_name}
+              sideBName={market.side_b_name}
+              sideAColor={market.side_a_color}
+              sideBColor={market.side_b_color}
+            />
           </motion.div>
         )}
 
