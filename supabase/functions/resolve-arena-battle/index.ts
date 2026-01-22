@@ -141,13 +141,11 @@ serve(async (req) => {
         let totalRewardsDistributed = 0;
         let prizePoolDistributed = 0;
 
-        // Calculate prize pool distribution
-        // Winners get (bonusPercentage)% of their proportional share
-        // All participants get a small participation bonus from the prize pool
-        const winnerPrizePoolShare = prizePool * 0.8; // 80% to winners
-        const participationPrizePoolShare = prizePool * 0.2; // 20% to all participants
+        // Prize pool distribution: 100% goes to winners proportionally based on stake
+        // Losers only get the instant mining boost (already applied by trigger)
+        const totalPrizePoolForWinners = prizePool; // 100% to winners
         
-        const totalParticipantStake = allParticipants.reduce((sum, v) => sum + Number(v.power_spent), 0);
+        console.log(`Prize Pool: ${prizePool}, Bonus %: ${bonusPercentage}%, Winners get 100%`);
 
         // Process winners - they get stake back + multiplied bonus + share of loser pool + prize pool share + streak bonus
         for (const vote of winningVotes) {
@@ -177,22 +175,18 @@ serve(async (req) => {
             ? (vote.power_spent / winningPool) * losingPool 
             : 0;
           
-          // Calculate winner's share of the prize pool (proportional to their stake in winning pool)
+          // Calculate winner's share of the ENTIRE prize pool (proportional to their stake)
+          // Apply bonus percentage from admin settings
           const winnerPrizeShare = winningPool > 0 
-            ? (vote.power_spent / winningPool) * winnerPrizePoolShare * (bonusPercentage / 100)
-            : 0;
-          
-          // Calculate participation bonus from prize pool (all participants get this)
-          const participationBonus = totalParticipantStake > 0
-            ? (vote.power_spent / totalParticipantStake) * participationPrizePoolShare
+            ? (vote.power_spent / winningPool) * totalPrizePoolForWinners * (bonusPercentage / 100)
             : 0;
           
           // Apply streak bonus to total earnings
-          const baseReward = stakeReturn + stakeBonus + loserPoolShare + winnerPrizeShare + participationBonus;
+          const baseReward = stakeReturn + stakeBonus + loserPoolShare + winnerPrizeShare;
           const streakBonus = baseReward * (streakBonusPercent / 100);
           const totalReward = baseReward + streakBonus;
           
-          prizePoolDistributed += winnerPrizeShare + participationBonus;
+          prizePoolDistributed += winnerPrizeShare;
           totalRewardsDistributed += totalReward;
 
           console.log(`User ${vote.user_id}: Streak ${currentStreak}, Bonus ${streakBonusPercent}%, Reward ${totalReward}`);
@@ -225,7 +219,7 @@ serve(async (req) => {
             user_id: vote.user_id,
             stake_amount: vote.power_spent,
             bonus_earned: stakeBonus + winnerPrizeShare,
-            pool_share_earned: loserPoolShare + participationBonus,
+            pool_share_earned: loserPoolShare,
             streak_bonus: streakBonus,
             total_earned: totalReward,
             is_winner: true,
@@ -273,7 +267,8 @@ serve(async (req) => {
           });
         }
 
-        // Process losers - reset their streak, but give them participation bonus from prize pool
+        // Process losers - reset their streak, they only keep the instant mining boost (applied by trigger)
+        // NO points returned - full risk, full reward system
         for (const vote of losingVotes) {
           // Reset win streak
           await supabase
@@ -281,58 +276,36 @@ serve(async (req) => {
             .update({ current_win_streak: 0 })
             .eq("user_id", vote.user_id);
 
-          // Calculate participation bonus from prize pool (all participants get this)
-          const participationBonus = totalParticipantStake > 0
-            ? (vote.power_spent / totalParticipantStake) * participationPrizePoolShare
-            : 0;
-          
-          prizePoolDistributed += participationBonus;
-
           await supabase.from("arena_staking_rewards").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
             original_stake: vote.power_spent,
             multiplier: 0,
             stake_return: 0,
-            loser_pool_share: participationBonus, // Participation bonus from prize pool
-            total_reward: participationBonus,
+            loser_pool_share: 0,
+            total_reward: 0,
             is_winner: false,
           });
 
-          // Record loss in arena_earnings with participation bonus
+          // Record loss in arena_earnings (zero earnings)
           await supabase.from("arena_earnings").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
             stake_amount: vote.power_spent,
             bonus_earned: 0,
-            pool_share_earned: participationBonus,
+            pool_share_earned: 0,
             streak_bonus: 0,
-            total_earned: participationBonus,
+            total_earned: 0,
             is_winner: false,
           });
 
-          // Award points for participation bonus if any
-          if (participationBonus > 0) {
-            let remainingBonus = participationBonus;
-            while (remainingBonus > 0) {
-              const increment = Math.min(remainingBonus, 500);
-              await supabase.rpc("increment_user_points", {
-                p_user_id: vote.user_id,
-                p_amount: increment,
-                p_type: "mining",
-              });
-              remainingBonus -= 500;
-            }
-          }
-
-          // Award participation badge (losers still get a badge + participation bonus info)
+          // Award participation badge (losers still get a badge for participating)
           const sideName = winnerSide === "a" ? battle.side_b_name : battle.side_a_name;
-          const bonusText = participationBonus > 0 ? ` (+${Math.round(participationBonus)} ARX-P participation bonus)` : "";
           await supabase.from("user_badges").insert({
             user_id: vote.user_id,
             badge_type: "participant",
             badge_name: `${sideName} Warrior`,
-            description: `Staked ${vote.power_spent} ARX-P on ${sideName} in "${battle.title}"${bonusText}`,
+            description: `Staked ${vote.power_spent} ARX-P on ${sideName} in "${battle.title}" (Mining boost active!)`,
             battle_id: battle.id,
           });
         }
