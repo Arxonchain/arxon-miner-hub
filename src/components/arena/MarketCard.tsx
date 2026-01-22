@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift, Activity } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
 
 interface MarketCardProps {
@@ -12,6 +13,8 @@ interface MarketCardProps {
 
 const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: MarketCardProps) => {
   const [timeLeft, setTimeLeft] = useState('');
+  const [recentActivity, setRecentActivity] = useState(false);
+  const [liveStake, setLiveStake] = useState<{ side: 'a' | 'b'; amount: number } | null>(null);
   
   const totalPool = market.side_a_power + market.side_b_power;
   const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : 50;
@@ -19,6 +22,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
   
   const isEnded = !!market.winner_side || new Date(market.ends_at) < new Date();
   const isUpcoming = new Date(market.starts_at) > new Date();
+  const isLive = !isEnded && !isUpcoming;
   
   useEffect(() => {
     const updateTimer = () => {
@@ -50,6 +54,37 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
     const interval = setInterval(updateTimer, 60000);
     return () => clearInterval(interval);
   }, [market.ends_at, market.starts_at, isUpcoming]);
+
+  // Subscribe to real-time vote activity for live markets
+  useEffect(() => {
+    if (!isLive) return;
+
+    const channel = supabase
+      .channel(`card-activity-${market.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'arena_votes',
+          filter: `battle_id=eq.${market.id}`,
+        },
+        (payload) => {
+          const newVote = payload.new as any;
+          setRecentActivity(true);
+          setLiveStake({ side: newVote.side, amount: newVote.power_spent });
+          setTimeout(() => {
+            setRecentActivity(false);
+            setLiveStake(null);
+          }, 3000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [market.id, isLive]);
 
   const getCategoryBadge = () => {
     const categories: Record<string, { color: string; label: string }> = {
@@ -100,11 +135,34 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
         touch-manipulation select-none transition-all duration-200
         ${userPosition 
           ? 'bg-primary/5 border-primary/30 shadow-sm shadow-primary/10' 
-          : 'bg-card/60 border-border/40 hover:border-border active:bg-secondary/30'
+          : recentActivity
+            ? 'bg-accent/5 border-accent/40'
+            : 'bg-card/60 border-border/40 hover:border-border active:bg-secondary/30'
         } 
         ${variant === 'featured' ? 'p-4' : 'p-3'}
       `}
     >
+      {/* Live stake animation overlay */}
+      <AnimatePresence>
+        {liveStake && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute top-0 left-0 right-0 px-2 py-1 flex items-center justify-center gap-1 z-10"
+            style={{ 
+              backgroundColor: liveStake.side === 'a' ? `${market.side_a_color}20` : `${market.side_b_color}20`,
+              borderBottom: `1px solid ${liveStake.side === 'a' ? market.side_a_color : market.side_b_color}40`
+            }}
+          >
+            <Activity className="w-3 h-3 text-foreground animate-pulse" />
+            <span className="text-[10px] font-bold text-foreground">
+              +{liveStake.amount >= 1000 ? `${(liveStake.amount / 1000).toFixed(1)}K` : liveStake.amount} on {liveStake.side === 'a' ? market.side_a_name : market.side_b_name}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Prize pool badge - Compact */}
       {market.prize_pool > 0 && (
         <div className="absolute top-2 right-2">
