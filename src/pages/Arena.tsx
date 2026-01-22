@@ -20,6 +20,7 @@ import ArenaTeamLeaderboard from '@/components/arena/ArenaTeamLeaderboard';
 import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
 import AuthDialog from '@/components/auth/AuthDialog';
+import ArenaCountdown from '@/components/arena/ArenaCountdown';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
 
 const Arena = () => {
@@ -113,19 +114,11 @@ const Arena = () => {
   }
 
   if (!hasArenaAccess) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
-        <AnimatedBackground />
-        <div className="relative z-10 text-center p-8 glass-card border border-primary/20 max-w-md mx-4">
-          <Lock className="w-16 h-16 mx-auto mb-4 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">Arena Coming Soon</h1>
-          <p className="text-muted-foreground mb-6">The Arxon Arena is currently under construction.</p>
-          <button onClick={() => navigate('/')} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium">
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
-    );
+    // Set launch time to 5 hours from now (will be replaced with actual launch time)
+    const launchTime = new Date();
+    launchTime.setHours(launchTime.getHours() + 5);
+    
+    return <ArenaCountdown launchTime={launchTime} />;
   }
 
   if (!user) {
