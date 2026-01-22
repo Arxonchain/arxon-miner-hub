@@ -72,6 +72,25 @@ export const useArenaMembership = () => {
 
     setRegistering(true);
     try {
+      // Check if this fingerprint is already registered to ANOTHER account
+      const { data: existingFingerprint, error: checkError } = await supabase
+        .from('arena_members')
+        .select('user_id')
+        .eq('fingerprint_hash', fingerprintHash)
+        .neq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking fingerprint:', checkError);
+      }
+
+      if (existingFingerprint) {
+        toast.error('This fingerprint is already registered to another account', {
+          description: 'Each fingerprint can only be linked to one Arena account.'
+        });
+        return { success: false, club: null, error: 'Fingerprint already registered to another account' };
+      }
+
       // Auto-assign club
       const assignedClub = await getAutoAssignedClub();
 
