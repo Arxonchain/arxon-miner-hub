@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, RefreshCw, Trophy, Lock } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useArena } from '@/hooks/useArena';
@@ -20,7 +20,6 @@ import ArenaTeamLeaderboard from '@/components/arena/ArenaTeamLeaderboard';
 import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
 import AuthDialog from '@/components/auth/AuthDialog';
-import ArenaCountdown from '@/components/arena/ArenaCountdown';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
 
 const Arena = () => {
@@ -59,67 +58,13 @@ const Arena = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<ArenaTab>('markets');
   const [selectedMarket, setSelectedMarket] = useState<ArenaMarket | null>(null);
-  const [arenaPublicAccess, setArenaPublicAccess] = useState<boolean | null>(null);
-  const [isEmailWhitelisted, setIsEmailWhitelisted] = useState(false);
-  const [accessLoading, setAccessLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  useEffect(() => {
-    const checkArenaAccess = async () => {
-      try {
-        const { data: settings } = await supabase
-          .from('mining_settings')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
-        
-        if (settings) {
-          setArenaPublicAccess((settings as any).arena_public_access ?? false);
-        }
-
-        if (user?.email) {
-          const { data: whitelist } = await supabase
-            .from('arena_email_whitelist')
-            .select('email')
-            .eq('email', user.email.toLowerCase())
-            .maybeSingle();
-          
-          setIsEmailWhitelisted(!!whitelist);
-        }
-      } catch (error) {
-        console.error('Error checking arena access:', error);
-      } finally {
-        setAccessLoading(false);
-      }
-    };
-
-    checkArenaAccess();
-  }, [user?.email]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     window.location.reload();
   };
 
-  const hasArenaAccess = arenaPublicAccess === true || isAdmin || isEmailWhitelisted;
-
-  if (accessLoading || adminLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-          <Trophy className="w-12 h-12 text-primary" />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!hasArenaAccess) {
-    // Set launch time to 5 hours from now (will be replaced with actual launch time)
-    const launchTime = new Date();
-    launchTime.setHours(launchTime.getHours() + 5);
-    
-    return <ArenaCountdown launchTime={launchTime} />;
-  }
 
   if (!user) {
     return (
