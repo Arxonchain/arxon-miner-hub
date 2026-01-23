@@ -201,10 +201,10 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
               </span>
             )}
             {/* AI Prediction badge */}
-            {isLive && market.ai_side_a_probability && (
+            {isLive && market.ai_side_a_probability !== undefined && market.ai_side_a_probability !== null && (
               <AIPredictionBadge
-                sideAProbability={market.ai_side_a_probability}
-                sideBProbability={market.ai_side_b_probability}
+                sideAProbability={Number(market.ai_side_a_probability) || 50}
+                sideBProbability={Number(market.ai_side_b_probability) || 50}
                 confidence={market.ai_confidence || 'moderate'}
                 sideAName={market.side_a_name}
                 sideBName={market.side_b_name}
