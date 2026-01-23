@@ -1319,6 +1319,28 @@ export type Database = {
         }
         Relationships: []
       }
+      arena_team_leaderboard: {
+        Row: {
+          avatar_url: string | null
+          best_win_streak: number | null
+          club: string | null
+          current_win_streak: number | null
+          member_total_wins: number | null
+          net_profit: number | null
+          total_battles: number | null
+          total_bonus_earned: number | null
+          total_earned: number | null
+          total_pool_share_earned: number | null
+          total_staked: number | null
+          total_streak_bonus: number | null
+          total_votes: number | null
+          total_wins: number | null
+          user_id: string | null
+          username: string | null
+          win_rate: number | null
+        }
+        Relationships: []
+      }
       leaderboard_view: {
         Row: {
           avatar_url: string | null
