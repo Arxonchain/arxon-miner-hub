@@ -277,6 +277,27 @@ const ArenaMarketDetail = ({
           </motion.div>
         )}
 
+        {/* Upcoming Market - Voting Disabled Message */}
+        {isUpcoming && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-foreground">Voting Opens Soon</p>
+                <p className="text-xs text-muted-foreground">
+                  Voting will be available when this market goes live in <span className="font-bold text-blue-400">{timeLeft}</span>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Already Voted Display */}
         {userPosition && (
           <motion.div

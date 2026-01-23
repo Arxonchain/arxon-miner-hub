@@ -315,6 +315,28 @@ export const useArenaMarkets = () => {
     init();
   }, [fetchMarkets, fetchUserPositions, fetchEarningsLeaderboard]);
 
+  // Timer to check for upcoming markets transitioning to live
+  useEffect(() => {
+    const checkMarketTransitions = () => {
+      const now = new Date();
+      
+      // Check if any upcoming market should now be live
+      const shouldTransition = upcomingMarkets.some(market => {
+        const startsAt = new Date(market.starts_at);
+        return startsAt <= now;
+      });
+
+      if (shouldTransition) {
+        fetchMarkets();
+      }
+    };
+
+    // Check every second for precise transitions
+    const interval = setInterval(checkMarketTransitions, 1000);
+    
+    return () => clearInterval(interval);
+  }, [upcomingMarkets, fetchMarkets]);
+
   // Real-time subscription for market updates and leaderboard
   useEffect(() => {
     const channel = supabase
