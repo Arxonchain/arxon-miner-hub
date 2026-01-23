@@ -163,16 +163,31 @@ export const useArenaMarkets = () => {
     }
   }, [user]);
 
-  // Fetch earnings leaderboard
+  // Fetch earnings leaderboard (uses arena_team_leaderboard view which includes active participants)
   const fetchEarningsLeaderboard = useCallback(async () => {
     try {
+      // Use the arena_team_leaderboard view which shows all arena members with their stakes
+      // This view joins arena_members, profiles, and arena_votes to show participants
+      // even before battles resolve (unlike arena_earnings_leaderboard which only shows resolved data)
       const { data, error } = await supabase
-        .from('arena_earnings_leaderboard')
+        .from('arena_team_leaderboard' as any)
         .select('*')
         .limit(100);
 
-      if (error) throw error;
-      setEarningsLeaderboard((data || []) as EarningsLeaderboardEntry[]);
+      if (error) {
+        // Fallback to arena_earnings_leaderboard if new view doesn't exist
+        console.warn('arena_team_leaderboard error, falling back to arena_earnings_leaderboard:', error.message);
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('arena_earnings_leaderboard')
+          .select('*')
+          .limit(100);
+        
+        if (fallbackError) throw fallbackError;
+        setEarningsLeaderboard((fallbackData || []) as unknown as EarningsLeaderboardEntry[]);
+        return;
+      }
+      
+      setEarningsLeaderboard((data || []) as unknown as EarningsLeaderboardEntry[]);
     } catch (error) {
       console.error('Error fetching earnings leaderboard:', error);
     }
