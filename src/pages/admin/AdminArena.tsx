@@ -78,6 +78,9 @@ const AdminArena = () => {
     duration_hours: '24',
     prize_pool: '0',
     bonus_percentage: '200',
+    schedule_type: 'now' as 'now' | 'scheduled',
+    scheduled_date: '',
+    scheduled_time: '',
   });
 
   // Edit form state (separate from create form)
@@ -122,10 +125,32 @@ const AdminArena = () => {
       return;
     }
 
+    // Validate scheduled time if scheduling for later
+    if (formData.schedule_type === 'scheduled') {
+      if (!formData.scheduled_date || !formData.scheduled_time) {
+        toast.error('Please set a start date and time for the scheduled market');
+        return;
+      }
+      const scheduledStart = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
+      if (scheduledStart <= new Date()) {
+        toast.error('Scheduled start time must be in the future');
+        return;
+      }
+    }
+
     setCreating(true);
     try {
-      const now = new Date();
-      const endsAt = new Date(now.getTime() + parseInt(formData.duration_hours) * 60 * 60 * 1000);
+      let startsAt: Date;
+      
+      if (formData.schedule_type === 'scheduled') {
+        // Use the scheduled date/time
+        startsAt = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
+      } else {
+        // Start immediately
+        startsAt = new Date();
+      }
+      
+      const endsAt = new Date(startsAt.getTime() + parseInt(formData.duration_hours) * 60 * 60 * 1000);
 
       const { error } = await supabase.from('arena_battles').insert({
         title: formData.title,
@@ -138,14 +163,15 @@ const AdminArena = () => {
         duration_hours: parseInt(formData.duration_hours),
         prize_pool: parseFloat(formData.prize_pool) || 0,
         bonus_percentage: parseFloat(formData.bonus_percentage) || 200,
-        starts_at: now.toISOString(),
+        starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
         is_active: true,
       });
 
       if (error) throw error;
 
-      toast.success('Market created successfully!');
+      const isScheduled = formData.schedule_type === 'scheduled';
+      toast.success(isScheduled ? 'Market scheduled successfully! It will go live at the set time.' : 'Market created and is now live!');
       setShowCreateDialog(false);
       setFormData({
         title: '',
@@ -158,6 +184,9 @@ const AdminArena = () => {
         duration_hours: '24',
         prize_pool: '0',
         bonus_percentage: '200',
+        schedule_type: 'now',
+        scheduled_date: '',
+        scheduled_time: '',
       });
       fetchBattles();
     } catch (error: any) {
@@ -276,6 +305,10 @@ const AdminArena = () => {
   };
 
   const getStatusBadge = (battle: ArenaBattle) => {
+    const now = new Date();
+    const startsAt = new Date(battle.starts_at);
+    const endsAt = new Date(battle.ends_at);
+    
     if (battle.winner_side) {
       return (
         <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-500">
@@ -290,7 +323,15 @@ const AdminArena = () => {
         </span>
       );
     }
-    if (new Date(battle.ends_at) < new Date()) {
+    // Check if it's upcoming (start time is in the future)
+    if (startsAt > now) {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500">
+          Upcoming
+        </span>
+      );
+    }
+    if (endsAt < now) {
       return (
         <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-500">
           Pending Resolution
@@ -305,8 +346,10 @@ const AdminArena = () => {
   };
 
   // Stats
-  const liveCount = battles.filter(b => b.is_active && !b.winner_side && new Date(b.ends_at) > new Date()).length;
-  const pendingCount = battles.filter(b => !b.winner_side && new Date(b.ends_at) < new Date()).length;
+  const now = new Date();
+  const upcomingCount = battles.filter(b => b.is_active && !b.winner_side && new Date(b.starts_at) > now).length;
+  const liveCount = battles.filter(b => b.is_active && !b.winner_side && new Date(b.starts_at) <= now && new Date(b.ends_at) > now).length;
+  const pendingCount = battles.filter(b => !b.winner_side && new Date(b.ends_at) < now).length;
   const resolvedCount = battles.filter(b => b.winner_side).length;
   const totalStaked = battles.reduce((sum, b) => sum + b.side_a_power + b.side_b_power, 0);
 
@@ -436,6 +479,57 @@ const AdminArena = () => {
                   </div>
                 </div>
 
+                {/* Schedule Type */}
+                <div className="space-y-2">
+                  <Label>When to Start</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={formData.schedule_type === 'now' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setFormData({ ...formData, schedule_type: 'now', scheduled_date: '', scheduled_time: '' })}
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Start Now
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.schedule_type === 'scheduled' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setFormData({ ...formData, schedule_type: 'scheduled' })}
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Schedule
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Scheduled Date/Time (shown only when scheduling) */}
+                {formData.schedule_type === 'scheduled' && (
+                  <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
+                    <div className="space-y-2">
+                      <Label>Start Date *</Label>
+                      <Input
+                        type="date"
+                        value={formData.scheduled_date}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Start Time *</Label>
+                      <Input
+                        type="time"
+                        value={formData.scheduled_time}
+                        onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                      />
+                    </div>
+                    <p className="col-span-2 text-xs text-blue-400">
+                      The market will appear as "Upcoming" until the scheduled time, then automatically go live for voting.
+                    </p>
+                  </div>
+                )}
+
                 {/* Prize Pool & Bonus */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -475,7 +569,20 @@ const AdminArena = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Calendar className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{upcomingCount}</p>
+                <p className="text-sm text-muted-foreground">Upcoming</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -586,7 +693,11 @@ const AdminArena = () => {
                         <span><Users className="w-3 h-3 inline mr-1" />{battle.total_participants} voters</span>
                         <span><Gift className="w-3 h-3 inline mr-1" />Pool: {battle.prize_pool?.toLocaleString() || 0}</span>
                         <span><Zap className="w-3 h-3 inline mr-1" />Bonus: {battle.bonus_percentage}%</span>
-                        <span><Clock className="w-3 h-3 inline mr-1" />Ends: {format(new Date(battle.ends_at), 'MMM d, HH:mm')}</span>
+                        {new Date(battle.starts_at) > now ? (
+                          <span className="text-blue-400"><Calendar className="w-3 h-3 inline mr-1" />Starts: {format(new Date(battle.starts_at), 'MMM d, HH:mm')}</span>
+                        ) : (
+                          <span><Clock className="w-3 h-3 inline mr-1" />Ends: {format(new Date(battle.ends_at), 'MMM d, HH:mm')}</span>
+                        )}
                       </div>
                     </div>
                     
