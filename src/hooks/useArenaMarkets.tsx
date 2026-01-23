@@ -315,7 +315,7 @@ export const useArenaMarkets = () => {
     init();
   }, [fetchMarkets, fetchUserPositions, fetchEarningsLeaderboard]);
 
-  // Real-time subscription for market updates
+  // Real-time subscription for market updates and leaderboard
   useEffect(() => {
     const channel = supabase
       .channel('arena-markets-updates')
@@ -339,7 +339,30 @@ export const useArenaMarkets = () => {
         },
         () => {
           fetchMarkets();
+          fetchEarningsLeaderboard(); // Refresh leaderboard when new votes come in
           if (user) fetchUserPositions();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'arena_members',
+        },
+        () => {
+          fetchEarningsLeaderboard(); // Refresh leaderboard when members change
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'arena_earnings',
+        },
+        () => {
+          fetchEarningsLeaderboard(); // Refresh leaderboard when earnings are distributed
         }
       )
       .subscribe();
@@ -347,7 +370,7 @@ export const useArenaMarkets = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchMarkets, fetchUserPositions, user]);
+  }, [fetchMarkets, fetchUserPositions, fetchEarningsLeaderboard, user]);
 
   return {
     liveMarkets,
