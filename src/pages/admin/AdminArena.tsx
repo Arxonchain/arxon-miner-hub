@@ -80,7 +80,9 @@ const AdminArena = () => {
     bonus_percentage: '200',
     schedule_type: 'now' as 'now' | 'scheduled',
     scheduled_date: '',
-    scheduled_time: '',
+    scheduled_hour: '12',
+    scheduled_minute: '00',
+    scheduled_period: 'PM' as 'AM' | 'PM',
   });
 
   // Edit form state (separate from create form)
@@ -127,13 +129,24 @@ const AdminArena = () => {
 
     // Validate scheduled time if scheduling for later
     if (formData.schedule_type === 'scheduled') {
-      if (!formData.scheduled_date || !formData.scheduled_time) {
-        toast.error('Please set a start date and time for the scheduled market');
+      if (!formData.scheduled_date) {
+        toast.error('Please set a start date for the scheduled market');
         return;
       }
-      const scheduledStart = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
+      
+      // Convert 12-hour to 24-hour format for UTC
+      let hour24 = parseInt(formData.scheduled_hour);
+      if (formData.scheduled_period === 'PM' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (formData.scheduled_period === 'AM' && hour24 === 12) {
+        hour24 = 0;
+      }
+      const timeString = `${hour24.toString().padStart(2, '0')}:${formData.scheduled_minute}:00`;
+      
+      // Create UTC date
+      const scheduledStart = new Date(`${formData.scheduled_date}T${timeString}Z`);
       if (scheduledStart <= new Date()) {
-        toast.error('Scheduled start time must be in the future');
+        toast.error('Scheduled start time must be in the future (UTC)');
         return;
       }
     }
@@ -143,8 +156,15 @@ const AdminArena = () => {
       let startsAt: Date;
       
       if (formData.schedule_type === 'scheduled') {
-        // Use the scheduled date/time
-        startsAt = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
+        // Convert 12-hour to 24-hour format and use UTC
+        let hour24 = parseInt(formData.scheduled_hour);
+        if (formData.scheduled_period === 'PM' && hour24 !== 12) {
+          hour24 += 12;
+        } else if (formData.scheduled_period === 'AM' && hour24 === 12) {
+          hour24 = 0;
+        }
+        const timeString = `${hour24.toString().padStart(2, '0')}:${formData.scheduled_minute}:00`;
+        startsAt = new Date(`${formData.scheduled_date}T${timeString}Z`);
       } else {
         // Start immediately
         startsAt = new Date();
@@ -186,7 +206,9 @@ const AdminArena = () => {
         bonus_percentage: '200',
         schedule_type: 'now',
         scheduled_date: '',
-        scheduled_time: '',
+        scheduled_hour: '12',
+        scheduled_minute: '00',
+        scheduled_period: 'PM',
       });
       fetchBattles();
     } catch (error: any) {
@@ -487,7 +509,7 @@ const AdminArena = () => {
                       type="button"
                       variant={formData.schedule_type === 'now' ? 'default' : 'outline'}
                       className="flex-1"
-                      onClick={() => setFormData({ ...formData, schedule_type: 'now', scheduled_date: '', scheduled_time: '' })}
+                      onClick={() => setFormData({ ...formData, schedule_type: 'now', scheduled_date: '', scheduled_hour: '12', scheduled_minute: '00', scheduled_period: 'PM' })}
                     >
                       <Zap className="w-4 h-4 mr-2" />
                       Start Now
@@ -499,16 +521,16 @@ const AdminArena = () => {
                       onClick={() => setFormData({ ...formData, schedule_type: 'scheduled' })}
                     >
                       <Calendar className="w-4 h-4 mr-2" />
-                      Schedule
+                      Schedule (UTC)
                     </Button>
                   </div>
                 </div>
 
                 {/* Scheduled Date/Time (shown only when scheduling) */}
                 {formData.schedule_type === 'scheduled' && (
-                  <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
+                  <div className="space-y-4 p-4 rounded-lg border border-blue-500/20 bg-blue-500/5">
                     <div className="space-y-2">
-                      <Label>Start Date *</Label>
+                      <Label>Start Date (UTC) *</Label>
                       <Input
                         type="date"
                         value={formData.scheduled_date}
@@ -517,15 +539,55 @@ const AdminArena = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Start Time *</Label>
-                      <Input
-                        type="time"
-                        value={formData.scheduled_time}
-                        onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                      />
+                      <Label>Start Time (UTC) *</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={formData.scheduled_hour}
+                          onValueChange={(v) => setFormData({ ...formData, scheduled_hour: v })}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                              <SelectItem key={h} value={String(h)}>
+                                {h}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="flex items-center text-muted-foreground">:</span>
+                        <Select
+                          value={formData.scheduled_minute}
+                          onValueChange={(v) => setFormData({ ...formData, scheduled_minute: v })}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['00', '15', '30', '45'].map((m) => (
+                              <SelectItem key={m} value={m}>
+                                {m}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={formData.scheduled_period}
+                          onValueChange={(v) => setFormData({ ...formData, scheduled_period: v as 'AM' | 'PM' })}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AM">AM</SelectItem>
+                            <SelectItem value="PM">PM</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <p className="col-span-2 text-xs text-blue-400">
-                      The market will appear as "Upcoming" until the scheduled time, then automatically go live for voting.
+                    <p className="text-xs text-blue-400">
+                      ⏰ All times are in UTC. The market will appear as "Upcoming" until the scheduled time, then automatically go live for voting.
                     </p>
                   </div>
                 )}
