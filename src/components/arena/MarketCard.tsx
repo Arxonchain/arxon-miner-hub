@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift, Activity } from 'lucide-react';
+import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift, Activity, Brain } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
+import AIPredictionBadge from './AIPredictionBadge';
+import EarlyStakerBonus from './EarlyStakerBonus';
 
 interface MarketCardProps {
   market: ArenaMarket;
@@ -179,7 +181,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       <div className="flex items-start gap-2 mb-2">
         <div className="flex-1 min-w-0 pr-14">
           {/* Status indicators inline */}
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center gap-1 mb-1 flex-wrap">
             <span className={`text-[10px] px-1.5 py-0.5 rounded ${categoryBadge.color}`}>
               {categoryBadge.label}
             </span>
@@ -197,6 +199,23 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">
                 <Zap className="w-2.5 h-2.5 inline" />
               </span>
+            )}
+            {/* AI Prediction badge */}
+            {isLive && market.ai_side_a_probability && (
+              <AIPredictionBadge
+                sideAProbability={market.ai_side_a_probability}
+                sideBProbability={market.ai_side_b_probability}
+                confidence={market.ai_confidence || 'moderate'}
+                sideAName={market.side_a_name}
+                sideBName={market.side_b_name}
+                sideAColor={market.side_a_color}
+                sideBColor={market.side_b_color}
+                compact
+              />
+            )}
+            {/* Early staker bonus */}
+            {isLive && !userPosition && (
+              <EarlyStakerBonus startsAt={market.starts_at} endsAt={market.ends_at} compact />
             )}
           </div>
 

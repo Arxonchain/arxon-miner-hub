@@ -26,6 +26,12 @@ export interface ArenaMarket {
   category: string;
   resolution_source: string | null;
   total_participants: number;
+  // AI predictions
+  ai_side_a_probability: number;
+  ai_side_b_probability: number;
+  ai_prediction_text: string | null;
+  ai_confidence: string;
+  ai_last_updated: string | null;
 }
 
 export interface MarketVote {
@@ -36,6 +42,7 @@ export interface MarketVote {
   power_spent: number;
   locked_until: string;
   created_at: string;
+  early_stake_multiplier: number;
 }
 
 export interface EarningsLeaderboardEntry {

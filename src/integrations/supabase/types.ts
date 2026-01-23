@@ -88,6 +88,11 @@ export type Database = {
       }
       arena_battles: {
         Row: {
+          ai_confidence: string | null
+          ai_last_updated: string | null
+          ai_prediction_text: string | null
+          ai_side_a_probability: number | null
+          ai_side_b_probability: number | null
           bonus_percentage: number | null
           category: string | null
           created_at: string
@@ -121,6 +126,11 @@ export type Database = {
           winner_side: string | null
         }
         Insert: {
+          ai_confidence?: string | null
+          ai_last_updated?: string | null
+          ai_prediction_text?: string | null
+          ai_side_a_probability?: number | null
+          ai_side_b_probability?: number | null
           bonus_percentage?: number | null
           category?: string | null
           created_at?: string
@@ -154,6 +164,11 @@ export type Database = {
           winner_side?: string | null
         }
         Update: {
+          ai_confidence?: string | null
+          ai_last_updated?: string | null
+          ai_prediction_text?: string | null
+          ai_side_a_probability?: number | null
+          ai_side_b_probability?: number | null
           bonus_percentage?: number | null
           category?: string | null
           created_at?: string
@@ -384,6 +399,7 @@ export type Database = {
         Row: {
           battle_id: string
           created_at: string
+          early_stake_multiplier: number | null
           id: string
           locked_until: string
           power_spent: number
@@ -394,6 +410,7 @@ export type Database = {
         Insert: {
           battle_id: string
           created_at?: string
+          early_stake_multiplier?: number | null
           id?: string
           locked_until?: string
           power_spent: number
@@ -404,6 +421,7 @@ export type Database = {
         Update: {
           battle_id?: string
           created_at?: string
+          early_stake_multiplier?: number | null
           id?: string
           locked_until?: string
           power_spent?: number
@@ -1326,6 +1344,10 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_early_stake_multiplier: {
+        Args: { p_battle_id: string; p_vote_time: string }
+        Returns: number
+      }
       calculate_streak_bonus: { Args: { win_streak: number }; Returns: number }
       claim_nexus_reward: { Args: { p_transaction_id: string }; Returns: Json }
       generate_nexus_address: { Args: { p_username: string }; Returns: string }
