@@ -41,14 +41,24 @@ const ArenaMarketDetail = ({
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('pools');
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const totalPool = market.side_a_power + market.side_b_power;
   const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : 50;
   const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : 50;
 
-  const isEnded = !!market.winner_side || new Date(market.ends_at) < new Date();
-  const isUpcoming = new Date(market.starts_at) > new Date();
+  // Recalculate status based on current time (updates every second)
+  const isEnded = !!market.winner_side || new Date(market.ends_at) < currentTime;
+  const isUpcoming = new Date(market.starts_at) > currentTime;
   const isLive = !isEnded && !isUpcoming;
+
+  // Update current time every second to check for status transitions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const updateTimer = () => {

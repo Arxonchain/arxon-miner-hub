@@ -247,6 +247,27 @@ export const useArenaMarkets = () => {
       return false;
     }
 
+    // Find the market to check if it's live
+    const market = liveMarkets.find(m => m.id === marketId);
+    if (!market) {
+      // Check if it's upcoming
+      const upcomingMarket = upcomingMarkets.find(m => m.id === marketId);
+      if (upcomingMarket) {
+        toast.error('Voting has not started yet. Please wait until the market goes live.');
+        return false;
+      }
+      toast.error('This market is not available for voting');
+      return false;
+    }
+
+    // Double-check the market is actually live (not upcoming)
+    const now = new Date();
+    const startsAt = new Date(market.starts_at);
+    if (startsAt > now) {
+      toast.error('Voting has not started yet. Please wait until the market goes live.');
+      return false;
+    }
+
     if (!points || points.total_points < amount) {
       toast.error('Insufficient ARX-P points');
       return false;
