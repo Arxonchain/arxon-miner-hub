@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +19,7 @@ import ArenaMarketExplorer from '@/components/arena/ArenaMarketExplorer';
 import ArenaTeamLeaderboard from '@/components/arena/ArenaTeamLeaderboard';
 import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
+import ArenaHeroHeader from '@/components/arena/ArenaHeroHeader';
 import AuthDialog from '@/components/auth/AuthDialog';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
 
@@ -59,12 +60,39 @@ const Arena = () => {
   const [activeTab, setActiveTab] = useState<ArenaTab>('markets');
   const [selectedMarket, setSelectedMarket] = useState<ArenaMarket | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showHeroHeader, setShowHeroHeader] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     window.location.reload();
   };
 
+  const scrollToContent = () => {
+    setShowHeroHeader(false);
+    contentRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Trigger AI prediction fetch for live markets periodically
+  useEffect(() => {
+    if (liveMarkets.length === 0) return;
+    
+    const fetchAIPredictions = async () => {
+      try {
+        await supabase.functions.invoke('arena-ai-prediction', {
+          body: {}
+        });
+      } catch (error) {
+        console.error('Failed to fetch AI predictions:', error);
+      }
+    };
+
+    // Fetch predictions on mount and every 5 minutes
+    fetchAIPredictions();
+    const interval = setInterval(fetchAIPredictions, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [liveMarkets.length]);
 
   if (!user) {
     return (
@@ -128,6 +156,11 @@ const Arena = () => {
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       <AnimatedBackground />
 
+      {/* Hero Header - shown on markets tab */}
+      {showHeroHeader && activeTab === 'markets' && (
+        <ArenaHeroHeader onScrollToContent={scrollToContent} />
+      )}
+
       <header className="relative z-20 flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <button onClick={() => navigate('/')} className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-6 h-6" />
@@ -138,7 +171,7 @@ const Arena = () => {
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto relative z-10">
+      <main ref={contentRef} className="flex-1 overflow-y-auto relative z-10">
         {activeTab === 'markets' && (
           <ArenaMarketExplorer
             liveMarkets={liveMarkets}

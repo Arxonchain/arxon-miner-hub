@@ -121,10 +121,10 @@ serve(async (req) => {
         .eq("id", battle.id);
 
       if (winnerSide) {
-        // Get all votes for this battle
+        // Get all votes for this battle (including early_stake_multiplier)
         const { data: allVotes, error: votesError } = await supabase
           .from("arena_votes")
-          .select("user_id, power_spent, side")
+          .select("user_id, power_spent, side, early_stake_multiplier, created_at")
           .eq("battle_id", battle.id);
 
         if (votesError) {
@@ -147,15 +147,20 @@ serve(async (req) => {
         
         console.log(`Prize Pool: ${prizePool}, Bonus %: ${bonusPercentage}%, Winners: ${winningVotes.length}`);
 
-        // First pass: Calculate each winner's requested bonus (stake * bonus%)
-        const winnerBonusRequests: { vote: typeof winningVotes[0]; requestedBonus: number }[] = [];
+        // First pass: Calculate each winner's requested bonus (stake * bonus% * early_stake_multiplier)
+        const winnerBonusRequests: { vote: typeof winningVotes[0]; requestedBonus: number; earlyMultiplier: number }[] = [];
         let totalRequestedBonus = 0;
 
         for (const vote of winningVotes) {
-          // Each winner's bonus = their stake * (bonusPercentage / 100)
-          const requestedBonus = vote.power_spent * (bonusPercentage / 100);
-          winnerBonusRequests.push({ vote, requestedBonus });
+          // Early staker multiplier: 1.0 to 1.5x based on when they voted
+          const earlyMultiplier = Number(vote.early_stake_multiplier) || 1.0;
+          
+          // Each winner's bonus = their stake * (bonusPercentage / 100) * earlyMultiplier
+          const requestedBonus = vote.power_spent * (bonusPercentage / 100) * earlyMultiplier;
+          winnerBonusRequests.push({ vote, requestedBonus, earlyMultiplier });
           totalRequestedBonus += requestedBonus;
+          
+          console.log(`User ${vote.user_id}: Early multiplier ${earlyMultiplier.toFixed(2)}x, Requested bonus: ${requestedBonus.toFixed(0)}`);
         }
 
         // Calculate scale factor: if total requests exceed pool, scale down
@@ -165,8 +170,8 @@ serve(async (req) => {
 
         console.log(`Total requested bonus: ${totalRequestedBonus}, Scale factor: ${scaleFactor}`);
 
-        // Second pass: Process winners with scaled bonuses
-        for (const { vote, requestedBonus } of winnerBonusRequests) {
+        // Second pass: Process winners with scaled bonuses (includes early staker bonus)
+        for (const { vote, requestedBonus, earlyMultiplier } of winnerBonusRequests) {
           // Get current win streak for this user
           const { data: memberData } = await supabase
             .from("arena_members")
@@ -188,13 +193,13 @@ serve(async (req) => {
           }
 
           const stakeReturn = vote.power_spent; // Original stake back
-          const stakeBonus = vote.power_spent * (multiplier - 1); // Multiplier bonus
+          // Apply early staker multiplier to the stake bonus as well
+          const stakeBonus = vote.power_spent * (multiplier - 1) * earlyMultiplier; // Multiplier bonus + early bonus
           const loserPoolShare = winningPool > 0 
-            ? (vote.power_spent / winningPool) * losingPool 
+            ? (vote.power_spent / winningPool) * losingPool * earlyMultiplier
             : 0;
           
-          // Winner's prize pool share = their requested bonus * scale factor
-          // This ensures we never exceed the total prize pool
+          // Winner's prize pool share = their requested bonus * scale factor (already has early multiplier)
           const winnerPrizeShare = requestedBonus * scaleFactor;
           
           // Apply streak bonus to total earnings
@@ -205,7 +210,7 @@ serve(async (req) => {
           prizePoolDistributed += winnerPrizeShare;
           totalRewardsDistributed += totalReward;
 
-          console.log(`User ${vote.user_id}: Streak ${currentStreak}, Bonus ${streakBonusPercent}%, Reward ${totalReward}`);
+          console.log(`User ${vote.user_id}: Early ${earlyMultiplier.toFixed(2)}x, Streak ${currentStreak}, Bonus ${streakBonusPercent}%, Reward ${totalReward.toFixed(0)}`);
 
           // Update win streak
           await supabase
