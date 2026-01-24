@@ -607,10 +607,6 @@ const ArenaMarketDetail = ({
               >
                 <FingerprintScanner
                   onVerified={handleFingerprintVerified}
-                  onVerificationFailed={() => {}}
-                  onRequestReregister={handleRequestReregister}
-                  allowReregister={!!onReregisterFingerprint}
-                  storedFingerprintHash={storedFingerprintHash}
                   isVerifying={isVoting}
                   title="Confirm Your Vote"
                   subtitle={`Stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}`}
