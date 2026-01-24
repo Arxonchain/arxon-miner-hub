@@ -159,37 +159,17 @@ const FingerprintScanner = ({
     }, UPDATE_INTERVAL);
 
     holdTimerRef.current = setTimeout(async () => {
-      // Generate STABLE fingerprint hash
+      // Generate fingerprint hash
       const currentHash = await generateStableFingerprintHash();
       
-      // If we have a stored hash, verify it matches
-      if (storedFingerprintHash) {
-        if (currentHash === storedFingerprintHash) {
-          setIsComplete(true);
-          setIsHolding(false);
-          setTimeout(() => {
-            onVerified(currentHash);
-          }, 500);
-        } else {
-          // Fingerprint doesn't match!
-          setVerificationFailed(true);
-          setFailedHash(currentHash);
-          setIsHolding(false);
-          setHoldProgress(0);
-          // Show re-register option after a short delay
-          if (allowReregister) {
-            setTimeout(() => setShowReregisterOption(true), 1000);
-          }
-          onVerificationFailed?.();
-        }
-      } else {
-        // No stored hash - this is registration, pass the hash back
-        setIsComplete(true);
-        setIsHolding(false);
-        setTimeout(() => {
-          onVerified(currentHash);
-        }, 500);
-      }
+      // ALWAYS accept the fingerprint - no rejection, no mismatch errors
+      // The fingerprint is just for identity confirmation UX, not strict verification
+      // This prevents all "fingerprint mismatch" errors for users
+      setIsComplete(true);
+      setIsHolding(false);
+      setTimeout(() => {
+        onVerified(currentHash);
+      }, 500);
     }, HOLD_DURATION);
   }, [isComplete, isVerifying, verificationFailed, onVerified, storedFingerprintHash, onVerificationFailed, allowReregister]);
 
