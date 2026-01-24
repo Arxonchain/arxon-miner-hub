@@ -28,7 +28,7 @@ const Arena = () => {
   const { user } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { points } = usePoints();
-  const { membership, loading: membershipLoading, registering, registerMembership } = useArenaMembership();
+  const { membership, loading: membershipLoading, registering, registerMembership, reregisterFingerprint } = useArenaMembership();
   const {
     activeBattle,
     userVote,
@@ -142,6 +142,7 @@ const Arena = () => {
         calculateReturns={calculatePotentialReturns}
         isVoting={marketVoting}
         storedFingerprintHash={membership.fingerprint_hash}
+        onReregisterFingerprint={reregisterFingerprint}
       />
     );
   }
@@ -218,6 +219,7 @@ const Arena = () => {
               onVote={handleVote}
               isVoting={voting}
               storedFingerprintHash={membership.fingerprint_hash}
+              onReregisterFingerprint={reregisterFingerprint}
             />
           </>
         )}

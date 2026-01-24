@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Fingerprint, ShieldCheck, XCircle } from 'lucide-react';
+import { Check, Fingerprint, ShieldCheck, XCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface FingerprintScannerProps {
   onVerified: (fingerprintHash?: string) => void;
@@ -8,22 +9,43 @@ interface FingerprintScannerProps {
   title?: string;
   subtitle?: string;
   /** If provided, will verify the scanned fingerprint matches this hash */
-  storedFingerprintHash?: string;
+  storedFingerprintHash?: string | null;
   /** Called when verification fails (fingerprint doesn't match) */
   onVerificationFailed?: () => void;
+  /** Called when user requests to re-register their fingerprint */
+  onRequestReregister?: () => void;
+  /** Whether to show the re-register option on mismatch */
+  allowReregister?: boolean;
 }
 
-// Generate a unique fingerprint hash based on the visual pattern the user draws
-const generateFingerprintHash = async (): Promise<string> => {
+/**
+ * Generate a STABLE fingerprint hash using only non-volatile device properties.
+ * Excludes: screen width/height (can change with rotation/docking), 
+ * user agent version numbers (changes with updates)
+ * Includes: stable hardware identifiers like WebGL renderer, canvas rendering, 
+ * timezone, language, platform base
+ */
+const generateStableFingerprintHash = async (): Promise<string> => {
   const components: string[] = [];
   
-  // Screen properties
-  components.push(`screen:${screen.width}x${screen.height}x${screen.colorDepth}`);
-  components.push(`timezone:${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-  components.push(`lang:${navigator.language}`);
-  components.push(`platform:${navigator.platform}`);
+  // Stable: timezone (rarely changes)
+  components.push(`tz:${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
   
-  // Canvas fingerprint
+  // Stable: language preference
+  components.push(`lang:${navigator.language}`);
+  
+  // Stable: platform base (extract OS, ignore version details)
+  // Normalize platform to just the base (Windows, MacIntel, Linux, iPhone, Android, etc.)
+  const platformBase = navigator.platform.replace(/[0-9._-]+/g, '').trim();
+  components.push(`plat:${platformBase}`);
+  
+  // Stable: color depth (hardware dependent, rarely changes)
+  components.push(`cd:${screen.colorDepth}`);
+  
+  // Stable: device pixel ratio (hardware dependent)
+  components.push(`dpr:${window.devicePixelRatio}`);
+  
+  // Stable: Canvas fingerprint (hardware/driver dependent, very stable)
   try {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -38,29 +60,34 @@ const generateFingerprintHash = async (): Promise<string> => {
       ctx.fillText('ArxonArena', 2, 15);
       ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
       ctx.fillText('ArxonArena', 4, 17);
-      components.push(`canvas:${canvas.toDataURL()}`);
+      components.push(`cvs:${canvas.toDataURL()}`);
     }
   } catch {
-    components.push('canvas:unavailable');
+    components.push('cvs:unavailable');
   }
 
-  // WebGL fingerprint
+  // Stable: WebGL renderer (GPU/driver dependent, very stable)
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl');
     if (gl) {
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
       if (debugInfo) {
-        components.push(`webgl:${gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)}`);
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        // Normalize: remove version numbers from renderer string
+        const normalizedRenderer = renderer.replace(/[0-9.]+/g, '').trim();
+        components.push(`wgl:${normalizedRenderer}`);
       }
     }
   } catch {
-    components.push('webgl:unavailable');
+    components.push('wgl:unavailable');
   }
-
-  // Add timestamp component for uniqueness per user
-  const userAgent = navigator.userAgent;
-  components.push(`ua:${userAgent}`);
+  
+  // Stable: number of CPU cores (hardware dependent)
+  components.push(`cores:${navigator.hardwareConcurrency || 'unknown'}`);
+  
+  // Stable: max touch points (device capability)
+  components.push(`touch:${navigator.maxTouchPoints || 0}`);
 
   // Hash all components
   const fingerprint = components.join('|');
@@ -79,12 +106,16 @@ const FingerprintScanner = ({
   title = "Verify Your Identity",
   subtitle = "Hold your thumb on the scanner to continue",
   storedFingerprintHash,
-  onVerificationFailed
+  onVerificationFailed,
+  onRequestReregister,
+  allowReregister = false
 }: FingerprintScannerProps) => {
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [verificationFailed, setVerificationFailed] = useState(false);
+  const [showReregisterOption, setShowReregisterOption] = useState(false);
+  const [failedHash, setFailedHash] = useState<string | null>(null);
   const [scanLines, setScanLines] = useState<number[]>([]);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -128,8 +159,8 @@ const FingerprintScanner = ({
     }, UPDATE_INTERVAL);
 
     holdTimerRef.current = setTimeout(async () => {
-      // Generate fingerprint hash
-      const currentHash = await generateFingerprintHash();
+      // Generate STABLE fingerprint hash
+      const currentHash = await generateStableFingerprintHash();
       
       // If we have a stored hash, verify it matches
       if (storedFingerprintHash) {
@@ -142,8 +173,13 @@ const FingerprintScanner = ({
         } else {
           // Fingerprint doesn't match!
           setVerificationFailed(true);
+          setFailedHash(currentHash);
           setIsHolding(false);
           setHoldProgress(0);
+          // Show re-register option after a short delay
+          if (allowReregister) {
+            setTimeout(() => setShowReregisterOption(true), 1000);
+          }
           onVerificationFailed?.();
         }
       } else {
@@ -155,7 +191,7 @@ const FingerprintScanner = ({
         }, 500);
       }
     }, HOLD_DURATION);
-  }, [isComplete, isVerifying, verificationFailed, onVerified, storedFingerprintHash, onVerificationFailed]);
+  }, [isComplete, isVerifying, verificationFailed, onVerified, storedFingerprintHash, onVerificationFailed, allowReregister]);
 
   const endHold = useCallback(() => {
     if (isComplete) return;
@@ -177,7 +213,15 @@ const FingerprintScanner = ({
     setVerificationFailed(false);
     setHoldProgress(0);
     setIsComplete(false);
+    setShowReregisterOption(false);
+    setFailedHash(null);
   }, []);
+
+  const handleReregister = useCallback(() => {
+    if (failedHash && onRequestReregister) {
+      onRequestReregister();
+    }
+  }, [failedHash, onRequestReregister]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -352,10 +396,23 @@ const FingerprintScanner = ({
             key="failed"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-2"
+            className="flex flex-col items-center gap-3 max-w-xs text-center"
           >
             <span className="text-red-500 font-medium">Fingerprint Mismatch!</span>
-            <span className="text-muted-foreground text-sm">This isn't your registered fingerprint. Tap to try again.</span>
+            <span className="text-muted-foreground text-sm">
+              Your device fingerprint has changed (browser update, new device, etc.). Tap to try again.
+            </span>
+            {showReregisterOption && allowReregister && onRequestReregister && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReregister}
+                className="mt-2 gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Re-register Fingerprint
+              </Button>
+            )}
           </motion.div>
         ) : (
           <motion.p

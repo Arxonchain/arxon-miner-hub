@@ -163,11 +163,64 @@ export const useArenaMembership = () => {
     };
   }, [user]);
 
+  // Re-register fingerprint for existing member (recovery flow)
+  const reregisterFingerprint = async (newFingerprintHash: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user || !membership) {
+      toast.error('You must be logged in and a member to re-register');
+      return { success: false, error: 'Not logged in or not a member' };
+    }
+
+    try {
+      // Check if this NEW fingerprint is already used by ANOTHER account
+      const { data: existingFingerprint, error: checkError } = await supabase
+        .from('arena_members')
+        .select('user_id')
+        .eq('fingerprint_hash', newFingerprintHash)
+        .neq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking fingerprint:', checkError);
+      }
+
+      if (existingFingerprint) {
+        toast.error('This fingerprint is already registered to another account', {
+          description: 'Each fingerprint can only be linked to one Arena account.'
+        });
+        return { success: false, error: 'Fingerprint already registered to another account' };
+      }
+
+      // Update the user's fingerprint
+      const { error } = await supabase
+        .from('arena_members')
+        .update({
+          fingerprint_hash: newFingerprintHash,
+          fingerprint_verified: true,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Refresh membership data
+      await fetchMembership();
+      
+      toast.success('Fingerprint re-registered successfully!', {
+        description: 'Your new device fingerprint has been saved.'
+      });
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error re-registering fingerprint:', error);
+      toast.error('Failed to re-register fingerprint');
+      return { success: false, error: 'Re-registration failed' };
+    }
+  };
+
   return {
     membership,
     loading,
     registering,
     registerMembership,
+    reregisterFingerprint,
     refetch: fetchMembership,
   };
 };
