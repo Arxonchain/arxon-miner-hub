@@ -308,7 +308,7 @@ const FingerprintScanner = ({
         </motion.div>
 
         {/* Progress percentage */}
-        {isHolding && !isComplete && !verificationFailed && (
+        {isHolding && !isComplete && (
           <motion.div
             className="absolute -bottom-8 left-1/2 transform -translate-x-1/2"
             initial={{ opacity: 0, y: -10 }}
