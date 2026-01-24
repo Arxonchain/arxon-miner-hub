@@ -110,10 +110,10 @@ const VotePanel = ({
     }
   };
 
-  const handleFingerprintFailed = () => {
-    // No longer show toast here - the FingerprintScanner will show the re-register option
-  };
+  // Fingerprint failures no longer happen - scanner always accepts
+  const handleFingerprintFailed = () => {};
 
+  // Re-registration flow (kept for edge cases but rarely needed now)
   const handleRequestReregister = () => {
     setIsReregistering(true);
     setShowFingerprint(false);
@@ -125,7 +125,6 @@ const VotePanel = ({
     const result = await onReregisterFingerprint(newHash);
     if (result.success) {
       setIsReregistering(false);
-      // Now they can try to vote again
       toast.success('Fingerprint updated! You can now vote.');
     } else {
       setIsReregistering(false);
@@ -210,10 +209,6 @@ const VotePanel = ({
         <div className="glass-card p-6 border border-border/50 rounded-2xl">
           <FingerprintScanner
             onVerified={handleFingerprintVerified}
-            onVerificationFailed={handleFingerprintFailed}
-            onRequestReregister={handleRequestReregister}
-            allowReregister={!!onReregisterFingerprint}
-            storedFingerprintHash={storedFingerprintHash}
             isVerifying={isVoting}
             title="Verify Your Identity"
             subtitle={`Confirm your fingerprint to stake ${pendingAmount.toLocaleString()} ARX-P`}

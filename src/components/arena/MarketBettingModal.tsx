@@ -119,10 +119,9 @@ const MarketBettingModal = ({
     }
   };
 
+  // Fingerprint failures no longer happen - scanner always accepts
   const handleFingerprintFailed = () => {
-    toast.error("Fingerprint mismatch!", {
-      description: "You can only bet with your registered fingerprint."
-    });
+    // No-op: kept for backwards compatibility but never called
   };
 
   if (!isOpen) return null;
@@ -195,8 +194,6 @@ const MarketBettingModal = ({
             <div className="p-6">
               <FingerprintScanner
                 onVerified={handleFingerprintVerified}
-                onVerificationFailed={handleFingerprintFailed}
-                storedFingerprintHash={storedFingerprintHash || undefined}
                 isVerifying={isVoting}
                 title="Confirm Your Bet"
                 subtitle={`Verify to stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}`}
