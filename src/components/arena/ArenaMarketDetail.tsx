@@ -21,6 +21,7 @@ interface ArenaMarketDetailProps {
   calculateReturns: (market: ArenaMarket, side: 'a' | 'b', amount: number) => any;
   isVoting: boolean;
   storedFingerprintHash?: string | null;
+  onReregisterFingerprint?: (newHash: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 type DetailTab = 'vote' | 'explorer' | 'pools' | 'activity';
@@ -34,11 +35,13 @@ const ArenaMarketDetail = ({
   calculateReturns,
   isVoting,
   storedFingerprintHash,
+  onReregisterFingerprint,
 }: ArenaMarketDetailProps) => {
   const { user } = useAuth();
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
   const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
+  const [isReregistering, setIsReregistering] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('pools');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -117,6 +120,24 @@ const ArenaMarketDetail = ({
       setShowFingerprint(false);
       setStakeAmount(0);
       setSelectedSide(null);
+    }
+  };
+
+  const handleRequestReregister = () => {
+    setIsReregistering(true);
+    setShowFingerprint(false);
+  };
+
+  const handleReregisterComplete = async (newHash: string) => {
+    if (!onReregisterFingerprint) return;
+    
+    const result = await onReregisterFingerprint(newHash);
+    if (result.success) {
+      setIsReregistering(false);
+      toast.success('Fingerprint updated! You can now vote.');
+    } else {
+      setIsReregistering(false);
+      toast.error(result.error || 'Failed to update fingerprint');
     }
   };
 
@@ -586,14 +607,48 @@ const ArenaMarketDetail = ({
               >
                 <FingerprintScanner
                   onVerified={handleFingerprintVerified}
-                  onVerificationFailed={() => toast.error("Fingerprint mismatch!")}
-                  storedFingerprintHash={storedFingerprintHash || undefined}
+                  onVerificationFailed={() => {}}
+                  onRequestReregister={handleRequestReregister}
+                  allowReregister={!!onReregisterFingerprint}
+                  storedFingerprintHash={storedFingerprintHash}
                   isVerifying={isVoting}
                   title="Confirm Your Vote"
                   subtitle={`Stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}`}
                 />
                 <button
                   onClick={() => setShowFingerprint(false)}
+                  className="w-full mt-4 py-3 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Re-registration Modal */}
+        <AnimatePresence>
+          {isReregistering && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="w-full max-w-sm glass-card p-6 border border-border/50"
+              >
+                <FingerprintScanner
+                  onVerified={handleReregisterComplete}
+                  isVerifying={false}
+                  title="Re-register Fingerprint"
+                  subtitle="This will update your fingerprint for this device"
+                />
+                <button
+                  onClick={() => setIsReregistering(false)}
                   className="w-full mt-4 py-3 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancel

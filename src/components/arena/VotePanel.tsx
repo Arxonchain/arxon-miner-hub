@@ -13,6 +13,7 @@ interface VotePanelProps {
   onVote: (amount: number) => Promise<boolean>;
   isVoting: boolean;
   storedFingerprintHash?: string | null;
+  onReregisterFingerprint?: (newHash: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const VotePanel = ({ 
@@ -22,11 +23,13 @@ const VotePanel = ({
   availablePoints, 
   onVote, 
   isVoting,
-  storedFingerprintHash
+  storedFingerprintHash,
+  onReregisterFingerprint
 }: VotePanelProps) => {
   const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [pendingAmount, setPendingAmount] = useState(0);
+  const [isReregistering, setIsReregistering] = useState(false);
 
   const potentialReturns = useMemo(() => {
     if (!battle || stakeAmount < 100) return null;
@@ -108,9 +111,26 @@ const VotePanel = ({
   };
 
   const handleFingerprintFailed = () => {
-    toast.error("Fingerprint mismatch! This isn't your registered fingerprint.", {
-      description: "You can only vote with the same fingerprint you used when joining the Arena."
-    });
+    // No longer show toast here - the FingerprintScanner will show the re-register option
+  };
+
+  const handleRequestReregister = () => {
+    setIsReregistering(true);
+    setShowFingerprint(false);
+  };
+
+  const handleReregisterComplete = async (newHash: string) => {
+    if (!onReregisterFingerprint) return;
+    
+    const result = await onReregisterFingerprint(newHash);
+    if (result.success) {
+      setIsReregistering(false);
+      // Now they can try to vote again
+      toast.success('Fingerprint updated! You can now vote.');
+    } else {
+      setIsReregistering(false);
+      toast.error(result.error || 'Failed to update fingerprint');
+    }
   };
 
   // Already voted
@@ -160,6 +180,29 @@ const VotePanel = ({
     );
   }
 
+  // Re-registration flow
+  if (isReregistering) {
+    return (
+      <div className="px-4 py-6">
+        <div className="glass-card p-6 border border-border/50 rounded-2xl">
+          <FingerprintScanner
+            onVerified={handleReregisterComplete}
+            isVerifying={false}
+            title="Re-register Fingerprint"
+            subtitle="This will update your fingerprint for this device"
+          />
+          <button
+            type="button"
+            onClick={() => setIsReregistering(false)}
+            className="w-full mt-4 py-3 text-muted-foreground hover:text-foreground active:text-foreground transition-colors font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Fingerprint verification screen
   if (showFingerprint) {
     return (
@@ -168,7 +211,9 @@ const VotePanel = ({
           <FingerprintScanner
             onVerified={handleFingerprintVerified}
             onVerificationFailed={handleFingerprintFailed}
-            storedFingerprintHash={storedFingerprintHash || undefined}
+            onRequestReregister={handleRequestReregister}
+            allowReregister={!!onReregisterFingerprint}
+            storedFingerprintHash={storedFingerprintHash}
             isVerifying={isVoting}
             title="Verify Your Identity"
             subtitle={`Confirm your fingerprint to stake ${pendingAmount.toLocaleString()} ARX-P`}
