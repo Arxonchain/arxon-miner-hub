@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Fingerprint, ShieldCheck, XCircle, RefreshCw } from 'lucide-react';
+import { Check, Fingerprint, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FingerprintScannerProps {
@@ -105,6 +105,7 @@ const FingerprintScanner = ({
   isVerifying = false,
   title = "Verify Your Identity",
   subtitle = "Hold your thumb on the scanner to continue",
+  // legacy props kept for backwards compatibility; mismatch flow removed
   storedFingerprintHash,
   onVerificationFailed,
   onRequestReregister,
@@ -113,9 +114,6 @@ const FingerprintScanner = ({
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [verificationFailed, setVerificationFailed] = useState(false);
-  const [showReregisterOption, setShowReregisterOption] = useState(false);
-  const [failedHash, setFailedHash] = useState<string | null>(null);
   const [scanLines, setScanLines] = useState<number[]>([]);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,7 +123,7 @@ const FingerprintScanner = ({
 
   // Generate scan lines animation
   useEffect(() => {
-    if (isHolding && !isComplete && !verificationFailed) {
+    if (isHolding && !isComplete) {
       const interval = setInterval(() => {
         setScanLines(prev => {
           const newLines = [...prev, Math.random() * 100];
@@ -136,14 +134,13 @@ const FingerprintScanner = ({
     } else {
       setScanLines([]);
     }
-  }, [isHolding, isComplete, verificationFailed]);
+  }, [isHolding, isComplete]);
 
   const startHold = useCallback(() => {
-    if (isComplete || isVerifying || verificationFailed) return;
+    if (isComplete || isVerifying) return;
     
     setIsHolding(true);
     setHoldProgress(0);
-    setVerificationFailed(false);
 
     progressIntervalRef.current = setInterval(() => {
       setHoldProgress(prev => {
@@ -171,7 +168,7 @@ const FingerprintScanner = ({
         onVerified(currentHash);
       }, 500);
     }, HOLD_DURATION);
-  }, [isComplete, isVerifying, verificationFailed, onVerified, storedFingerprintHash, onVerificationFailed, allowReregister]);
+  }, [isComplete, isVerifying, onVerified]);
 
   const endHold = useCallback(() => {
     if (isComplete) return;
@@ -188,20 +185,6 @@ const FingerprintScanner = ({
       progressIntervalRef.current = null;
     }
   }, [isComplete]);
-
-  const resetScanner = useCallback(() => {
-    setVerificationFailed(false);
-    setHoldProgress(0);
-    setIsComplete(false);
-    setShowReregisterOption(false);
-    setFailedHash(null);
-  }, []);
-
-  const handleReregister = useCallback(() => {
-    if (failedHash && onRequestReregister) {
-      onRequestReregister();
-    }
-  }, [failedHash, onRequestReregister]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -226,11 +209,9 @@ const FingerprintScanner = ({
           style={{
             background: isComplete 
               ? 'radial-gradient(circle, hsl(142 70% 45% / 0.4) 0%, transparent 70%)'
-              : verificationFailed
-                ? 'radial-gradient(circle, hsl(0 70% 45% / 0.4) 0%, transparent 70%)'
-                : isHolding 
-                  ? 'radial-gradient(circle, hsl(var(--primary) / 0.5) 0%, transparent 70%)'
-                  : 'radial-gradient(circle, hsl(var(--primary) / 0.2) 0%, transparent 70%)',
+              : isHolding 
+                ? 'radial-gradient(circle, hsl(var(--primary) / 0.5) 0%, transparent 70%)'
+                : 'radial-gradient(circle, hsl(var(--primary) / 0.2) 0%, transparent 70%)',
             transform: 'scale(1.5)',
           }}
           animate={{
@@ -245,41 +226,32 @@ const FingerprintScanner = ({
         <motion.div
           className="relative w-48 h-48 rounded-full flex items-center justify-center cursor-pointer select-none"
           style={{
-            background: verificationFailed 
-              ? `conic-gradient(from 0deg, hsl(0 70% 45%) 360deg, hsl(var(--border)) 360deg)`
-              : `conic-gradient(from 0deg, 
-                  hsl(var(--primary) / ${holdProgress / 100}) ${holdProgress * 3.6}deg, 
-                  hsl(var(--border)) ${holdProgress * 3.6}deg
-                )`,
+            background: `conic-gradient(from 0deg, 
+              hsl(var(--primary) / ${holdProgress / 100}) ${holdProgress * 3.6}deg, 
+              hsl(var(--border)) ${holdProgress * 3.6}deg
+            )`,
             padding: '4px',
           }}
-          onMouseDown={verificationFailed ? resetScanner : startHold}
+          onMouseDown={startHold}
           onMouseUp={endHold}
           onMouseLeave={endHold}
           onTouchStart={(e) => {
             e.preventDefault();
-            if (verificationFailed) {
-              resetScanner();
-            } else {
-              startHold();
-            }
+            startHold();
           }}
           onTouchEnd={(e) => {
             e.preventDefault();
             endHold();
           }}
           whileTap={{ scale: 0.98 }}
-          animate={isComplete ? { scale: [1, 1.05, 1] } : verificationFailed ? { x: [-5, 5, -5, 5, 0] } : {}}
-          transition={verificationFailed ? { duration: 0.4 } : undefined}
+          animate={isComplete ? { scale: [1, 1.05, 1] } : {}}
         >
           {/* Inner circle */}
           <div 
             className={`w-full h-full rounded-full flex items-center justify-center transition-colors duration-300 ${
               isComplete 
                 ? 'bg-green-500/20 border-green-500/50' 
-                : verificationFailed
-                  ? 'bg-red-500/20 border-red-500/50'
-                  : 'bg-card border-border'
+                : 'bg-card border-border'
             } border-2`}
             style={{ margin: '4px' }}
           >
@@ -310,16 +282,6 @@ const FingerprintScanner = ({
                     transition={{ type: 'spring', duration: 0.5 }}
                   >
                     <ShieldCheck className="w-20 h-20 text-green-500" />
-                  </motion.div>
-                ) : verificationFailed ? (
-                  <motion.div
-                    key="failed"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    transition={{ type: 'spring', duration: 0.5 }}
-                  >
-                    <XCircle className="w-20 h-20 text-red-500" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -370,29 +332,6 @@ const FingerprintScanner = ({
           >
             <Check className="w-5 h-5" />
             Identity Verified
-          </motion.div>
-        ) : verificationFailed ? (
-          <motion.div
-            key="failed"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-3 max-w-xs text-center"
-          >
-            <span className="text-red-500 font-medium">Fingerprint Mismatch!</span>
-            <span className="text-muted-foreground text-sm">
-              Your device fingerprint has changed (browser update, new device, etc.). Tap to try again.
-            </span>
-            {showReregisterOption && allowReregister && onRequestReregister && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReregister}
-                className="mt-2 gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Re-register Fingerprint
-              </Button>
-            )}
           </motion.div>
         ) : (
           <motion.p
