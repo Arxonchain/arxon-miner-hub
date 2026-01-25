@@ -22,32 +22,36 @@ interface Battle {
   description: string | null;
   side_a_name: string;
   side_b_name: string;
+  side_c_name: string | null;
   ends_at: string;
   category: string | null;
   resolution_source: string | null;
 }
 
 interface AIOutcomeResponse {
-  winner: 'a' | 'b' | null;
+  winner: 'a' | 'b' | 'c' | null;
   confidence: 'high' | 'medium' | 'low';
   reasoning: string;
   source: string;
 }
 
 async function getAIOutcomeVerification(battle: Battle, apiKey: string): Promise<AIOutcomeResponse> {
+  // Determine if this is a 3-way market (has Side C / Draw option)
+  const hasSideC = !!battle.side_c_name;
+  
   const systemPrompt = `You are an expert fact-checker and outcome verifier for prediction markets. Your job is to determine the outcome of prediction events based on real-world data.
 
 CRITICAL RULES:
-1. You MUST determine a winner - either side 'a' or side 'b'. Only return null if the event is genuinely unresolvable.
+1. You MUST determine a winner - side 'a', side 'b'${hasSideC ? ", or side 'c' (often Draw/Tie)" : ""}. Only return null if the event is genuinely unresolvable.
 2. Base your decision on factual, verifiable information.
 3. For price predictions (crypto, stocks), check if the price target was hit during the specified timeframe.
-4. For sports predictions, check the actual game results.
+4. For sports predictions, check the actual game results. If the match ended in a draw/tie and there's a Side C for Draw, pick 'c'.
 5. For political/event predictions, verify what actually happened.
 6. Be decisive - markets need clear resolution.
 
 Response format (JSON only):
 {
-  "winner": "a" or "b" or null,
+  "winner": "a" or "b"${hasSideC ? ' or "c"' : ""} or null,
   "confidence": "high" or "medium" or "low",
   "reasoning": "Brief explanation of why this side won",
   "source": "What data/source you used to verify"
@@ -58,17 +62,19 @@ Response format (JSON only):
 **Prediction Title:** ${battle.title}
 **Description:** ${battle.description || 'No additional description'}
 
-**Side A (Team Alpha):** ${battle.side_a_name}
-**Side B (Team Omega):** ${battle.side_b_name}
+**Side A:** ${battle.side_a_name}
+**Side B:** ${battle.side_b_name}${hasSideC ? `\n**Side C (Draw/Tie):** ${battle.side_c_name}` : ""}
 
 **Category:** ${battle.category || 'General'}
 **Battle End Time:** ${battle.ends_at}
 
 Based on real-world events and data, which side won this prediction? The battle has ended, so you must determine the outcome based on what actually happened.
+${hasSideC ? "\nIMPORTANT: If the event ended in a draw/tie, choose side 'c'." : ""}
 
 Return ONLY a JSON object with your verdict.`;
 
   console.log(`Querying AI for outcome of: ${battle.title}`);
+
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -117,8 +123,9 @@ Return ONLY a JSON object with your verdict.`;
 
   try {
     const parsed = JSON.parse(jsonStr);
+    const winnerVal = parsed.winner;
     return {
-      winner: parsed.winner === 'a' || parsed.winner === 'b' ? parsed.winner : null,
+      winner: winnerVal === 'a' || winnerVal === 'b' || winnerVal === 'c' ? winnerVal : null,
       confidence: parsed.confidence || 'medium',
       reasoning: parsed.reasoning || 'AI-determined outcome',
       source: parsed.source || 'AI analysis',
@@ -131,6 +138,9 @@ Return ONLY a JSON object with your verdict.`;
     }
     if (content.toLowerCase().includes('"winner": "b"') || content.toLowerCase().includes('side b wins')) {
       return { winner: 'b', confidence: 'low', reasoning: 'Extracted from AI response', source: 'AI fallback' };
+    }
+    if (content.toLowerCase().includes('"winner": "c"') || content.toLowerCase().includes('side c wins') || content.toLowerCase().includes('draw')) {
+      return { winner: 'c', confidence: 'low', reasoning: 'Extracted from AI response (draw)', source: 'AI fallback' };
     }
     throw new Error("Could not parse AI outcome");
   }

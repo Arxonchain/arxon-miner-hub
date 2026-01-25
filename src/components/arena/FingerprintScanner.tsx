@@ -8,14 +8,6 @@ interface FingerprintScannerProps {
   isVerifying?: boolean;
   title?: string;
   subtitle?: string;
-  /** If provided, will verify the scanned fingerprint matches this hash */
-  storedFingerprintHash?: string | null;
-  /** Called when verification fails (fingerprint doesn't match) */
-  onVerificationFailed?: () => void;
-  /** Called when user requests to re-register their fingerprint */
-  onRequestReregister?: () => void;
-  /** Whether to show the re-register option on mismatch */
-  allowReregister?: boolean;
 }
 
 /**
@@ -105,11 +97,6 @@ const FingerprintScanner = ({
   isVerifying = false,
   title = "Verify Your Identity",
   subtitle = "Hold your thumb on the scanner to continue",
-  // legacy props kept for backwards compatibility; mismatch flow removed
-  storedFingerprintHash,
-  onVerificationFailed,
-  onRequestReregister,
-  allowReregister = false
 }: FingerprintScannerProps) => {
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
