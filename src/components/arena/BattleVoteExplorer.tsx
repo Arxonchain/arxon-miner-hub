@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface VoteEntry {
   id: string;
-  side: 'a' | 'b';
+  side: 'a' | 'b' | 'c';
   power_spent: number;
   created_at: string;
   user_id: string;
@@ -25,7 +25,7 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
   const { isAdmin } = useAdmin();
   const [votes, setVotes] = useState<VoteEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'a' | 'b'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'a' | 'b' | 'c'>('all');
 
   useEffect(() => {
     const fetchVotes = async () => {
@@ -39,7 +39,7 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
 
         const mapped = (data || []).map((v: any) => ({
           id: v.user_id + v.created_at,
-          side: v.side as 'a' | 'b',
+          side: v.side as 'a' | 'b' | 'c',
           power_spent: v.power_spent,
           created_at: v.created_at,
           user_id: v.user_id,
@@ -88,27 +88,36 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
 
   const sideAVotes = votes.filter(v => v.side === 'a');
   const sideBVotes = votes.filter(v => v.side === 'b');
+  const sideCVotes = votes.filter(v => v.side === 'c');
   const sideATotalStaked = sideAVotes.reduce((sum, v) => sum + v.power_spent, 0);
   const sideBTotalStaked = sideBVotes.reduce((sum, v) => sum + v.power_spent, 0);
+  const sideCTotalStaked = sideCVotes.reduce((sum, v) => sum + v.power_spent, 0);
+  
+  const hasSideC = !!market.side_c_name;
 
-  const tabs = [
-    { id: 'all' as const, label: 'All Votes', count: votes.length, color: undefined },
-    { id: 'a' as const, label: market.side_a_name, count: sideAVotes.length, color: market.side_a_color },
-    { id: 'b' as const, label: market.side_b_name, count: sideBVotes.length, color: market.side_b_color },
+  const tabs: { id: 'all' | 'a' | 'b' | 'c'; label: string; count: number; color: string | undefined }[] = [
+    { id: 'all', label: 'All Votes', count: votes.length, color: undefined },
+    { id: 'a', label: market.side_a_name, count: sideAVotes.length, color: market.side_a_color },
+    ...(hasSideC ? [{ id: 'c' as const, label: market.side_c_name!, count: sideCVotes.length, color: market.side_c_color || '#FFD700' }] : []),
+    { id: 'b', label: market.side_b_name, count: sideBVotes.length, color: market.side_b_color },
   ];
 
-  const getTeamLabel = (side: 'a' | 'b') => {
-    return side === 'a' ? market.side_a_name : market.side_b_name;
+  const getTeamLabel = (side: 'a' | 'b' | 'c') => {
+    if (side === 'a') return market.side_a_name;
+    if (side === 'c') return market.side_c_name || 'Draw';
+    return market.side_b_name;
   };
 
-  const getTeamColor = (side: 'a' | 'b') => {
-    return side === 'a' ? market.side_a_color : market.side_b_color;
+  const getTeamColor = (side: 'a' | 'b' | 'c') => {
+    if (side === 'a') return market.side_a_color;
+    if (side === 'c') return market.side_c_color || '#FFD700';
+    return market.side_b_color;
   };
 
   return (
     <div className="space-y-4">
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2 ${hasSideC ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <div 
           className="p-3 rounded-xl border-2"
           style={{ 
@@ -121,14 +130,38 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
               className="w-3 h-3 rounded-full"
               style={{ backgroundColor: market.side_a_color }}
             />
-            <span className="text-xs font-medium text-muted-foreground">{market.side_a_name}</span>
+            <span className="text-xs font-medium text-muted-foreground truncate">{market.side_a_name}</span>
           </div>
           <div className="text-lg font-bold text-foreground">{sideAVotes.length}</div>
           <div className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {sideATotalStaked.toLocaleString()} staked
+            {sideATotalStaked.toLocaleString()}
           </div>
         </div>
+        
+        {hasSideC && (
+          <div 
+            className="p-3 rounded-xl border-2"
+            style={{ 
+              borderColor: `${market.side_c_color || '#FFD700'}40`,
+              backgroundColor: `${market.side_c_color || '#FFD700'}10`
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: market.side_c_color || '#FFD700' }}
+              />
+              <span className="text-xs font-medium text-muted-foreground truncate">{market.side_c_name}</span>
+            </div>
+            <div className="text-lg font-bold text-foreground">{sideCVotes.length}</div>
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              {sideCTotalStaked.toLocaleString()}
+            </div>
+          </div>
+        )}
+        
         <div 
           className="p-3 rounded-xl border-2"
           style={{ 
@@ -141,12 +174,12 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
               className="w-3 h-3 rounded-full"
               style={{ backgroundColor: market.side_b_color }}
             />
-            <span className="text-xs font-medium text-muted-foreground">{market.side_b_name}</span>
+            <span className="text-xs font-medium text-muted-foreground truncate">{market.side_b_name}</span>
           </div>
           <div className="text-lg font-bold text-foreground">{sideBVotes.length}</div>
           <div className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Zap className="w-3 h-3" />
-            {sideBTotalStaked.toLocaleString()} staked
+            {sideBTotalStaked.toLocaleString()}
           </div>
         </div>
       </div>
@@ -314,7 +347,7 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
             <span className="text-xs font-medium text-foreground">{votes.length} voters</span>
             <span className="text-xs text-muted-foreground">•</span>
             <span className="text-xs font-bold text-primary">
-              {(sideATotalStaked + sideBTotalStaked).toLocaleString()} ARX-P
+              {(sideATotalStaked + sideBTotalStaked + sideCTotalStaked).toLocaleString()} ARX-P
             </span>
           </div>
         </div>
