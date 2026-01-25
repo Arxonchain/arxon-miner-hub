@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { format, subDays } from "date-fns";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
-import { Users, TrendingUp, Calendar, UserPlus } from "lucide-react";
+import { Users, TrendingUp, Calendar, UserPlus, RefreshCw } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Cell } from "recharts";
+import { Button } from "@/components/ui/button";
 
 interface DailySignup {
   date: string;
@@ -14,49 +15,78 @@ interface DailySignup {
 const AdminSignups = () => {
   const [realtimeSignups, setRealtimeSignups] = useState<number>(0);
 
-  // Fetch daily signups for last 30 days
-  const { data: dailySignups, isLoading, refetch } = useQuery({
-    queryKey: ["admin-daily-signups"],
+  // Fetch daily signups using server-side aggregation to bypass 1000-row limit
+  const { data: dailySignups, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-daily-signups-aggregated"],
     queryFn: async (): Promise<DailySignup[]> => {
+      // Use RPC or direct SQL-like approach with pagination to get ALL signups
+      // We'll fetch in batches to get accurate counts
       const thirtyDaysAgo = subDays(new Date(), 30);
+      const results: DailySignup[] = [];
       
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("created_at")
-        .gte("created_at", thirtyDaysAgo.toISOString());
-
-      if (error) throw error;
-
-      // Group by date
-      const grouped: Record<string, number> = {};
-      
-      // Initialize all 30 days with 0
+      // Initialize all 31 days (including today) with 0
+      const dateMap: Record<string, number> = {};
       for (let i = 0; i <= 30; i++) {
         const date = format(subDays(new Date(), i), "yyyy-MM-dd");
-        grouped[date] = 0;
+        dateMap[date] = 0;
       }
 
-      // Count signups per day
-      data?.forEach((profile) => {
-        const date = format(new Date(profile.created_at), "yyyy-MM-dd");
-        if (grouped[date] !== undefined) {
-          grouped[date]++;
-        }
-      });
+      // Fetch ALL profiles in batches of 1000 to bypass limit
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      // Convert to array and sort by date
-      return Object.entries(grouped)
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("created_at")
+          .gte("created_at", thirtyDaysAgo.toISOString())
+          .order("created_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          data.forEach((profile) => {
+            const date = format(new Date(profile.created_at), "yyyy-MM-dd");
+            if (dateMap[date] !== undefined) {
+              dateMap[date]++;
+            }
+          });
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Convert to array and sort by date ascending
+      return Object.entries(dateMap)
         .map(([date, signups]) => ({ date, signups }))
         .sort((a, b) => a.date.localeCompare(b.date));
     },
-    refetchInterval: 15000, // Faster refresh every 15 seconds
-    staleTime: 5000,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 10000,
+  });
+
+  // Also fetch total users count for verification
+  const { data: totalUsersCount } = useQuery({
+    queryKey: ["admin-total-users-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    refetchInterval: 30000,
   });
 
   // Real-time subscription for new signups
   useEffect(() => {
     const channel = supabase
-      .channel("new-signups")
+      .channel("new-signups-admin")
       .on(
         "postgres_changes",
         {
@@ -66,7 +96,6 @@ const AdminSignups = () => {
         },
         () => {
           setRealtimeSignups((prev) => prev + 1);
-          refetch(); // Refresh the data
         }
       )
       .subscribe();
@@ -74,7 +103,12 @@ const AdminSignups = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refetch]);
+  }, []);
+
+  const handleRefresh = () => {
+    setRealtimeSignups(0);
+    refetch();
+  };
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const yesterdayStr = format(subDays(new Date(), 1), "yyyy-MM-dd");
@@ -82,7 +116,7 @@ const AdminSignups = () => {
   const todaySignups = (dailySignups?.find((d) => d.date === todayStr)?.signups || 0) + realtimeSignups;
   const yesterdaySignups = dailySignups?.find((d) => d.date === yesterdayStr)?.signups || 0;
   const weekTotal = dailySignups?.slice(-7).reduce((sum, d) => sum + d.signups, 0) || 0;
-  const monthTotal = dailySignups?.reduce((sum, d) => sum + d.signups, 0) || 0;
+  const monthTotal = (dailySignups?.reduce((sum, d) => sum + d.signups, 0) || 0) + realtimeSignups;
 
   const growthPercent = yesterdaySignups > 0 
     ? Math.round(((todaySignups - yesterdaySignups) / yesterdaySignups) * 100) 
@@ -91,11 +125,12 @@ const AdminSignups = () => {
   // Chart data - last 14 days for better visibility
   const chartData = dailySignups?.slice(-14).map((d) => ({
     date: format(new Date(d.date), "MMM d"),
+    fullDate: d.date,
     signups: d.signups + (d.date === todayStr ? realtimeSignups : 0),
   })) || [];
 
   // Find max for coloring
-  const maxSignups = Math.max(...(chartData.map(d => d.signups) || [0]));
+  const maxSignups = Math.max(...(chartData.map(d => d.signups) || [0]), 1);
 
   if (isLoading) {
     return (
@@ -116,14 +151,28 @@ const AdminSignups = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Daily Signups</h1>
-        <p className="text-muted-foreground">Track user registration growth in real-time</p>
-        {realtimeSignups > 0 && (
-          <p className="text-sm text-primary mt-1 animate-pulse">
-            +{realtimeSignups} new signup{realtimeSignups > 1 ? "s" : ""} since page load
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Daily Signups</h1>
+          <p className="text-muted-foreground">
+            Track user registration growth • Total Users: <span className="text-primary font-semibold">{totalUsersCount?.toLocaleString() || '...'}</span>
           </p>
-        )}
+          {realtimeSignups > 0 && (
+            <p className="text-sm text-primary mt-1 animate-pulse">
+              +{realtimeSignups} new signup{realtimeSignups > 1 ? "s" : ""} since page load
+            </p>
+          )}
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isFetching}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -175,6 +224,7 @@ const AdminSignups = () => {
               <YAxis 
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                 axisLine={{ stroke: "hsl(var(--border))" }}
+                domain={[0, 'auto']}
               />
               <Tooltip
                 contentStyle={{
@@ -184,6 +234,7 @@ const AdminSignups = () => {
                   color: "hsl(var(--foreground))",
                 }}
                 labelStyle={{ color: "hsl(var(--foreground))" }}
+                formatter={(value: number) => [value.toLocaleString(), "Signups"]}
               />
               <Area
                 type="monotone"
@@ -212,6 +263,7 @@ const AdminSignups = () => {
               <YAxis 
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                 axisLine={{ stroke: "hsl(var(--border))" }}
+                domain={[0, 'auto']}
               />
               <Tooltip
                 contentStyle={{
@@ -221,6 +273,7 @@ const AdminSignups = () => {
                   color: "hsl(var(--foreground))",
                 }}
                 labelStyle={{ color: "hsl(var(--foreground))" }}
+                formatter={(value: number) => [value.toLocaleString(), "Signups"]}
               />
               <Bar dataKey="signups" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
@@ -240,9 +293,9 @@ const AdminSignups = () => {
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">All Daily Signups (Last 30 Days)</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-96">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/50 sticky top-0">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Signups</th>
@@ -255,6 +308,9 @@ const AdminSignups = () => {
                 const change = prevDay ? day.signups - prevDay.signups : 0;
                 const isToday = day.date === todayStr;
                 const displaySignups = isToday ? day.signups + realtimeSignups : day.signups;
+                const changePercent = prevDay && prevDay.signups > 0 
+                  ? Math.round(((day.signups - prevDay.signups) / prevDay.signups) * 100) 
+                  : 0;
                 
                 return (
                   <tr key={day.date} className={isToday ? "bg-primary/5" : "hover:bg-muted/30"}>
@@ -268,7 +324,7 @@ const AdminSignups = () => {
                     <td className="px-4 py-3 text-sm text-right">
                       {change !== 0 && (
                         <span className={change > 0 ? "text-green-500" : "text-red-500"}>
-                          {change > 0 ? "+" : ""}{change}
+                          {change > 0 ? "+" : ""}{change} ({changePercent >= 0 ? "+" : ""}{changePercent}%)
                         </span>
                       )}
                       {change === 0 && prevDay && <span className="text-muted-foreground">—</span>}
