@@ -7,15 +7,16 @@ const corsHeaders = {
 };
 
 /**
- * New Reward System:
+ * New Reward System (supports 3-way markets):
  * - Winners get their original stake back
  * - Dynamic multiplier (2x to 5x) based on pool ratio
- * - Winners share the ENTIRE losing pool proportionally
+ * - Winners share the ENTIRE combined losing pools proportionally
  * - Losers get NOTHING back (full risk, full reward)
  * 
- * Multiplier calculation:
- * - If winners had more stake (favorites): multiplier = 2 + (losing/winning) * 3 (max 5x)
- * - If winners had less stake (underdogs): multiplier = 5x (max)
+ * For 3-way markets (A/B/C):
+ * - If Side A wins: losingPool = side_b_power + side_c_power
+ * - If Side B wins: losingPool = side_a_power + side_c_power
+ * - If Side C (Draw) wins: losingPool = side_a_power + side_b_power
  */
 function calculateMultiplier(winningPool: number, losingPool: number): number {
   const MIN_MULTIPLIER = 2.0;
@@ -45,7 +46,7 @@ serve(async (req) => {
 
     // Check if this is a manual resolution with specified winner
     const body = await req.json().catch(() => ({}));
-    const manualWinner = body.winner_side; // 'a' or 'b' for admin-verified outcomes
+    const manualWinner = body.winner_side; // 'a', 'b', or 'c' for admin-verified outcomes
     const battleId = body.battle_id;
 
     console.log("Starting battle resolution check...", { manualWinner, battleId });
@@ -91,14 +92,56 @@ serve(async (req) => {
     for (const battle of battlesToResolve) {
       console.log(`Resolving battle: ${battle.title}`);
 
-      // Determine winner - use verified winner if provided, otherwise use pool sizes
-      const winnerSide = battle.verified_winner || 
-        (battle.side_a_power > battle.side_b_power ? "a" : 
-         battle.side_b_power > battle.side_a_power ? "b" : null);
+      const sideAPower = Number(battle.side_a_power) || 0;
+      const sideBPower = Number(battle.side_b_power) || 0;
+      const sideCPower = Number(battle.side_c_power) || 0;
+      const hasSideC = !!battle.side_c_name;
 
-      // Calculate pools
-      const winningPool = winnerSide === "a" ? battle.side_a_power : battle.side_b_power;
-      const losingPool = winnerSide === "a" ? battle.side_b_power : battle.side_a_power;
+      // Determine winner - use verified winner if provided, otherwise use pool sizes
+      let winnerSide: string | null = null;
+      if (battle.verified_winner) {
+        winnerSide = battle.verified_winner;
+      } else if (hasSideC) {
+        // 3-way market: find side with most power
+        if (sideAPower > sideBPower && sideAPower > sideCPower) {
+          winnerSide = "a";
+        } else if (sideBPower > sideAPower && sideBPower > sideCPower) {
+          winnerSide = "b";
+        } else if (sideCPower > sideAPower && sideCPower > sideBPower) {
+          winnerSide = "c";
+        } else {
+          // Tie - pick by priority: a > b > c, or null if all zero
+          if (sideAPower >= sideBPower && sideAPower >= sideCPower && sideAPower > 0) {
+            winnerSide = "a";
+          } else if (sideBPower > 0) {
+            winnerSide = "b";
+          } else if (sideCPower > 0) {
+            winnerSide = "c";
+          }
+        }
+      } else {
+        // Binary market
+        if (sideAPower > sideBPower) {
+          winnerSide = "a";
+        } else if (sideBPower > sideAPower) {
+          winnerSide = "b";
+        }
+      }
+
+      // Calculate pools based on winner
+      let winningPool = 0;
+      let losingPool = 0;
+
+      if (winnerSide === "a") {
+        winningPool = sideAPower;
+        losingPool = sideBPower + sideCPower;
+      } else if (winnerSide === "b") {
+        winningPool = sideBPower;
+        losingPool = sideAPower + sideCPower;
+      } else if (winnerSide === "c") {
+        winningPool = sideCPower;
+        losingPool = sideAPower + sideBPower;
+      }
       
       // Get admin-set prize pool and bonus percentage
       const prizePool = Number(battle.prize_pool) || 0;
@@ -107,7 +150,11 @@ serve(async (req) => {
       // Calculate multiplier
       const multiplier = winnerSide ? calculateMultiplier(winningPool, losingPool) : 0;
 
-      console.log(`Winner: ${winnerSide}, Winning Pool: ${winningPool}, Losing Pool: ${losingPool}, Prize Pool: ${prizePool}, Multiplier: ${multiplier}x`);
+      const winnerSideName = winnerSide === "a" ? battle.side_a_name : 
+                             winnerSide === "c" ? (battle.side_c_name || "Draw") : 
+                             battle.side_b_name;
+
+      console.log(`Winner: ${winnerSide} (${winnerSideName}), Winning Pool: ${winningPool}, Losing Pool: ${losingPool}, Prize Pool: ${prizePool}, Multiplier: ${multiplier}x`);
 
       // Update battle as resolved
       await supabase
@@ -266,12 +313,11 @@ serve(async (req) => {
           }
 
           // Award winner badge with streak info
-          const sideName = winnerSide === "a" ? battle.side_a_name : battle.side_b_name;
           const streakText = currentStreak >= 3 ? ` 🔥 ${currentStreak}-Win Streak!` : "";
           await supabase.from("user_badges").insert({
             user_id: vote.user_id,
             badge_type: "winner",
-            badge_name: `${sideName} Champion`,
+            badge_name: `${winnerSideName} Champion`,
             description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}" (${multiplier.toFixed(1)}x return)${streakText}`,
             battle_id: battle.id,
           });
@@ -321,12 +367,15 @@ serve(async (req) => {
           });
 
           // Award participation badge (losers still get a badge for participating)
-          const sideName = winnerSide === "a" ? battle.side_b_name : battle.side_a_name;
+          // Get the side name for the loser
+          const loserSideName = vote.side === "a" ? battle.side_a_name : 
+                                vote.side === "c" ? (battle.side_c_name || "Draw") : 
+                                battle.side_b_name;
           await supabase.from("user_badges").insert({
             user_id: vote.user_id,
             badge_type: "participant",
-            badge_name: `${sideName} Warrior`,
-            description: `Staked ${vote.power_spent} ARX-P on ${sideName} in "${battle.title}" (Mining boost active!)`,
+            badge_name: `${loserSideName} Warrior`,
+            description: `Staked ${vote.power_spent} ARX-P on ${loserSideName} in "${battle.title}" (Mining boost active!)`,
             battle_id: battle.id,
           });
         }
@@ -358,6 +407,7 @@ serve(async (req) => {
         results.push({
           battle: battle.title,
           winner: winnerSide,
+          winnerName: winnerSideName,
           multiplier: multiplier,
           winnersCount: winningVotes.length,
           losersCount: losingVotes.length,
