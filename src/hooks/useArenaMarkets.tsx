@@ -16,6 +16,11 @@ export interface ArenaMarket {
   side_b_color: string;
   side_a_power: number;
   side_b_power: number;
+  // Third option support (e.g., Draw)
+  side_c_name: string | null;
+  side_c_image: string | null;
+  side_c_color: string | null;
+  side_c_power: number;
   starts_at: string;
   ends_at: string;
   is_active: boolean;
@@ -38,7 +43,7 @@ export interface MarketVote {
   id: string;
   battle_id: string;
   user_id: string;
-  side: 'a' | 'b';
+  side: 'a' | 'b' | 'c';
   power_spent: number;
   locked_until: string;
   created_at: string;
@@ -196,21 +201,33 @@ export const useArenaMarkets = () => {
   // Calculate potential returns for a stake
   const calculatePotentialReturns = useCallback((
     market: ArenaMarket,
-    side: 'a' | 'b',
+    side: 'a' | 'b' | 'c',
     stakeAmount: number
   ) => {
-    const myPool = side === 'a' ? market.side_a_power : market.side_b_power;
-    const theirPool = side === 'a' ? market.side_b_power : market.side_a_power;
+    // Get my pool and other pools
+    let myPool: number;
+    let otherPools: number;
+    
+    if (side === 'a') {
+      myPool = market.side_a_power;
+      otherPools = market.side_b_power + (market.side_c_power || 0);
+    } else if (side === 'c') {
+      myPool = market.side_c_power || 0;
+      otherPools = market.side_a_power + market.side_b_power;
+    } else {
+      myPool = market.side_b_power;
+      otherPools = market.side_a_power + (market.side_c_power || 0);
+    }
     
     const newMyPool = myPool + stakeAmount;
-    const totalPool = newMyPool + theirPool;
+    const totalPool = newMyPool + otherPools;
     const prizePool = market.prize_pool || 0;
     const bonusPercentage = market.bonus_percentage || 200;
 
     // Calculate pool-based multiplier (2x-5x)
     let multiplier: number;
-    if (newMyPool >= theirPool) {
-      const ratio = theirPool / newMyPool;
+    if (newMyPool >= otherPools) {
+      const ratio = otherPools / newMyPool;
       multiplier = Math.min(2 + (ratio * 3), 5);
     } else {
       multiplier = 5;
@@ -219,7 +236,7 @@ export const useArenaMarkets = () => {
     // Potential winnings breakdown
     const stakeReturn = stakeAmount; // Original stake back
     const bonusFromPrizePool = (stakeAmount / newMyPool) * prizePool * (bonusPercentage / 100);
-    const loserPoolShare = (stakeAmount / newMyPool) * theirPool;
+    const loserPoolShare = (stakeAmount / newMyPool) * otherPools;
     const multiplierBonus = stakeAmount * (multiplier - 1);
     
     const totalWin = stakeReturn + bonusFromPrizePool + loserPoolShare + multiplierBonus;
@@ -234,14 +251,14 @@ export const useArenaMarkets = () => {
       multiplierBonus: Math.round(multiplierBonus),
       totalWin: Math.round(totalWin),
       totalLoss,
-      isUnderdog: newMyPool < theirPool,
-      myPoolPercentage: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 50,
-      winChance: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 50,
+      isUnderdog: newMyPool < otherPools,
+      myPoolPercentage: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 33,
+      winChance: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 33,
     };
   }, []);
 
   // Place a vote on a market
-  const placeVote = async (marketId: string, side: 'a' | 'b', amount: number): Promise<boolean> => {
+  const placeVote = async (marketId: string, side: 'a' | 'b' | 'c', amount: number): Promise<boolean> => {
     if (!user) {
       toast.error('Please sign in to cast your vote');
       return false;

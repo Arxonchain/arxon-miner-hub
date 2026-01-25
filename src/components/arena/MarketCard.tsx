@@ -19,9 +19,11 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
   const [liveStake, setLiveStake] = useState<{ side: 'a' | 'b'; amount: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  const totalPool = market.side_a_power + market.side_b_power;
-  const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : 50;
-  const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : 50;
+  const hasSideC = !!market.side_c_name;
+  const totalPool = market.side_a_power + market.side_b_power + (market.side_c_power || 0);
+  const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : hasSideC ? 33.33 : 50;
+  const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : hasSideC ? 33.33 : 50;
+  const sideCPercent = totalPool > 0 && hasSideC ? ((market.side_c_power || 0) / totalPool) * 100 : 33.33;
   
   // Recalculate status based on current time (updates every second)
   const isEnded = !!market.winner_side || new Date(market.ends_at) < currentTime;
@@ -239,28 +241,46 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       {/* Compact Odds Display */}
       <div className="space-y-1.5 mb-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-medium truncate max-w-[40%]" style={{ color: market.side_a_color }}>
+          <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_a_color }}>
             {market.side_a_name}
           </span>
           <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
             <motion.div
               className="h-full"
               style={{ backgroundColor: market.side_a_color }}
-              initial={{ width: '50%' }}
+              initial={{ width: hasSideC ? '33%' : '50%' }}
               animate={{ width: `${sideAPercent}%` }}
             />
           </div>
           <span className="font-bold text-[11px]" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
         </div>
+        
+        {hasSideC && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_c_color || '#888888' }}>
+              {market.side_c_name}
+            </span>
+            <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
+              <motion.div
+                className="h-full"
+                style={{ backgroundColor: market.side_c_color || '#888888' }}
+                initial={{ width: '33%' }}
+                animate={{ width: `${sideCPercent}%` }}
+              />
+            </div>
+            <span className="font-bold text-[11px]" style={{ color: market.side_c_color || '#888888' }}>{sideCPercent.toFixed(0)}%</span>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between text-xs">
-          <span className="font-medium truncate max-w-[40%]" style={{ color: market.side_b_color }}>
+          <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_b_color }}>
             {market.side_b_name}
           </span>
           <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
             <motion.div
               className="h-full"
               style={{ backgroundColor: market.side_b_color }}
-              initial={{ width: '50%' }}
+              initial={{ width: hasSideC ? '33%' : '50%' }}
               animate={{ width: `${sideBPercent}%` }}
             />
           </div>
@@ -291,7 +311,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
         <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center gap-1.5">
           <Trophy className="w-3 h-3 text-amber-500" />
           <span className="text-[11px] font-bold text-amber-500">
-            {market.winner_side === 'a' ? market.side_a_name : market.side_b_name} won
+            {market.winner_side === 'a' ? market.side_a_name : market.winner_side === 'c' ? market.side_c_name : market.side_b_name} won
           </span>
         </div>
       )}
@@ -301,7 +321,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
         <div className="mt-2 pt-2 border-t border-primary/20 flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground">Your stake</span>
           <span className="text-[11px] font-bold text-primary">
-            {userPosition.power_spent >= 1000 ? `${(userPosition.power_spent/1000).toFixed(1)}K` : userPosition.power_spent} on {userPosition.side === 'a' ? market.side_a_name : market.side_b_name}
+            {userPosition.power_spent >= 1000 ? `${(userPosition.power_spent/1000).toFixed(1)}K` : userPosition.power_spent} on {userPosition.side === 'a' ? market.side_a_name : userPosition.side === 'c' ? market.side_c_name : market.side_b_name}
           </span>
         </div>
       )}
