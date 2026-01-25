@@ -17,8 +17,8 @@ interface ArenaMarketDetailProps {
   userPosition?: MarketVote;
   availablePoints: number;
   onClose: () => void;
-  onPlaceBet: (marketId: string, side: 'a' | 'b', amount: number) => Promise<boolean>;
-  calculateReturns: (market: ArenaMarket, side: 'a' | 'b', amount: number) => any;
+  onPlaceBet: (marketId: string, side: 'a' | 'b' | 'c', amount: number) => Promise<boolean>;
+  calculateReturns: (market: ArenaMarket, side: 'a' | 'b' | 'c', amount: number) => any;
   isVoting: boolean;
   storedFingerprintHash?: string | null;
   onReregisterFingerprint?: (newHash: string) => Promise<{ success: boolean; error?: string }>;
@@ -38,7 +38,7 @@ const ArenaMarketDetail = ({
   onReregisterFingerprint,
 }: ArenaMarketDetailProps) => {
   const { user } = useAuth();
-  const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
+  const [selectedSide, setSelectedSide] = useState<'a' | 'b' | 'c' | null>(null);
   const [stakeAmount, setStakeAmount] = useState(100);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [isReregistering, setIsReregistering] = useState(false);
@@ -46,9 +46,11 @@ const ArenaMarketDetail = ({
   const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('pools');
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const totalPool = market.side_a_power + market.side_b_power;
-  const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : 50;
-  const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : 50;
+  const hasSideC = !!market.side_c_name;
+  const totalPool = market.side_a_power + market.side_b_power + (market.side_c_power || 0);
+  const sideAPercent = totalPool > 0 ? (market.side_a_power / totalPool) * 100 : hasSideC ? 33.33 : 50;
+  const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : hasSideC ? 33.33 : 50;
+  const sideCPercent = totalPool > 0 && hasSideC ? ((market.side_c_power || 0) / totalPool) * 100 : 33.33;
 
   // Recalculate status based on current time (updates every second)
   const isEnded = !!market.winner_side || new Date(market.ends_at) < currentTime;
@@ -144,9 +146,10 @@ const ArenaMarketDetail = ({
   const handleShare = async () => {
     if (navigator.share) {
       try {
+        const sideName = selectedSide === 'a' ? market.side_a_name : selectedSide === 'c' ? market.side_c_name : market.side_b_name;
         await navigator.share({
           title: `Arxon Arena - ${market.title}`,
-          text: `I'm predicting ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}! Join me and stake your prediction!`,
+          text: `I'm predicting ${sideName}! Join me and stake your prediction!`,
           url: window.location.href,
         });
       } catch (err) {
@@ -345,7 +348,7 @@ const ArenaMarketDetail = ({
                     : userPosition.power_spent.toLocaleString()} ARX-P
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  on {userPosition.side === 'a' ? market.side_a_name : market.side_b_name}
+                  on {userPosition.side === 'a' ? market.side_a_name : userPosition.side === 'c' ? market.side_c_name : market.side_b_name}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/20">
@@ -367,7 +370,7 @@ const ArenaMarketDetail = ({
               <div>
                 <p className="text-[10px] text-muted-foreground">Winner</p>
                 <p className="text-sm font-bold text-amber-500">
-                  {market.winner_side === 'a' ? market.side_a_name : market.side_b_name}
+                  {market.winner_side === 'a' ? market.side_a_name : market.winner_side === 'c' ? market.side_c_name : market.side_b_name}
                 </p>
               </div>
             </div>
@@ -413,12 +416,48 @@ const ArenaMarketDetail = ({
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
-                    {sideAPercent < sideBPercent && (
-                      <span className="block text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 mt-1">Underdog</span>
-                    )}
                   </div>
                 </div>
               </button>
+
+              {/* Side C (Draw) - Only if exists */}
+              {hasSideC && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSide('c')}
+                  className={`
+                    w-full p-4 rounded-xl border-2 transition-all duration-200
+                    touch-manipulation select-none active:scale-[0.98]
+                    ${selectedSide === 'c' 
+                      ? 'shadow-lg' 
+                      : 'border-border/40 hover:border-border'
+                    }
+                  `}
+                  style={{ 
+                    borderColor: selectedSide === 'c' ? (market.side_c_color || '#888888') : undefined,
+                    backgroundColor: selectedSide === 'c' ? `${market.side_c_color || '#888888'}15` : undefined,
+                    boxShadow: selectedSide === 'c' ? `0 8px 24px ${market.side_c_color || '#888888'}30` : undefined
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{ backgroundColor: `${market.side_c_color || '#888888'}20` }}
+                      >
+                        <Target className="w-5 h-5" style={{ color: market.side_c_color || '#888888' }} />
+                      </div>
+                      <div className="text-left">
+                        <span className="font-bold text-base text-foreground block">{market.side_c_name}</span>
+                        <span className="text-xs text-muted-foreground">{(market.side_c_power || 0).toLocaleString()} staked</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black" style={{ color: market.side_c_color || '#888888' }}>{sideCPercent.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                </button>
+              )}
 
               {/* Side B */}
               <button
@@ -453,9 +492,6 @@ const ArenaMarketDetail = ({
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
-                    {sideBPercent < sideAPercent && (
-                      <span className="block text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 mt-1">Underdog</span>
-                    )}
                   </div>
                 </div>
               </button>
@@ -609,7 +645,7 @@ const ArenaMarketDetail = ({
                   onVerified={handleFingerprintVerified}
                   isVerifying={isVoting}
                   title="Confirm Your Vote"
-                  subtitle={`Stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : market.side_b_name}`}
+                  subtitle={`Stake ${stakeAmount.toLocaleString()} ARX-P on ${selectedSide === 'a' ? market.side_a_name : selectedSide === 'c' ? market.side_c_name : market.side_b_name}`}
                 />
                 <button
                   onClick={() => setShowFingerprint(false)}

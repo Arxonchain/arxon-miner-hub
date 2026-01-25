@@ -12,24 +12,28 @@ interface LivePoolTrackerProps {
 const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
   const [sideAPower, setSideAPower] = useState(market.side_a_power);
   const [sideBPower, setSideBPower] = useState(market.side_b_power);
+  const [sideCPower, setSideCPower] = useState(market.side_c_power || 0);
   const [totalParticipants, setTotalParticipants] = useState(market.total_participants || 0);
-  const [recentChange, setRecentChange] = useState<{ side: 'a' | 'b'; amount: number } | null>(null);
+  const [recentChange, setRecentChange] = useState<{ side: 'a' | 'b' | 'c'; amount: number } | null>(null);
 
-  const totalStaked = sideAPower + sideBPower;
-  const sideAPercent = totalStaked > 0 ? (sideAPower / totalStaked) * 100 : 50;
-  const sideBPercent = totalStaked > 0 ? (sideBPower / totalStaked) * 100 : 50;
+  const hasSideC = !!market.side_c_name;
+  const totalStaked = sideAPower + sideBPower + sideCPower;
+  const sideAPercent = totalStaked > 0 ? (sideAPower / totalStaked) * 100 : hasSideC ? 33.33 : 50;
+  const sideBPercent = totalStaked > 0 ? (sideBPower / totalStaked) * 100 : hasSideC ? 33.33 : 50;
+  const sideCPercent = totalStaked > 0 && hasSideC ? (sideCPower / totalStaked) * 100 : 33.33;
 
   // Calculate multipliers based on pool imbalance
-  const calculateMultiplier = (myPool: number, theirPool: number) => {
-    if (myPool >= theirPool) {
-      const ratio = theirPool / (myPool || 1);
+  const calculateMultiplier = (myPool: number, otherPools: number) => {
+    if (myPool >= otherPools) {
+      const ratio = otherPools / (myPool || 1);
       return Math.min(2 + (ratio * 3), 5);
     }
     return 5;
   };
 
-  const sideAMultiplier = calculateMultiplier(sideAPower, sideBPower);
-  const sideBMultiplier = calculateMultiplier(sideBPower, sideAPower);
+  const sideAMultiplier = calculateMultiplier(sideAPower, sideBPower + sideCPower);
+  const sideBMultiplier = calculateMultiplier(sideBPower, sideAPower + sideCPower);
+  const sideCMultiplier = calculateMultiplier(sideCPower, sideAPower + sideBPower);
 
   useEffect(() => {
     // Subscribe to real-time updates on arena_battles
@@ -47,6 +51,7 @@ const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
           const updated = payload.new as any;
           setSideAPower(updated.side_a_power);
           setSideBPower(updated.side_b_power);
+          setSideCPower(updated.side_c_power || 0);
           setTotalParticipants(updated.total_participants || 0);
           onPoolUpdate?.(updated.side_a_power, updated.side_b_power);
         }
@@ -154,10 +159,10 @@ const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
 
       {/* Team Distribution */}
       <div className="p-3 rounded-xl bg-secondary/20 border border-border/30">
-        <div className="flex items-center justify-between mb-3">
+        <div className={`grid ${hasSideC ? 'grid-cols-3' : 'grid-cols-3'} gap-2 mb-3`}>
           {/* Side A */}
           <div className="text-center">
-            <span className="text-xs font-bold" style={{ color: market.side_a_color }}>
+            <span className="text-xs font-bold truncate block" style={{ color: market.side_a_color }}>
               {market.side_a_name}
             </span>
             <motion.p
@@ -175,26 +180,49 @@ const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
             <p className="text-[10px] text-muted-foreground mt-0.5">{formatAmount(sideAPower)}</p>
           </div>
 
-          {/* VS Icon */}
-          <div className="relative">
-            <Flame className="w-5 h-5 text-orange-500" />
-            <AnimatePresence>
-              {recentChange && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1.5 }}
-                  exit={{ scale: 0 }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <span className="w-8 h-8 rounded-full bg-orange-500/30 animate-ping" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Side C (Draw) or VS Icon */}
+          {hasSideC ? (
+            <div className="text-center">
+              <span className="text-xs font-bold truncate block" style={{ color: market.side_c_color || '#888888' }}>
+                {market.side_c_name}
+              </span>
+              <motion.p
+                key={sideCPercent}
+                initial={{ scale: 1.05 }}
+                animate={{ scale: 1 }}
+                className="text-base font-black text-foreground"
+              >
+                {sideCPercent.toFixed(0)}%
+              </motion.p>
+              <div className="flex items-center justify-center gap-1">
+                <Zap className="w-3 h-3" style={{ color: market.side_c_color || '#888888' }} />
+                <span className="text-[10px] text-muted-foreground">{sideCMultiplier.toFixed(1)}x</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{formatAmount(sideCPower)}</p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <Flame className="w-5 h-5 text-orange-500" />
+                <AnimatePresence>
+                  {recentChange && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1.5 }}
+                      exit={{ scale: 0 }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <span className="w-8 h-8 rounded-full bg-orange-500/30 animate-ping" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
 
           {/* Side B */}
           <div className="text-center">
-            <span className="text-xs font-bold" style={{ color: market.side_b_color }}>
+            <span className="text-xs font-bold truncate block" style={{ color: market.side_b_color }}>
               {market.side_b_name}
             </span>
             <motion.p
@@ -232,6 +260,25 @@ const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
               )}
             </AnimatePresence>
           </motion.div>
+          {hasSideC && (
+            <motion.div
+              className="h-full relative"
+              style={{ backgroundColor: market.side_c_color || '#888888' }}
+              animate={{ width: `${sideCPercent}%` }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              <AnimatePresence>
+                {recentChange?.side === 'c' && (
+                  <motion.div
+                    initial={{ left: 0, opacity: 1 }}
+                    animate={{ left: -20, opacity: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute top-0 bottom-0 w-4 bg-white/50"
+                  />
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
           <motion.div
             className="h-full relative"
             style={{ backgroundColor: market.side_b_color }}

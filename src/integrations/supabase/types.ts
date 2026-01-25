@@ -118,6 +118,10 @@ export type Database = {
           side_b_image: string | null
           side_b_name: string
           side_b_power: number
+          side_c_color: string | null
+          side_c_image: string | null
+          side_c_name: string | null
+          side_c_power: number | null
           starts_at: string
           title: string
           total_participants: number | null
@@ -156,6 +160,10 @@ export type Database = {
           side_b_image?: string | null
           side_b_name: string
           side_b_power?: number
+          side_c_color?: string | null
+          side_c_image?: string | null
+          side_c_name?: string | null
+          side_c_power?: number | null
           starts_at?: string
           title: string
           total_participants?: number | null
@@ -194,6 +202,10 @@ export type Database = {
           side_b_image?: string | null
           side_b_name?: string
           side_b_power?: number
+          side_c_color?: string | null
+          side_c_image?: string | null
+          side_c_name?: string | null
+          side_c_power?: number | null
           starts_at?: string
           title?: string
           total_participants?: number | null
