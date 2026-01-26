@@ -26,7 +26,45 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Hard 8-second SLA - fail fast, no automatic retries
+  // Retry with exponential backoff for signup resilience under load
+  const withRetry = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelayMs = 1000
+  ): Promise<T> => {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
+        
+        const result = await Promise.race([
+          fn(),
+          new Promise<T>((_, reject) => {
+            controller.signal.addEventListener('abort', () => {
+              reject(new Error('Request timed out'));
+            });
+          }),
+        ]);
+        window.clearTimeout(timeoutId);
+        return result;
+      } catch (err) {
+        lastError = err as Error;
+        const msg = lastError?.message?.toLowerCase() || '';
+        // Don't retry on validation errors
+        if (msg.includes('invalid') || msg.includes('already registered') || msg.includes('weak password')) {
+          throw lastError;
+        }
+        // Retry on timeout/network errors
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt)));
+        }
+      }
+    }
+    throw lastError || new Error('Request failed after retries');
+  };
+
+  // Simple timeout wrapper for non-critical requests
   const withTimeout = async <T,>(promise: Promise<T>, ms = 8_000): Promise<T> => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), ms);
@@ -152,7 +190,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     try {
       if (mode === "signin") {
-        const { error } = await withTimeout(signIn(email, password));
+        const { error } = await withRetry(() => signIn(email, password));
         if (error) {
           const msg = error.message?.toLowerCase() || '';
           let description = error.message;
@@ -177,7 +215,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         }
       } else {
         const codeToUse = referralCode.trim();
-        const { error, user: newUser } = await withTimeout(signUp(email, password));
+        const { error, user: newUser } = await withRetry(() => signUp(email, password));
 
         if (error) {
           const msg = error.message?.toLowerCase() || '';

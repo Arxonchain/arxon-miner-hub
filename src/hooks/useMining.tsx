@@ -662,9 +662,6 @@ export const useMining = (options?: UseMiningOptions) => {
 
       // Pass session ID for secure backend validation
       const result = await addPoints(pointsToClaim, 'mining', sessionId);
-
-      // Force-refresh balance immediately after claim (non-blocking)
-      void refreshPoints();
       
       if (!result.success) {
         // Points failed, but session is already ended - backfill will fix it
@@ -681,6 +678,12 @@ export const useMining = (options?: UseMiningOptions) => {
         });
         triggerConfetti();
       }
+
+      // Force-refresh balance AFTER the toast so the user sees updated points
+      // Use a short delay to ensure DB has committed
+      window.setTimeout(() => {
+        void refreshPoints();
+      }, 500);
 
       // CRITICAL: Create a NEW session instead of reusing the old one
       const { data: newSession, error: newSessionError } = await supabase

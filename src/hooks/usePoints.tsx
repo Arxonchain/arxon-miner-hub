@@ -300,6 +300,10 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             const next = payload.new as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
+            
+            // Recalculate rank whenever points change via realtime
+            lastRankAtRef.current = 0;
+            void calculateRank();
           }
         }
       )
