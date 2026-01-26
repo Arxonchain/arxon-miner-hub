@@ -26,65 +26,24 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Track retry attempts for user feedback
-  const [retryCount, setRetryCount] = useState(0);
-
-  // Very long timeout for high-traffic scenarios - Supabase can take up to 60s under extreme load
-  const withTimeout = async <T,>(promise: Promise<T>, ms = 45_000): Promise<T> => {
-    let timeoutId: number | null = null;
-    const timeout = new Promise<T>((_, reject) => {
-      timeoutId = window.setTimeout(() => reject(new Error('TIMEOUT')), ms);
-    });
+  // Hard 8-second SLA - fail fast, no automatic retries
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 8_000): Promise<T> => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), ms);
 
     try {
-      return await Promise.race([promise, timeout]);
+      const result = await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          controller.signal.addEventListener('abort', () => {
+            reject(new Error('Request timed out. Please try again.'));
+          });
+        }),
+      ]);
+      return result;
     } finally {
-      if (timeoutId) window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
     }
-  };
-
-  // Aggressive retry wrapper with exponential backoff - up to 5 retries for extreme traffic
-  const withRetry = async <T,>(
-    fn: () => Promise<T>, 
-    maxRetries = 5,
-    onRetry?: (attempt: number) => void
-  ): Promise<T> => {
-    let lastError: Error | null = null;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0 && onRetry) {
-          onRetry(attempt);
-        }
-        return await fn();
-      } catch (err) {
-        lastError = err as Error;
-        const msg = lastError?.message?.toLowerCase() || '';
-        
-        // Retry on any network/timeout/server error
-        const isRetryable = 
-          msg.includes('timeout') || 
-          msg.includes('fetch') || 
-          msg.includes('network') || 
-          msg.includes('504') || 
-          msg.includes('503') || 
-          msg.includes('502') ||
-          msg.includes('500') ||
-          msg.includes('failed') ||
-          msg.includes('connection') ||
-          msg.includes('aborted') ||
-          msg === 'timeout';
-        
-        if (attempt < maxRetries && isRetryable) {
-          // Exponential backoff: 1s, 2s, 4s, 8s, 16s
-          const delay = Math.min(1000 * Math.pow(2, attempt), 16000);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        throw lastError;
-      }
-    }
-    throw lastError;
   };
 
   useEffect(() => {
@@ -190,15 +149,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     }
 
     setLoading(true);
-    setRetryCount(0);
 
     try {
       if (mode === "signin") {
-        const { error } = await withRetry(
-          () => withTimeout(signIn(email, password), 45_000),
-          4,
-          (attempt) => setRetryCount(attempt)
-        );
+        const { error } = await withTimeout(signIn(email, password));
         if (error) {
           const msg = error.message?.toLowerCase() || '';
           let description = error.message;
@@ -223,11 +177,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         }
       } else {
         const codeToUse = referralCode.trim();
-        const { error, user: newUser } = await withRetry(
-          () => withTimeout(signUp(email, password), 60_000), // 60s for signup - it's critical
-          5, // Up to 5 retries
-          (attempt) => setRetryCount(attempt)
-        );
+        const { error, user: newUser } = await withTimeout(signUp(email, password));
 
         if (error) {
           const msg = error.message?.toLowerCase() || '';
@@ -261,24 +211,21 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
       }
     } catch (error) {
       const msg = (error as Error)?.message?.toLowerCase() || '';
-      let description = "Something went wrong. Please try again.";
+      let description = "Request timed out. Please tap 'Try Again'.";
       
-      if (msg === 'timeout' || msg.includes('timeout')) {
-        description = 'The server is very busy right now. Your request is being processed - please wait 30 seconds and check if your account was created, then try signing in.';
-      } else if (msg.includes('504') || msg.includes('503') || msg.includes('502')) {
-        description = 'Server is under heavy load. Please wait 1 minute and try again.';
+      if (msg.includes('timed out') || msg.includes('timeout')) {
+        description = "Request timed out. Please tap 'Try Again'.";
       } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed')) {
-        description = 'Connection lost. Please check your internet and try again.';
+        description = 'Connection issue. Please check your internet and try again.';
       }
       
       toast({
-        title: "Connection Issue",
+        title: "Try Again",
         description,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
-      setRetryCount(0);
     }
   };
 
@@ -501,13 +448,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>
-                      {retryCount > 0 
-                        ? `Retrying... (attempt ${retryCount + 1})` 
-                        : mode === "signup" 
-                          ? "Creating account..." 
-                          : "Signing in..."}
-                    </span>
+                    <span>{mode === "signup" ? "Creating account..." : "Signing in..."}</span>
                   </div>
                 ) : (
                   <>
@@ -516,15 +457,6 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
                   </>
                 )}
               </Button>
-
-              {/* Show helpful message during loading */}
-              {loading && (
-                <p className="text-xs text-center text-muted-foreground animate-pulse">
-                  {retryCount > 0 
-                    ? "High traffic detected. Automatically retrying..." 
-                    : "Please wait, this may take a moment during peak hours..."}
-                </p>
-              )}
             </form>
           )}
 
