@@ -69,18 +69,24 @@ const AdminSignups = () => {
     staleTime: 10000,
   });
 
-  // Also fetch total users count for verification
-  const { data: totalUsersCount } = useQuery({
-    queryKey: ["admin-total-users-count"],
+  // Also fetch total users count for verification - use same query key as useAdminStats for consistency
+  const { data: totalUsersCount, refetch: refetchTotal } = useQuery({
+    queryKey: ["admin-total-users-exact-count"],
     queryFn: async () => {
       const { count, error } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
       
-      if (error) throw error;
-      return count || 0;
+      if (error) {
+        console.error("Failed to fetch total users count:", error);
+        throw error;
+      }
+      console.log("[AdminSignups] Exact total users count:", count);
+      return count ?? 0;
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000, // Match useAdminStats interval
+    staleTime: 3000,
+    refetchOnWindowFocus: true,
   });
 
   // Real-time subscription for new signups
@@ -108,6 +114,7 @@ const AdminSignups = () => {
   const handleRefresh = () => {
     setRealtimeSignups(0);
     refetch();
+    refetchTotal();
   };
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
