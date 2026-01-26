@@ -41,6 +41,10 @@ const PointsContext = createContext<PointsContextType | undefined>(undefined);
 const pointsCacheKey = (userId: string) => `arxon:points:v2:${userId}`;
 const rankCacheKey = (userId: string) => `arxon:rank:v1:${userId}`;
 
+// Rank computation is an expensive global aggregate.
+// Under high concurrency, we must NOT run it on every points update.
+const RANK_MIN_INTERVAL_MS = 10 * 60_000; // at most once per 10 minutes per user
+
 export const PointsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
 
@@ -49,6 +53,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   const [rank, setRank] = useState<number | null>(null);
 
   const hydratedUserIdRef = useRef<string | null>(null);
+  const rankInFlightRef = useRef(false);
+  const lastRankAtRef = useRef(0);
 
   const triggerConfetti = useCallback(() => {
     confetti({
@@ -63,6 +69,12 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   // This works for ANY number of users (100k+) without row limits
   const calculateRank = useCallback(async () => {
     if (!user) return;
+
+    const now = Date.now();
+    if (rankInFlightRef.current) return;
+    if (now - lastRankAtRef.current < RANK_MIN_INTERVAL_MS) return;
+    rankInFlightRef.current = true;
+    lastRankAtRef.current = now;
     
     try {
       // Use the database function that counts users with higher points
@@ -85,6 +97,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error calculating rank:', error);
       // Keep existing rank on error
+    } finally {
+      rankInFlightRef.current = false;
     }
   }, [user]);
 
@@ -129,8 +143,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       setPoints(nextPoints);
       cacheSet(pointsCacheKey(user.id), nextPoints);
 
-      // Calculate rank from leaderboard
-      await calculateRank();
+      // Rank is non-critical; compute in the background (and throttled).
+      void calculateRank();
     } catch (error) {
       // Keep any cached/previous values; don't block UI
       console.error('Error fetching points:', error);
@@ -237,9 +251,6 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             const next = payload.new as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
-            
-            // Recalculate rank when points update in real-time
-            void calculateRank();
           }
         }
       )
