@@ -1,9 +1,11 @@
 import { memo } from "react";
-import { Clock, Zap } from "lucide-react";
+import { Clock, Zap, Trophy, TrendingUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useMiningStatus } from "@/hooks/useMiningStatus";
+import { usePoints } from "@/hooks/usePoints";
+import { useAuth } from "@/hooks/useAuth";
 
 const getRankIcon = (index: number) => {
   if (index === 0) return "🥇";
@@ -60,14 +62,52 @@ MinerEntry.displayName = "MinerEntry";
 const Leaderboard = () => {
   const { leaderboard: minerEntries, loading } = useLeaderboard(100);
   const { isMining } = useMiningStatus();
+  const { points, rank } = usePoints();
+  const { user } = useAuth();
+
+  // Check if user is in the top 100
+  const userInTop100 = user ? minerEntries.find(e => e.user_id === user.id) : null;
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Mining Leaderboard</h1>
 
+      {/* User's own rank card - always visible for logged-in users */}
+      {user && points && (
+        <div className="glass-card p-4 border-2 border-accent/50 bg-accent/5">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                <Trophy className="h-6 w-6 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Your Rank</p>
+                <p className="text-2xl font-bold text-foreground">
+                  #{rank || '—'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Your Points</p>
+              <p className="text-xl font-bold text-accent flex items-center gap-1">
+                <Zap className="h-4 w-4" />
+                {formatPoints(points.total_points)}
+              </p>
+            </div>
+            {!userInTop100 && rank && rank > 100 && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-xs">{rank - 100} positions to Top 100</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Public welcome card - show for everyone */}
       <WelcomeCard 
-        title="Welcome to ARXON Mining Leaderboard" 
-        description="Compete for glory and prizes! Top miners win amazing rewards." 
+        title="ARXON Mining Leaderboard" 
+        description={user ? "Compete for glory and prizes! Top miners win amazing rewards." : "See the top 100 miners competing for glory and prizes!"} 
         isActive={isMining} 
       />
 
@@ -95,8 +135,12 @@ const Leaderboard = () => {
               <p className="text-sm">No miners yet. Start mining to join the leaderboard!</p>
             </div>
           ) : (
-            minerEntries.map((user, index) => (
-              <MinerEntry key={user.user_id} user={user} index={index} />
+            minerEntries.map((miner, index) => (
+              <MinerEntry 
+                key={miner.user_id} 
+                user={miner} 
+                index={index} 
+              />
             ))
           )}
         </div>

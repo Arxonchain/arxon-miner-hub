@@ -10,7 +10,7 @@ import SessionRecovery from "@/components/system/SessionRecovery";
 import { BackendUnavailableError } from "@/lib/backendHealth";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
-import Leaderboard from "./pages/Leaderboard";
+import PublicLeaderboard from "./pages/PublicLeaderboard";
 import Claim from "./pages/Claim";
 import Referrals from "./pages/Referrals";
 import Mining from "./pages/Mining";
@@ -76,7 +76,7 @@ const App = () => (
             <Routes>
               {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
               <Route path="/" element={<Index />} />
-              <Route path="/leaderboard" element={<DashboardLayout><Leaderboard /></DashboardLayout>} />
+              <Route path="/leaderboard" element={<PublicLeaderboard />} />
               <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
               <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
               <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
