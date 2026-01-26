@@ -12,6 +12,10 @@ interface LeaderboardEntry {
   rank: number;
 }
 
+// Leaderboard feels "broken" without periodic refresh.
+// Keep a lightweight poll *only while tab is visible*.
+// NOTE: if 100k users sit on the leaderboard page simultaneously, any polling cadence will be expensive.
+const POLL_MS = 10_000;
 const WAKE_THROTTLE_MS = 2000; // Prevent rapid fire on visibility + focus events
 
 export const useLeaderboard = (limit: number = 50) => {
@@ -69,6 +73,12 @@ export const useLeaderboard = (limit: number = 50) => {
 
     void fetchLeaderboard();
 
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchLeaderboard();
+      }
+    }, POLL_MS);
+
     // Throttled wake handler to prevent duplicate fetches from visibility + focus firing together
     const throttledFetch = throttle(() => {
       if (document.visibilityState === 'visible') {
@@ -81,6 +91,7 @@ export const useLeaderboard = (limit: number = 50) => {
 
     return () => {
       mountedRef.current = false;
+      window.clearInterval(interval);
       document.removeEventListener('visibilitychange', throttledFetch);
       window.removeEventListener('focus', throttledFetch);
     };

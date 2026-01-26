@@ -50,6 +50,19 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { type, amount, session_id } = body
 
+    const fetchCurrentUserPoints = async () => {
+      try {
+        const { data } = await supabase
+          .from('user_points')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        return data ?? null
+      } catch {
+        return null
+      }
+    }
+
     // Validate type
     if (!['mining', 'task', 'social'].includes(type)) {
       return new Response(
@@ -87,8 +100,9 @@ Deno.serve(async (req) => {
       // Prevent double-crediting - this is critical
       if (session.credited_at) {
         console.log('Session already credited:', session_id, 'at', session.credited_at)
+        const currentPoints = await fetchCurrentUserPoints()
         return new Response(
-          JSON.stringify({ success: true, message: 'Already credited', points: 0 }),
+          JSON.stringify({ success: true, message: 'Already credited', points: 0, userPoints: currentPoints }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -152,8 +166,9 @@ Deno.serve(async (req) => {
 
       if (finalPoints <= 0) {
         console.log('No points to award for session:', session_id, 'elapsed:', effectiveSeconds, 'seconds')
+        const currentPoints = await fetchCurrentUserPoints()
         return new Response(
-          JSON.stringify({ success: true, message: 'No points to award', points: 0 }),
+          JSON.stringify({ success: true, message: 'No points to award', points: 0, userPoints: currentPoints }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -181,8 +196,9 @@ Deno.serve(async (req) => {
       // If no rows updated, session was already credited by another request
       if (!creditUpdate) {
         console.log('Session was already credited by another request:', session_id)
+        const currentPoints = await fetchCurrentUserPoints()
         return new Response(
-          JSON.stringify({ success: true, message: 'Already credited', points: 0 }),
+          JSON.stringify({ success: true, message: 'Already credited', points: 0, userPoints: currentPoints }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
