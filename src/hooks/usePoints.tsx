@@ -197,6 +197,10 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             const next = data.userPoints as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
+
+            // Rank is derived from total_points; refresh immediately after a claim.
+            lastRankAtRef.current = 0;
+            void calculateRank();
           } else {
             // Fetch latest points from DB to sync UI
             try {
@@ -210,6 +214,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
                 const next = latest as UserPoints;
                 setPoints(next);
                 cacheSet(pointsCacheKey(user.id), next);
+
+                lastRankAtRef.current = 0;
+                void calculateRank();
               }
             } catch {
               // ignore: keep existing cached/previous points
@@ -237,7 +244,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       console.error('All award-points attempts failed:', lastError);
       return { success: false, error: lastError?.message || 'Network error after retries' };
     },
-    [triggerConfetti, user]
+    [calculateRank, triggerConfetti, user]
   );
 
   // Hydrate instantly from cache on login (so ARX-P shows immediately), then refresh in background

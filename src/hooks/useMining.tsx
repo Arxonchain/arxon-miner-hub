@@ -65,7 +65,7 @@ export const useMining = (options?: UseMiningOptions) => {
   const tickMs = Math.min(Math.max(options?.tickMs ?? 1000, 100), 5000);
 
   const { user } = useAuth();
-  const { addPoints, triggerConfetti, points } = usePoints();
+  const { addPoints, triggerConfetti, points, refreshPoints } = usePoints();
 
   const [isMining, setIsMining] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -263,6 +263,10 @@ export const useMining = (options?: UseMiningOptions) => {
           const result = await addPoints(pointsToCredit, 'mining', id);
           credited = result.success;
           creditedPoints = result.points || pointsToCredit;
+
+          // Ensure the UI balance updates immediately even if realtime is delayed.
+          // Fire-and-forget; do not block the user.
+          void refreshPoints();
           
           if (!credited) {
             console.error('Failed to credit points for session:', id, result.error);
@@ -296,7 +300,7 @@ export const useMining = (options?: UseMiningOptions) => {
         endingRef.current = false;
       }
     },
-    [addPoints, user]
+    [addPoints, refreshPoints, user]
   );
 
   const finalizeSessionSilently = useCallback(
@@ -327,11 +331,14 @@ export const useMining = (options?: UseMiningOptions) => {
       if (finalPoints > 0) {
         // Pass session ID for secure backend validation
         await addPoints(finalPoints, 'mining', session.id);
+
+        // Keep UI in sync if the session belonged to current user and we're on this device.
+        void refreshPoints();
       }
 
       return finalPoints;
     },
-    [addPoints, cappedPointsPerHour, maxTimeSeconds]
+    [addPoints, cappedPointsPerHour, maxTimeSeconds, refreshPoints]
   );
 
   const checkActiveSession = useCallback(async () => {
@@ -655,6 +662,9 @@ export const useMining = (options?: UseMiningOptions) => {
 
       // Pass session ID for secure backend validation
       const result = await addPoints(pointsToClaim, 'mining', sessionId);
+
+      // Force-refresh balance immediately after claim (non-blocking)
+      void refreshPoints();
       
       if (!result.success) {
         // Points failed, but session is already ended - backfill will fix it
