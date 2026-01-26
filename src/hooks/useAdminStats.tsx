@@ -32,9 +32,14 @@ export const useAdminStats = () => {
     queryKey: ["admin-global-stats"],
     queryFn: async (): Promise<AdminStats> => {
       // Total users from profiles table (the source of truth for signups)
-      const { count: totalUsers } = await supabase
+      // Use exact count with explicit error handling
+      const { count: totalUsers, error: usersError } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
+      
+      if (usersError) {
+        console.error("Failed to fetch total users:", usersError);
+      }
 
       // Active miners (currently mining sessions)
       const { count: activeMiners } = await supabase
@@ -123,13 +128,16 @@ export const useAdminStats = () => {
         .limit(1)
         .maybeSingle();
 
+      // Log for debugging
+      console.log("[AdminStats] Fetched totalUsers:", totalUsers);
+
       return {
-        totalUsers: totalUsers || 0,
-        activeMiners: activeMiners || 0,
+        totalUsers: totalUsers ?? 0,
+        activeMiners: activeMiners ?? 0,
         totalMiningPoints,
         totalPoints,
-        totalReferrals: totalReferrals || 0,
-        claimingEnabled: settings?.claiming_enabled || false,
+        totalReferrals: totalReferrals ?? 0,
+        claimingEnabled: settings?.claiming_enabled ?? false,
         blockReward: settings?.block_reward || 1000,
         totalMinersEver,
         totalTaskPoints,
@@ -144,8 +152,10 @@ export const useAdminStats = () => {
         todayMiningPoints,
       };
     },
-    refetchInterval: 15000, // Faster refresh every 15 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds for real-time accuracy
+    staleTime: 3000, // Consider data stale after 3 seconds
+    gcTime: 30000, // Keep in cache for 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to window
   });
 };
 
