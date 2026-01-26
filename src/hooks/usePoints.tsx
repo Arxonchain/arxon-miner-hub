@@ -180,10 +180,28 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
           return { success: false, error: data?.error || 'Unknown error' };
         }
 
+        // Keep UI accurate even if the backend returns "Already credited".
+        // In that case points may have changed on another device, but this response may not include userPoints.
         if (data?.userPoints) {
           const next = data.userPoints as UserPoints;
           setPoints(next);
           cacheSet(pointsCacheKey(user.id), next);
+        } else {
+          try {
+            const { data: latest } = await supabase
+              .from('user_points')
+              .select('*')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (latest) {
+              const next = latest as UserPoints;
+              setPoints(next);
+              cacheSet(pointsCacheKey(user.id), next);
+            }
+          } catch {
+            // ignore: keep existing cached/previous points
+          }
         }
 
         const awardedPoints = data?.points ?? safeAmount;
