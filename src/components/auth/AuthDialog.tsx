@@ -26,8 +26,8 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Shorter timeout for better UX - fail fast when backend is down
-  const withTimeout = async <T,>(promise: Promise<T>, ms = 8_000): Promise<T> => {
+  // Longer timeout for signup since database may be under load
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 15_000): Promise<T> => {
     let timeoutId: number | null = null;
     const timeout = new Promise<T>((_, reject) => {
       timeoutId = window.setTimeout(() => reject(new Error('Connection timed out. The server may be busy - please try again.')), ms);
@@ -38,6 +38,26 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     } finally {
       if (timeoutId) window.clearTimeout(timeoutId);
     }
+  };
+
+  // Retry wrapper for signup with exponential backoff
+  const withRetry = async <T,>(fn: () => Promise<T>, maxRetries = 2): Promise<T> => {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastError = err as Error;
+        const msg = lastError?.message?.toLowerCase() || '';
+        // Only retry on timeout/network errors, not validation errors
+        if (attempt < maxRetries && (msg.includes('timeout') || msg.includes('fetch') || msg.includes('network') || msg.includes('504'))) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        throw lastError;
+      }
+    }
+    throw lastError;
   };
 
   useEffect(() => {
@@ -146,7 +166,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     try {
       if (mode === "signin") {
-        const { error } = await withTimeout(signIn(email, password), 8_000);
+        const { error } = await withRetry(() => withTimeout(signIn(email, password), 15_000));
         if (error) {
           const msg = error.message?.toLowerCase() || '';
           // Provide friendlier messages for common errors
@@ -171,7 +191,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         }
       } else {
         const codeToUse = referralCode.trim();
-        const { error, user: newUser } = await withTimeout(signUp(email, password), 8_000);
+        const { error, user: newUser } = await withRetry(() => withTimeout(signUp(email, password), 20_000), 2);
 
         if (error) {
           const msg = error.message?.toLowerCase() || '';
@@ -205,10 +225,10 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
     } catch (error) {
       const msg = (error as Error)?.message?.toLowerCase() || '';
       let description = (error as Error)?.message || "Something went wrong. Please try again.";
-      if (msg.includes('timeout')) {
-        description = 'Server is slow to respond. Please wait a moment and try again.';
+      if (msg.includes('timeout') || msg.includes('504') || msg.includes('busy')) {
+        description = 'Our servers are experiencing high traffic. Please wait 30 seconds and try again.';
       } else if (msg.includes('network') || msg.includes('fetch')) {
-        description = 'Connection failed. Please check your internet connection.';
+        description = 'Connection failed. Please check your internet connection and try again.';
       }
       toast({
         title: "Connection Error",
