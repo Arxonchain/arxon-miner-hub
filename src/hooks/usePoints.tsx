@@ -160,58 +160,82 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 500);
       if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
 
-      try {
-        // Use the secure backend endpoint instead of direct RPC
-        const { data, error } = await supabase.functions.invoke('award-points', {
-          body: {
-            type,
-            amount: safeAmount,
-            session_id: sessionId,
-          },
-        });
+      // Retry logic for network failures (up to 3 attempts with exponential backoff)
+      const MAX_RETRIES = 3;
+      let lastError: any = null;
 
-        if (error) {
-          console.error('Error adding points via backend:', error);
-          return { success: false, error: error.message || 'Backend error' };
-        }
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Use the secure backend endpoint instead of direct RPC
+          const { data, error } = await supabase.functions.invoke('award-points', {
+            body: {
+              type,
+              amount: safeAmount,
+              session_id: sessionId,
+            },
+          });
 
-        if (!data?.success) {
-          console.error('Backend returned failure:', data?.error);
-          return { success: false, error: data?.error || 'Unknown error' };
-        }
-
-        // Keep UI accurate even if the backend returns "Already credited".
-        // In that case points may have changed on another device, but this response may not include userPoints.
-        if (data?.userPoints) {
-          const next = data.userPoints as UserPoints;
-          setPoints(next);
-          cacheSet(pointsCacheKey(user.id), next);
-        } else {
-          try {
-            const { data: latest } = await supabase
-              .from('user_points')
-              .select('*')
-              .eq('user_id', user.id)
-              .maybeSingle();
-
-            if (latest) {
-              const next = latest as UserPoints;
-              setPoints(next);
-              cacheSet(pointsCacheKey(user.id), next);
+          if (error) {
+            // If it's a network/fetch error, retry
+            if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+              lastError = error;
+              console.warn(`Award-points attempt ${attempt + 1} failed, retrying...`, error.message);
+              await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
+              continue;
             }
-          } catch {
-            // ignore: keep existing cached/previous points
+            console.error('Error adding points via backend:', error);
+            return { success: false, error: error.message || 'Backend error' };
           }
-        }
 
-        const awardedPoints = data?.points ?? safeAmount;
-        if (awardedPoints >= 10) triggerConfetti();
-        
-        return { success: true, points: awardedPoints };
-      } catch (err: any) {
-        console.error('Error adding points:', err);
-        return { success: false, error: err?.message || 'Network error' };
+          if (!data?.success) {
+            console.error('Backend returned failure:', data?.error);
+            return { success: false, error: data?.error || 'Unknown error' };
+          }
+
+          // Keep UI accurate even if the backend returns "Already credited".
+          if (data?.userPoints) {
+            const next = data.userPoints as UserPoints;
+            setPoints(next);
+            cacheSet(pointsCacheKey(user.id), next);
+          } else {
+            // Fetch latest points from DB to sync UI
+            try {
+              const { data: latest } = await supabase
+                .from('user_points')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+              if (latest) {
+                const next = latest as UserPoints;
+                setPoints(next);
+                cacheSet(pointsCacheKey(user.id), next);
+              }
+            } catch {
+              // ignore: keep existing cached/previous points
+            }
+          }
+
+          const awardedPoints = data?.points ?? safeAmount;
+          if (awardedPoints >= 10) triggerConfetti();
+          
+          return { success: true, points: awardedPoints };
+        } catch (err: any) {
+          lastError = err;
+          // Retry on network errors
+          if (err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError') {
+            console.warn(`Award-points attempt ${attempt + 1} threw, retrying...`, err.message);
+            await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
+            continue;
+          }
+          console.error('Error adding points:', err);
+          return { success: false, error: err?.message || 'Network error' };
+        }
       }
+
+      // All retries exhausted
+      console.error('All award-points attempts failed:', lastError);
+      return { success: false, error: lastError?.message || 'Network error after retries' };
     },
     [triggerConfetti, user]
   );
