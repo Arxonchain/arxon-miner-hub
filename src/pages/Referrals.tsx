@@ -62,48 +62,48 @@ const Referrals = () => {
     }
   };
 
-  const ReferralCard = ({ ref: refData, showStatus = true }: { ref: any; showStatus?: boolean }) => {
-    const isActive = refData?.is_active === true;
+  const ReferralCard = ({ referral, showStatus = true }: { referral: any; showStatus?: boolean }) => {
+    const isActive = referral?.is_active === true;
     return (
       <div className="p-3 border-b border-border/30 last:border-0 space-y-2">
         <div className="flex items-center gap-2">
           <div className={`w-6 h-6 rounded-full shrink-0 ${isActive ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-          <span className="text-sm text-foreground font-medium">{refData?.referred_username || 'Anonymous'}</span>
+          <span className="text-sm text-foreground font-medium">{referral?.referred_username || 'Anonymous'}</span>
           {showStatus && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
               {isActive ? 'Mining' : 'Inactive'}
             </span>
           )}
-          <span className="text-xs text-primary ml-auto">+{refData?.points_awarded || 0} ARX-P</span>
+          <span className="text-xs text-primary ml-auto">+{referral?.points_awarded || 0} ARX-P</span>
         </div>
         <div className="grid grid-cols-2 gap-2 text-[10px]">
           <div>
             <p className="text-muted-foreground">Joined</p>
-            <p className="text-foreground">{refData?.created_at ? format(new Date(refData.created_at), 'MMM d, yyyy') : 'N/A'}</p>
+            <p className="text-foreground">{referral?.created_at ? format(new Date(referral.created_at), 'MMM d, yyyy') : 'N/A'}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Code Used</p>
-            <p className="text-foreground">{refData?.referral_code_used || 'N/A'}</p>
+            <p className="text-foreground">{referral?.referral_code_used || 'N/A'}</p>
           </div>
         </div>
       </div>
     );
   };
 
-  const ReferralTableRow = ({ ref: refData }: { ref: any }) => {
-    const isActive = refData?.is_active === true;
+  const ReferralTableRow = ({ referral }: { referral: any }) => {
+    const isActive = referral?.is_active === true;
     return (
       <tr className="border-b border-border/30 last:border-0">
         <td className="p-2.5 sm:p-3 lg:p-4">
           <div className="flex items-center gap-2 lg:gap-3">
             <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full shrink-0 ${isActive ? 'bg-gradient-to-br from-green-400 to-green-600' : 'bg-gradient-to-br from-gray-400 to-gray-600'}`} />
-            <span className="text-foreground text-xs sm:text-sm">{refData?.referred_username || 'Anonymous'}</span>
+            <span className="text-foreground text-xs sm:text-sm">{referral?.referred_username || 'Anonymous'}</span>
           </div>
         </td>
         <td className="p-2.5 sm:p-3 lg:p-4 text-muted-foreground text-xs sm:text-sm">
-          {refData?.created_at ? format(new Date(refData.created_at), 'MMM d, yyyy') : 'N/A'}
+          {referral?.created_at ? format(new Date(referral.created_at), 'MMM d, yyyy') : 'N/A'}
         </td>
-        <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{refData?.points_awarded || 0} ARX-P</td>
+        <td className="p-2.5 sm:p-3 lg:p-4 text-foreground text-xs sm:text-sm">+{referral?.points_awarded || 0} ARX-P</td>
       </tr>
     );
   };
@@ -191,8 +191,8 @@ const Referrals = () => {
               <>
                 {/* Mobile Card View */}
                 <div className="block sm:hidden">
-                  {activeReferrals.map((ref) => (
-                    <ReferralCard key={ref.id} ref={ref} showStatus={false} />
+                  {activeReferrals.map((referral) => (
+                    <ReferralCard key={referral.id} referral={referral} showStatus={false} />
                   ))}
                 </div>
                 
@@ -207,8 +207,8 @@ const Referrals = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeReferrals.map((ref) => (
-                        <ReferralTableRow key={ref.id} ref={ref} />
+                      {activeReferrals.map((referral) => (
+                        <ReferralTableRow key={referral.id} referral={referral} />
                       ))}
                     </tbody>
                   </table>
@@ -235,8 +235,8 @@ const Referrals = () => {
               <>
                 {/* Mobile Card View */}
                 <div className="block sm:hidden">
-                  {inactiveReferrals.map((ref) => (
-                    <ReferralCard key={ref.id} ref={ref} showStatus={false} />
+                  {inactiveReferrals.map((referral) => (
+                    <ReferralCard key={referral.id} referral={referral} showStatus={false} />
                   ))}
                 </div>
                 
@@ -251,8 +251,8 @@ const Referrals = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {inactiveReferrals.map((ref) => (
-                        <ReferralTableRow key={ref.id} ref={ref} />
+                      {inactiveReferrals.map((referral) => (
+                        <ReferralTableRow key={referral.id} referral={referral} />
                       ))}
                     </tbody>
                   </table>
