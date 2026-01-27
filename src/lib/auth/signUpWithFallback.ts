@@ -6,6 +6,25 @@ function toError(e: unknown, fallback = "Sign up failed"): Error {
   if (e instanceof Error) return e;
   const maybeMsg = (e as any)?.message || (e as any)?.error_description || (e as any)?.error;
   if (typeof maybeMsg === "string" && maybeMsg.trim()) return new Error(maybeMsg);
+  // As a last resort, include a compact JSON snapshot so we don't lose the real cause.
+  // (Supabase sometimes returns non-Error objects with useful fields.)
+  try {
+    if (e && typeof e === "object") {
+      const anyE = e as any;
+      const snapshot = {
+        name: anyE?.name,
+        status: anyE?.status,
+        code: anyE?.code,
+        message: anyE?.message,
+        error: anyE?.error,
+        error_description: anyE?.error_description,
+      };
+      const str = JSON.stringify(snapshot);
+      if (str && str !== "{}") return new Error(str);
+    }
+  } catch {
+    // ignore
+  }
   return new Error(fallback);
 }
 
@@ -31,7 +50,7 @@ export async function signUpWithFallback(
 
   // Use a promise with timeout that doesn't abort the actual request
   // This prevents the "stuck loading" issue while still allowing the signup to complete
-  const timeoutMs = 45_000; // 45 seconds - allows for slow backend
+  const timeoutMs = 60_000; // 60 seconds - allows for slow backend
   
   const signupPromise = supabase.auth.signUp({
     email: normalizedEmail,
@@ -63,6 +82,11 @@ export async function signUpWithFallback(
       const msg = err.message.toLowerCase();
       if (msg.includes("timeout") || msg.includes("504") || msg.includes("context deadline")) {
         return { error: new Error("Server is busy. Please wait a moment and try again."), user: null };
+      }
+
+      // Common hard-block config errors
+      if (msg.includes("signups not allowed") || msg.includes("signup is disabled") || msg.includes("disable_signup")) {
+        return { error: new Error("Signups are currently disabled on the backend."), user: null };
       }
       
       return { error: err, user: null };
