@@ -100,43 +100,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const normalizedEmail = email.trim();
+      const normalizedEmail = email.trim().toLowerCase();
 
-      // Use backend signup to avoid client-side /signup timeouts under load.
+      // Use the standard Supabase signUp (client-side keeps connection open longer
+      // than edge-function 10s limit). Wrapped with a generous timeout.
       const { data, error } = await withTimeout(
-        supabase.functions.invoke('auth-signup', {
-          body: {
-            email: normalizedEmail,
-            password,
+        supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
           },
         }),
-        30_000,
+        60_000, // 60s to ride out backend congestion
         'Connection timed out. The server may be busy - please try again.'
       );
 
       if (error) {
-        return { error: new Error(error.message || 'Sign up failed'), user: null };
+        return { error: error as unknown as Error, user: null };
       }
 
-      const session = (data as any)?.session;
-      if (!session?.access_token || !session?.refresh_token) {
-        return { error: new Error('Sign up failed'), user: null };
-      }
-
-      const { data: sessionData, error: sessionError } = await withTimeout(
-        supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        }),
-        15_000,
-        'Connection timed out. The server may be busy - please try again.'
-      );
-
-      if (sessionError) {
-        return { error: sessionError as unknown as Error, user: null };
-      }
-
-      return { error: null, user: sessionData.session?.user ?? null };
+      // If user object exists the signup succeeded (auto-confirm is on)
+      return { error: null, user: data?.user ?? null };
     } catch (e) {
       return { error: e as Error, user: null };
     }
