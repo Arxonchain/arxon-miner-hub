@@ -9,6 +9,7 @@ import {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 type SignupBody = {
@@ -86,66 +87,130 @@ serve(async (req) => {
 
     // NOTE: no reCAPTCHA here (kept intentionally minimal/fast for reliability).
 
-    // 1) Create user via Admin API (more resilient than /signup)
+    // 1) Best-effort create user via Admin API (more resilient than /signup)
+    // IMPORTANT: This must fail-fast. Even if creation times out, we still proceed
+    // to the token step because the user may already exist (or creation may have
+    // succeeded but the response was delayed).
     const adminUrl = `${SUPABASE_URL}/auth/v1/admin/users`;
-    const createRes = await fetchWithTimeout(
-      adminUrl,
-      {
-        method: "POST",
-        headers: {
-          apikey: SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-          "Content-Type": "application/json",
+    try {
+      const createRes = await fetchWithTimeout(
+        adminUrl,
+        {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            email_confirm: true,
+          }),
         },
-        body: JSON.stringify({
-          email,
-          password,
-          email_confirm: true,
-        }),
-      },
-      10_000
-    );
-
-    if (!createRes.ok && createRes.status !== 422) {
-      const text = await createRes.text().catch(() => "");
-      console.error("auth-signup admin create failed", createRes.status, text);
-      return jsonResponse(
-        { success: false, error: "Unable to create account" },
-        502,
-        rateLimitHeaders(rl)
+        20_000
       );
+
+      const createBody = await createRes.text().catch(() => ""); // always consume
+
+      if (!createRes.ok && createRes.status !== 422) {
+        // Don't hard-fail here; token step might still succeed (existing account).
+        console.error("auth-signup admin create failed", createRes.status, createBody);
+      } else {
+        console.log("auth-signup admin create result", {
+          status: createRes.status,
+          body: createBody?.slice?.(0, 500) ?? "",
+        });
+      }
+    } catch (e) {
+      console.error("auth-signup admin create timeout/error", String(e));
+      // continue
     }
-    // Note: 422 typically means the email already exists; we still proceed to sign-in.
-    await createRes.text().catch(() => ""); // consume
 
     // 2) Issue a session (client will setSession locally)
     const tokenUrl = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
-    const tokenRes = await fetchWithTimeout(
-      tokenUrl,
-      {
-        method: "POST",
-        headers: {
-          apikey: ANON_KEY,
-          Authorization: `Bearer ${ANON_KEY}`,
-          "Content-Type": "application/json",
+    const tryToken = async (ms: number) => {
+      const tokenRes = await fetchWithTimeout(
+        tokenUrl,
+        {
+          method: "POST",
+          headers: {
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${ANON_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
         },
-        body: JSON.stringify({ email, password }),
-      },
-      10_000
-    );
+        ms
+      );
 
-    const tokenJson = await tokenRes.json().catch(() => null);
-    if (!tokenRes.ok || !tokenJson?.access_token || !tokenJson?.refresh_token) {
-      const text = tokenJson ? JSON.stringify(tokenJson) : await tokenRes.text().catch(() => "");
-      console.error("auth-signup token failed", tokenRes.status, text);
+      // Always consume body exactly once (Deno resource safety)
+      const raw = await tokenRes.text().catch(() => "");
+      let tokenJson: any = null;
+      try {
+        tokenJson = raw ? JSON.parse(raw) : null;
+      } catch {
+        tokenJson = null;
+      }
+
+      return { tokenRes, tokenJson, raw };
+    };
+
+    try {
+      // Token attempts (handles eventual consistency if user creation completes a moment later)
+      const attempts = [
+        { ms: 8_000, delayMs: 0 },
+        { ms: 8_000, delayMs: 3000 },
+        { ms: 8_000, delayMs: 3000 },
+      ];
+
+      let tokenRes: Response | null = null;
+      let tokenJson: any = null;
+      let tokenRaw = "";
+
+      for (const attempt of attempts) {
+        if (attempt.delayMs) await new Promise((r) => setTimeout(r, attempt.delayMs));
+        ({ tokenRes, tokenJson, raw: tokenRaw } = await tryToken(attempt.ms));
+
+        if (tokenRes.ok && tokenJson?.access_token && tokenJson?.refresh_token) {
+          return jsonResponse({ success: true, session: tokenJson }, 200, rateLimitHeaders(rl));
+        }
+
+        // Only retry on invalid credentials; other errors break early.
+        const retryable = tokenRes.status === 400 || tokenRes.status === 401;
+        if (!retryable) break;
+      }
+
+      if (!tokenRes) {
+        console.error("auth-signup token failed: no response");
+        return jsonResponse(
+          { success: false, error: "Server busy" },
+          503,
+          rateLimitHeaders(rl)
+        );
+      }
+
+      {
+        const status = tokenRes.status;
+        const text = tokenJson ? JSON.stringify(tokenJson) : tokenRaw;
+        console.error("auth-signup token failed", status, text);
+
+        // Use 503 for transient backend issues so the client can show "server busy".
+        const isTransient = status >= 500 || status === 429;
+        return jsonResponse(
+          { success: false, error: isTransient ? "Server busy" : "Invalid credentials" },
+          isTransient ? 503 : 401,
+          rateLimitHeaders(rl)
+        );
+      }
+    } catch (e) {
+      console.error("auth-signup token timeout/error", String(e));
       return jsonResponse(
-        { success: false, error: "Invalid credentials" },
-        401,
+        { success: false, error: "Server busy" },
+        503,
         rateLimitHeaders(rl)
       );
     }
-
-    return jsonResponse({ success: true, session: tokenJson }, 200, rateLimitHeaders(rl));
   } catch (e) {
     console.error("auth-signup unexpected error", e);
     return jsonResponse({ success: false, error: "Unexpected error" }, 500, rateLimitHeaders(rl));
