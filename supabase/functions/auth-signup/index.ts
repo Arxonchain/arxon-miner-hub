@@ -69,6 +69,7 @@ serve(async (req) => {
     // Use the proper environment variable names that Supabase provides
     const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") || "").trim().replace(/\/$/, "");
     const SERVICE_ROLE_KEY = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+    const SUPABASE_ANON_KEY = (Deno.env.get("SUPABASE_ANON_KEY") || "").trim();
 
     // Debug log environment state (never log actual keys!)
     console.log("auth-signup env check", {
@@ -77,10 +78,15 @@ serve(async (req) => {
       hasServiceKey: !!SERVICE_ROLE_KEY,
       serviceKeyLen: SERVICE_ROLE_KEY?.length ?? 0,
       serviceKeySegments: (SERVICE_ROLE_KEY || "").split(".").filter(Boolean).length,
+      hasAnonKey: !!SUPABASE_ANON_KEY,
+      anonKeyLen: SUPABASE_ANON_KEY?.length ?? 0,
+      anonKeySegments: (SUPABASE_ANON_KEY || "").split(".").filter(Boolean).length,
     });
 
-    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-      console.error("auth-signup misconfigured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+      console.error(
+        "auth-signup misconfigured: missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_ANON_KEY"
+      );
       return jsonResponse(
         { success: false, error: "Server misconfigured" },
         500,
@@ -92,6 +98,17 @@ serve(async (req) => {
     const serviceSegs = SERVICE_ROLE_KEY.split(".").filter(Boolean).length;
     if (serviceSegs !== 3) {
       console.error("auth-signup misconfigured: SUPABASE_SERVICE_ROLE_KEY is not a valid JWT", { serviceSegs });
+      return jsonResponse(
+        { success: false, error: "Server misconfigured" },
+        500,
+        rateLimitHeaders(rl)
+      );
+    }
+
+    // Validate anon key looks like a JWT (3 segments)
+    const anonSegs = SUPABASE_ANON_KEY.split(".").filter(Boolean).length;
+    if (anonSegs !== 3) {
+      console.error("auth-signup misconfigured: SUPABASE_ANON_KEY is not a valid JWT", { anonSegs });
       return jsonResponse(
         { success: false, error: "Server misconfigured" },
         500,
@@ -145,8 +162,9 @@ serve(async (req) => {
     const tokenRes = await fetch(tokenUrl, {
       method: "POST",
       headers: {
-        "apikey": SERVICE_ROLE_KEY,
-        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+        // Token exchange must use the public/anon key.
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ email, password }),

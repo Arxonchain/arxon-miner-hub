@@ -1,21 +1,17 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Zap, Shield, Users, TrendingUp, ArrowRight, Sparkles, Pickaxe, Gift, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AuthDialog from "@/components/auth/AuthDialog";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 const Landing = () => {
-  const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signup");
+  const navigate = useNavigate();
 
   const handleGetStarted = () => {
-    setAuthMode("signup");
-    setShowAuth(true);
+    navigate("/auth?mode=signup");
   };
 
   const handleSignIn = () => {
-    setAuthMode("signin");
-    setShowAuth(true);
+    navigate("/auth?mode=signin");
   };
 
   return (
@@ -271,16 +267,16 @@ const Landing = () => {
                 All point balances and referral bonuses are verifiable on-chain when you convert to $ARX.
               </p>
               <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                   <div className="w-2 h-2 rounded-full bg-accent" />
                   SSL Encrypted
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                   <div className="w-2 h-2 rounded-full bg-accent" />
                   On-chain Verification
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                   <div className="w-2 h-2 rounded-full bg-accent" />
                   Real-time Tracking
                 </div>
               </div>
@@ -324,12 +320,6 @@ const Landing = () => {
           </div>
         </footer>
       </main>
-
-      <AuthDialog 
-        open={showAuth} 
-        onOpenChange={setShowAuth}
-      />
-
       <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) rotate(0deg); }

@@ -1,0 +1,205 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import arxonLogo from "@/assets/arxon-logo.jpg";
+
+type Mode = "signin" | "signup";
+
+export default function Auth() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  const { signIn, signUp } = useAuth();
+
+  const initialMode = useMemo<Mode>(() => {
+    const m = (searchParams.get("mode") || "signup").toLowerCase();
+    return m === "signin" ? "signin" : "signup";
+  }, [searchParams]);
+
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState(() => {
+    try {
+      return sessionStorage.getItem("arxon_referral_code") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  useEffect(() => {
+    document.title = mode === "signup" ? "Create account | ARXON" : "Sign in | ARXON";
+  }, [mode]);
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setErrorText(null);
+    setSearchParams({ mode: next });
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorText(null);
+    setLoading(true);
+
+    try {
+      if (mode === "signin") {
+        const { error } = await signIn(email, password);
+        if (error) {
+          setErrorText(error.message || "Sign in failed");
+          toast({ title: "Sign In Failed", description: error.message, variant: "destructive" });
+          return;
+        }
+        navigate("/");
+        return;
+      }
+
+      // signup
+      const { error } = await signUp(email, password);
+      if (error) {
+        setErrorText(error.message || "Sign up failed");
+        toast({ title: "Sign Up Failed", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      // Keep referral code for later processing (non-blocking)
+      const ref = referralCode.trim().toUpperCase();
+      if (ref) {
+        try {
+          sessionStorage.setItem("arxon_referral_code", ref);
+        } catch {
+          // ignore
+        }
+      }
+
+      navigate("/");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-12">
+      <main className="w-full max-w-md">
+        <header className="flex items-center justify-center gap-3 mb-6">
+          <img src={arxonLogo} alt="ARXON" className="h-10 w-10 rounded-lg" />
+          <span className="text-2xl font-black">ARXON</span>
+        </header>
+
+        <h1 className="sr-only">{mode === "signup" ? "Create an account" : "Sign in"}</h1>
+
+        <Card className="border-border/50 bg-card/95 backdrop-blur-xl">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-2xl font-bold">
+              {mode === "signup" ? "Create your account" : "Sign in to ARXON"}
+            </CardTitle>
+
+            <div className="flex bg-secondary/50 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                  mode === "signin"
+                    ? "bg-accent text-accent-foreground shadow-lg"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("signup")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                  mode === "signup"
+                    ? "bg-accent text-accent-foreground shadow-lg"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="auth-email">Email</Label>
+                <Input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auth-password">Password</Label>
+                <Input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === "signup" ? "Create a password" : "Your password"}
+                  disabled={loading}
+                  minLength={6}
+                  required
+                />
+              </div>
+
+              {mode === "signup" && (
+                <div className="space-y-2">
+                  <Label htmlFor="auth-ref">Referral code (optional)</Label>
+                  <Input
+                    id="auth-ref"
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                    placeholder="ARX-XXXXXX"
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              {errorText && (
+                <div className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-sm text-foreground">
+                  <p className="font-medium">Error</p>
+                  <p className="text-muted-foreground break-words">{errorText}</p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Working…" : mode === "signup" ? "Create account" : "Sign in"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate("/")}
+                disabled={loading}
+              >
+                Back to home
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
