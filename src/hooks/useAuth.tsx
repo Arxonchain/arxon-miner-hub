@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -98,23 +99,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [session?.user?.id]);
 
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl
-      }
-    });
-    return { error, user: data?.user ?? null };
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error, data } = await withTimeout(
+        supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+          },
+        }),
+        25_000,
+        'Connection timed out. The server may be busy - please try again.'
+      );
+
+      return { error: (error as unknown as Error) ?? null, user: data?.user ?? null };
+    } catch (e) {
+      return { error: e as Error, user: null };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        }),
+        20_000,
+        'Connection timed out. The server may be busy - please try again.'
+      );
+
+      return { error: (error as unknown as Error) ?? null };
+    } catch (e) {
+      return { error: e as Error };
+    }
   };
 
   const signOut = async () => {
