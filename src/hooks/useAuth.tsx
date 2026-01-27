@@ -100,20 +100,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error, data } = await withTimeout(
-        supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo: redirectUrl,
+      const normalizedEmail = email.trim();
+
+      // Use backend signup to avoid client-side /signup timeouts under load.
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('auth-signup', {
+          body: {
+            email: normalizedEmail,
+            password,
           },
         }),
-        25_000,
+        30_000,
         'Connection timed out. The server may be busy - please try again.'
       );
 
-      return { error: (error as unknown as Error) ?? null, user: data?.user ?? null };
+      if (error) {
+        return { error: new Error(error.message || 'Sign up failed'), user: null };
+      }
+
+      const session = (data as any)?.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        return { error: new Error('Sign up failed'), user: null };
+      }
+
+      const { data: sessionData, error: sessionError } = await withTimeout(
+        supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        }),
+        15_000,
+        'Connection timed out. The server may be busy - please try again.'
+      );
+
+      if (sessionError) {
+        return { error: sessionError as unknown as Error, user: null };
+      }
+
+      return { error: null, user: sessionData.session?.user ?? null };
     } catch (e) {
       return { error: e as Error, user: null };
     }
