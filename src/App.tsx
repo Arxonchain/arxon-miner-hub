@@ -16,12 +16,9 @@ import Claim from "./pages/Claim";
 import Referrals from "./pages/Referrals";
 import Mining from "./pages/Mining";
 import Settings from "./pages/Settings";
-import Tasks from "./pages/Tasks";
-import XProfilePage from "./pages/XProfile";
 import Profile from "./pages/Profile";
 import Arena from "./pages/Arena";
 import WalletPage from "./pages/Wallet";
-import Nexus from "./pages/Nexus";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -38,7 +35,6 @@ import AdminArena from "./pages/admin/AdminArena";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Keep the UI responsive when the service is slow/unavailable
       retry: (failureCount, error) => {
         if (error instanceof BackendUnavailableError) return false;
         return failureCount < 2;
@@ -82,10 +78,7 @@ const App = () => (
               <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
               <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
               <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-              <Route path="/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
-              <Route path="/x-profile" element={<DashboardLayout><XProfilePage /></DashboardLayout>} />
               <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
-              <Route path="/nexus" element={<Nexus />} />
               <Route path="/mining" element={<Mining />} />
               <Route path="/arena" element={<Arena />} />
               <Route path="/wallet" element={<WalletPage />} />

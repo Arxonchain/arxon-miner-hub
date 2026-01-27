@@ -1,22 +1,17 @@
 import { memo, useState, useCallback } from "react";
-import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Menu, Swords, ArrowLeftRight } from "lucide-react";
+import { LayoutDashboard, Trophy, Users, User, Settings, LogOut, Menu, Swords } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
-import XIcon from "@/components/icons/XIcon";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: ArrowLeftRight, label: "Nexus", path: "/nexus" },
   { icon: Swords, label: "Arena", path: "/arena" },
-  { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
   { icon: User, label: "Profile", path: "/profile" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
-
-const xProfileItem = { label: "X Profile", path: "/x-profile" };
 
 const MobileNav = memo(() => {
   const [open, setOpen] = useState(false);
@@ -52,16 +47,6 @@ const MobileNav = memo(() => {
                 <span className="font-medium">{item.label}</span>
               </RouterNavLink>
             ))}
-            <RouterNavLink
-              to={xProfileItem.path}
-              onClick={handleClose}
-              className={({ isActive }) =>
-                `nav-item ${isActive ? "nav-item-active" : ""}`
-              }
-            >
-              <XIcon className="h-5 w-5" />
-              <span className="font-medium">{xProfileItem.label}</span>
-            </RouterNavLink>
           </nav>
 
           {user && (
