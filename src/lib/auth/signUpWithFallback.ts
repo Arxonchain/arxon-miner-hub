@@ -44,62 +44,9 @@ export async function signUpWithFallback(
 ): Promise<SignUpResult> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Try fast backend-assisted signup first (if available).
-  try {
-    const { data: fnData, error: fnError } = await withTimeout(
-      supabase.functions.invoke("auth-signup", {
-        body: { email: normalizedEmail, password },
-      }),
-      15_000,
-      "Connection timed out. The server may be busy - please try again."
-    );
-
-    const fnMsg =
-      (typeof (fnData as any)?.error === "string" ? ((fnData as any).error as string) : "") ||
-      (typeof (fnError as any)?.message === "string" ? ((fnError as any).message as string) : "");
-
-    const hasSession =
-      !!(fnData as any)?.success &&
-      !!(fnData as any)?.session?.access_token &&
-      !!(fnData as any)?.session?.refresh_token;
-
-    if (hasSession) {
-      const { data: sessionData, error: setSessionError } = await withTimeout(
-        supabase.auth.setSession({
-          access_token: (fnData as any).session.access_token,
-          refresh_token: (fnData as any).session.refresh_token,
-        }),
-        15_000,
-        "Connection timed out. The server may be busy - please try again."
-      );
-
-      if (setSessionError) {
-        // If we can't start a session, fall back to browser signup.
-        // (This also covers cases where the backend created the user but token exchange failed.)
-        // Continue to fallback below.
-      } else {
-        return { error: null, user: sessionData?.session?.user ?? null };
-      }
-    }
-
-    // If the backend returns a non-transient business error (e.g. validation), surface it.
-    if (fnError || (fnData as any)?.error) {
-      const err = toError(fnError ?? (fnData as any)?.error, "Sign up failed");
-      if (!isTransientSignupError(err.message)) {
-        return { error: err, user: null };
-      }
-      // transient -> fallback
-    }
-  } catch (e) {
-    const err = toError(e, "Sign up failed");
-    if (!isTransientSignupError(err.message)) {
-      // unexpected but non-transient -> surface
-      return { error: err, user: null };
-    }
-    // transient -> fallback
-  }
-
-  // Fallback: browser signup (can keep connection open longer than the backend function).
+  // DIRECT SIGNUP: Use Supabase Auth directly for maximum reliability.
+  // The edge function approach was causing timeouts on production.
+  // This approach is more resilient and works even when edge functions are down.
   try {
     const { data, error } = await withTimeout(
       supabase.auth.signUp({
@@ -109,13 +56,32 @@ export async function signUpWithFallback(
           emailRedirectTo: `${window.location.origin}/`,
         },
       }),
-      60_000,
+      45_000, // 45 second timeout - auth can be slow under load
       "Connection timed out. The server may be busy - please try again."
     );
 
-    if (error) return { error: toError(error, "Sign up failed"), user: null };
-    return { error: null, user: data?.user ?? null };
+    if (error) {
+      return { error: toError(error, "Sign up failed"), user: null };
+    }
+
+    // Check if user was created (auto-confirm is enabled)
+    if (data?.user) {
+      return { error: null, user: data.user };
+    }
+
+    // If we got here without error but no user, something unexpected happened
+    return { error: new Error("Sign up completed but no user returned"), user: null };
   } catch (e) {
-    return { error: toError(e, "Sign up failed"), user: null };
+    const err = toError(e, "Sign up failed");
+    
+    // For transient errors, provide a clearer message
+    if (isTransientSignupError(err.message)) {
+      return { 
+        error: new Error("Connection timed out. Please check your internet and try again."), 
+        user: null 
+      };
+    }
+    
+    return { error: err, user: null };
   }
 }
