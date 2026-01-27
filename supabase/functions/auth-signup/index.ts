@@ -85,20 +85,32 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: "Server misconfigured" }, 500, rateLimitHeaders(rl));
     }
 
+    // Debug (safe): validate JWT-like shape without leaking secrets
+    try {
+      console.log("auth-signup env sanity", {
+        serviceRoleSegments: SERVICE_ROLE_KEY.split(".").length,
+        serviceRoleLen: SERVICE_ROLE_KEY.length,
+        anonSegments: ANON_KEY.split(".").length,
+        anonLen: ANON_KEY.length,
+        hasUrl: Boolean(SUPABASE_URL),
+      });
+    } catch {
+      // ignore
+    }
+
     // NOTE: no reCAPTCHA here (kept intentionally minimal/fast for reliability).
 
-    // 1) Best-effort create user via Admin API (more resilient than /signup)
-    // IMPORTANT: This must fail-fast. Even if creation times out, we still proceed
-    // to the token step because the user may already exist (or creation may have
-    // succeeded but the response was delayed).
+    // 1) Create user via Admin API.
+    // Use ANON key for `apikey` header (some auth gateways reject non-anon apikey),
+    // and service role ONLY for Authorization.
     const adminUrl = `${SUPABASE_URL}/auth/v1/admin/users`;
-    try {
-      const createRes = await fetchWithTimeout(
+    const adminCreate = async (ms: number) => {
+      const res = await fetchWithTimeout(
         adminUrl,
         {
           method: "POST",
           headers: {
-            apikey: SERVICE_ROLE_KEY,
+            apikey: ANON_KEY,
             Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
           },
@@ -108,24 +120,11 @@ serve(async (req) => {
             email_confirm: true,
           }),
         },
-        20_000
+        ms
       );
-
-      const createBody = await createRes.text().catch(() => ""); // always consume
-
-      if (!createRes.ok && createRes.status !== 422) {
-        // Don't hard-fail here; token step might still succeed (existing account).
-        console.error("auth-signup admin create failed", createRes.status, createBody);
-      } else {
-        console.log("auth-signup admin create result", {
-          status: createRes.status,
-          body: createBody?.slice?.(0, 500) ?? "",
-        });
-      }
-    } catch (e) {
-      console.error("auth-signup admin create timeout/error", String(e));
-      // continue
-    }
+      const raw = await res.text().catch(() => "");
+      return { res, raw };
+    };
 
     // 2) Issue a session (client will setSession locally)
     const tokenUrl = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
@@ -157,21 +156,35 @@ serve(async (req) => {
     };
 
     try {
-      // Token attempts (handles eventual consistency if user creation completes a moment later)
-      const attempts = [
-        { ms: 8_000, delayMs: 0 },
-        { ms: 8_000, delayMs: 3000 },
-        { ms: 8_000, delayMs: 3000 },
+      // Combined create+token loop (retries help when auth is under load).
+      // Total wait time stays under the client's 30s timeout.
+      const steps = [
+        { createMs: 12_000, tokenMs: 8_000, delayMs: 0 },
+        { createMs: 12_000, tokenMs: 8_000, delayMs: 1500 },
       ];
 
       let tokenRes: Response | null = null;
       let tokenJson: any = null;
       let tokenRaw = "";
 
-      for (const attempt of attempts) {
-        if (attempt.delayMs) await new Promise((r) => setTimeout(r, attempt.delayMs));
-        ({ tokenRes, tokenJson, raw: tokenRaw } = await tryToken(attempt.ms));
+      for (const step of steps) {
+        if (step.delayMs) await new Promise((r) => setTimeout(r, step.delayMs));
 
+        try {
+          const { res: createRes, raw: createRaw } = await adminCreate(step.createMs);
+          if (!createRes.ok && createRes.status !== 422) {
+            console.error("auth-signup admin create failed", createRes.status, createRaw);
+          } else {
+            console.log("auth-signup admin create result", {
+              status: createRes.status,
+              body: createRaw?.slice?.(0, 300) ?? "",
+            });
+          }
+        } catch (e) {
+          console.error("auth-signup admin create timeout/error", String(e));
+        }
+
+        ({ tokenRes, tokenJson, raw: tokenRaw } = await tryToken(step.tokenMs));
         if (tokenRes.ok && tokenJson?.access_token && tokenJson?.refresh_token) {
           return jsonResponse({ success: true, session: tokenJson }, 200, rateLimitHeaders(rl));
         }
