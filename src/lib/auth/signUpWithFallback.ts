@@ -1,11 +1,52 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { withTimeout } from "@/lib/utils";
 
 type SignUpResult = { error: Error | null; user: User | null };
 
+function toError(e: unknown, fallback = "Sign up failed"): Error {
+  if (e instanceof Error) return e;
+  const maybeMsg = (e as any)?.message || (e as any)?.error_description || (e as any)?.error;
+  if (typeof maybeMsg === "string" && maybeMsg.trim()) return new Error(maybeMsg);
+  try {
+    const asJson = JSON.stringify(e);
+    if (asJson && asJson !== "{}") return new Error(asJson);
+  } catch {
+    // ignore
+  }
+  return new Error(fallback);
+}
+
+function looksLikeExistingUser(msg: string) {
+  const m = msg.toLowerCase();
+  return (
+    m.includes("already registered") ||
+    m.includes("already exists") ||
+    m.includes("user already") ||
+    m.includes("already been registered")
+  );
+}
+
+function looksTransient(msg: string) {
+  const m = msg.toLowerCase();
+  return (
+    m.includes("timeout") ||
+    m.includes("timed out") ||
+    m.includes("server busy") ||
+    m.includes("failed to fetch") ||
+    m.includes("network") ||
+    m.includes("functions") ||
+    m.includes("edge function") ||
+    m.includes("504") ||
+    m.includes("503") ||
+    m.includes("502") ||
+    m.includes("context deadline exceeded") ||
+    m.includes("request_timeout")
+  );
+}
+
 /**
- * BULLETPROOF SIGNUP - Direct Supabase Auth with extended timeout
- * This is the simplest, most reliable approach that works even when
- * edge functions or backend services are slow/down.
+ * Live is currently experiencing 504 timeouts on the Auth /signup endpoint.
+ * Fix: use backend-assisted signup (admin create + password grant) via `auth-signup`.
  */
 export async function signUpWithFallback(
   supabase: SupabaseClient,
@@ -13,54 +54,76 @@ export async function signUpWithFallback(
   password: string
 ): Promise<SignUpResult> {
   const normalizedEmail = email.trim().toLowerCase();
-  
-  // Create a simple timeout promise
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error("Connection timed out. Please check your internet and try again."));
-    }, 60000); // 60 second timeout for maximum reliability
-  });
 
+  // 1) Preferred path: backend-assisted signup (bypasses /signup)
   try {
-    // Race the signup against the timeout
-    const result = await Promise.race([
-      supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
+    const { data: fnData, error: fnError } = await withTimeout(
+      supabase.functions.invoke("auth-signup", {
+        body: { email: normalizedEmail, password },
       }),
-      timeoutPromise,
-    ]);
+      25_000,
+      "Connection timed out. The server may be busy - please try again."
+    );
 
-    const { data, error } = result as { data: any; error: any };
+    const fnMsg =
+      (typeof (fnData as any)?.error === "string" ? ((fnData as any).error as string) : "") ||
+      (typeof (fnError as any)?.message === "string" ? ((fnError as any).message as string) : "");
 
-    if (error) {
-      const msg = error.message?.toLowerCase() || "";
-      
-      // Check for "already registered" - this means user exists
-      if (msg.includes("already") || msg.includes("exists") || msg.includes("registered")) {
+    const hasSession =
+      !!(fnData as any)?.success &&
+      !!(fnData as any)?.session?.access_token &&
+      !!(fnData as any)?.session?.refresh_token;
+
+    if (hasSession) {
+      const { data: sessionData, error: setSessionError } = await withTimeout(
+        supabase.auth.setSession({
+          access_token: (fnData as any).session.access_token,
+          refresh_token: (fnData as any).session.refresh_token,
+        }),
+        20_000,
+        "Connection timed out. The server may be busy - please try again."
+      );
+
+      if (!setSessionError) {
+        return { error: null, user: sessionData?.session?.user ?? null };
+      }
+    }
+
+    if (fnError || (fnData as any)?.error) {
+      const err = toError(fnError ?? (fnData as any)?.error, "Sign up failed");
+
+      // If the account already exists, suggest sign-in.
+      if (looksLikeExistingUser(err.message)) {
         return { error: new Error("This email is already registered. Try signing in instead."), user: null };
       }
-      
-      return { error: new Error(error.message || "Sign up failed"), user: null };
-    }
 
-    // Check if user was created (auto-confirm is enabled)
-    if (data?.user) {
-      return { error: null, user: data.user };
+      // If the function was reachable but returned a business error, surface it.
+      if (!looksTransient(err.message)) {
+        return { error: err, user: null };
+      }
     }
-
-    // If session exists but no user object, extract from session
-    if (data?.session?.user) {
-      return { error: null, user: data.session.user };
-    }
-
-    // If we got here without error but no user, something unexpected happened
-    return { error: new Error("Sign up completed but no user returned. Please try signing in."), user: null };
   } catch (e) {
-    const err = e instanceof Error ? e : new Error("Sign up failed");
-    return { error: err, user: null };
+    const err = toError(e, "Sign up failed");
+    if (!looksTransient(err.message)) {
+      return { error: err, user: null };
+    }
   }
+
+  // 2) If we timed out / got transient issues, attempt a single sign-in.
+  // This covers: user created but session issuance failed.
+  try {
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
+      20_000,
+      "Connection timed out. The server may be busy - please try again."
+    );
+    if (!error && data?.user) return { error: null, user: data.user };
+  } catch {
+    // ignore
+  }
+
+  return {
+    error: new Error("Signup is temporarily overloaded. Please wait 1 minute and try again."),
+    user: null,
+  };
 }
