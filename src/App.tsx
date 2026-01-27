@@ -21,6 +21,7 @@ import Arena from "./pages/Arena";
 import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
+import Auth from "./pages/Auth";
 
 // Admin imports
 import AdminLayout from "./components/admin/AdminLayout";
@@ -74,6 +75,7 @@ const App = () => (
             <Routes>
               {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
               <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
               <Route path="/leaderboard" element={<PublicLeaderboard />} />
               <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
               <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />

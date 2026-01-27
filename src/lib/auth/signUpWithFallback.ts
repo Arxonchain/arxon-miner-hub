@@ -28,6 +28,23 @@ function toError(e: unknown, fallback = "Sign up failed"): Error {
   return new Error(fallback);
 }
 
+function looksTransient(msg: string) {
+  const m = msg.toLowerCase();
+  return (
+    m.includes("timeout") ||
+    m.includes("timed out") ||
+    m.includes("server busy") ||
+    m.includes("too many") ||
+    m.includes("rate limit") ||
+    m.includes("429") ||
+    m.includes("503") ||
+    m.includes("504") ||
+    m.includes("gateway") ||
+    m.includes("context deadline") ||
+    m.includes("failed to fetch")
+  );
+}
+
 function looksLikeExistingUser(msg: string) {
   const m = msg.toLowerCase();
   return (
@@ -47,6 +64,37 @@ export async function signUpWithFallback(
   password: string
 ): Promise<SignUpResult> {
   const normalizedEmail = email.trim().toLowerCase();
+
+  const invokeAuthSignup = async (): Promise<SignUpResult> => {
+    try {
+      // Edge function returns: { success: boolean, session?: { access_token, refresh_token, user? }, error?: string }
+      const { data, error } = await supabase.functions.invoke("auth-signup", {
+        body: { email: normalizedEmail, password },
+      });
+
+      if (error) return { error: toError(error, "Sign up failed"), user: null };
+      const anyData = data as any;
+
+      if (!anyData?.success || !anyData?.session?.access_token || !anyData?.session?.refresh_token) {
+        const msg =
+          typeof anyData?.error === "string" && anyData.error.trim()
+            ? anyData.error
+            : "Sign up failed";
+        return { error: new Error(msg), user: null };
+      }
+
+      // Persist session locally
+      await supabase.auth.setSession({
+        access_token: anyData.session.access_token,
+        refresh_token: anyData.session.refresh_token,
+      });
+
+      const user = (anyData.session.user as User | undefined) ?? null;
+      return { error: null, user };
+    } catch (e) {
+      return { error: toError(e, "Sign up failed"), user: null };
+    }
+  };
 
   // Use a promise with timeout that doesn't abort the actual request
   // This prevents the "stuck loading" issue while still allowing the signup to complete
@@ -81,12 +129,21 @@ export async function signUpWithFallback(
       // Check for timeout-like errors from Supabase
       const msg = err.message.toLowerCase();
       if (msg.includes("timeout") || msg.includes("504") || msg.includes("context deadline")) {
+        // Try the admin-backed fallback, then surface a friendly message if it fails.
+        const fallback = await invokeAuthSignup();
+        if (!fallback.error) return fallback;
         return { error: new Error("Server is busy. Please wait a moment and try again."), user: null };
       }
 
       // Common hard-block config errors
       if (msg.includes("signups not allowed") || msg.includes("signup is disabled") || msg.includes("disable_signup")) {
         return { error: new Error("Signups are currently disabled on the backend."), user: null };
+      }
+
+      // If we got a transient/network-style failure, try the admin-backed fallback.
+      if (looksTransient(err.message)) {
+        const fallback = await invokeAuthSignup();
+        if (!fallback.error) return fallback;
       }
       
       return { error: err, user: null };
@@ -97,25 +154,11 @@ export async function signUpWithFallback(
     const err = toError(e, "Sign up failed");
     const msg = err.message.toLowerCase();
     
-    // If our client-side timeout fired, try to sign in (user may have been created)
+    // If our client-side timeout fired, prefer the admin-backed fallback.
     if (msg.includes("timed out") || msg.includes("timeout")) {
-      // Wait briefly, then try to sign in
-      await new Promise((r) => setTimeout(r, 2000));
-      
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-        
-        if (!error && data?.user) {
-          return { error: null, user: data.user };
-        }
-      } catch {
-        // Ignore sign-in errors
-      }
-      
-      return { error: new Error("Connection timed out. Your account may have been created - try signing in."), user: null };
+      const fallback = await invokeAuthSignup();
+      if (!fallback.error) return fallback;
+      return { error: new Error("Connection timed out. Please try again."), user: null };
     }
     
     return { error: err, user: null };
