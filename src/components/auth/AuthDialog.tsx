@@ -26,43 +26,8 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Retry with exponential backoff for signup resilience under load
-  const withRetry = async <T,>(
-    fn: () => Promise<T>,
-    maxRetries = 3,
-    baseDelayMs = 1000
-  ): Promise<T> => {
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
-        
-        const result = await Promise.race([
-          fn(),
-          new Promise<T>((_, reject) => {
-            controller.signal.addEventListener('abort', () => {
-              reject(new Error('Request timed out'));
-            });
-          }),
-        ]);
-        window.clearTimeout(timeoutId);
-        return result;
-      } catch (err) {
-        lastError = err as Error;
-        const msg = lastError?.message?.toLowerCase() || '';
-        // Don't retry on validation errors
-        if (msg.includes('invalid') || msg.includes('already registered') || msg.includes('weak password')) {
-          throw lastError;
-        }
-        // Retry on timeout/network errors
-        if (attempt < maxRetries - 1) {
-          await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt)));
-        }
-      }
-    }
-    throw lastError || new Error('Request failed after retries');
-  };
+  // NOTE: Avoid automatic retries for signup/signin requests because we can't truly cancel
+  // the underlying request, which can lead to multiple in-flight auth calls under load.
 
   // Simple timeout wrapper for non-critical requests
   const withTimeout = async <T,>(promise: Promise<T>, ms = 8_000): Promise<T> => {
@@ -190,7 +155,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     try {
       if (mode === "signin") {
-        const { error } = await withRetry(() => signIn(email, password));
+        const { error } = await signIn(email, password);
         if (error) {
           const msg = error.message?.toLowerCase() || '';
           let description = error.message;
@@ -198,11 +163,13 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
             description = 'Invalid email or password. Please try again.';
           } else if (msg.includes('network') || msg.includes('fetch')) {
             description = 'Connection failed. Please check your internet and try again.';
+          } else if (msg.includes('timed out') || msg.includes('timeout') || msg.includes('busy')) {
+            description = 'Connection timed out. The server may be busy - please try again.';
           } else if (msg.includes('email not confirmed')) {
             description = 'Please check your email and confirm your account first.';
           }
           toast({
-            title: "Sign In Failed",
+            title: (msg.includes('timed out') || msg.includes('timeout') || msg.includes('busy')) ? 'Connection Error' : 'Sign In Failed',
             description,
             variant: "destructive",
           });
@@ -215,11 +182,32 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
         }
       } else {
         const codeToUse = referralCode.trim();
-        const { error, user: newUser } = await withRetry(() => signUp(email, password));
+        const { error, user: newUser } = await signUp(email, password);
 
         if (error) {
           const msg = error.message?.toLowerCase() || '';
+          let title = 'Sign Up Failed';
           let description = error.message;
+
+          // If the signup request timed out, the account may still have been created.
+          // Attempt a single sign-in to confirm, then treat it as success.
+          if (msg.includes('timed out') || msg.includes('timeout') || msg.includes('busy')) {
+            title = 'Connection Error';
+            description = 'Connection timed out. The server may be busy - please try again.';
+
+            // Wait a beat, then try a sign-in once.
+            await new Promise((r) => setTimeout(r, 1200));
+            const { error: signInError } = await signIn(email, password);
+            if (!signInError) {
+              onOpenChange(false);
+              toast({
+                title: 'Account Created!',
+                description: "Welcome to ARXON! Start mining to earn rewards.",
+              });
+              return;
+            }
+          }
+
           if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already registered')) {
             description = 'This email is already registered. Try signing in instead.';
           } else if (msg.includes('network') || msg.includes('fetch')) {
@@ -228,7 +216,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
             description = 'Too many attempts. Please wait a minute and try again.';
           }
           toast({
-            title: "Sign Up Failed",
+            title,
             description,
             variant: "destructive",
           });
@@ -249,16 +237,16 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
       }
     } catch (error) {
       const msg = (error as Error)?.message?.toLowerCase() || '';
-      let description = "Request timed out. Please tap 'Try Again'.";
+      let title = 'Connection Error';
+      let description = 'Connection timed out. The server may be busy - please try again.';
       
-      if (msg.includes('timed out') || msg.includes('timeout')) {
-        description = "Request timed out. Please tap 'Try Again'.";
-      } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed')) {
+      if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed')) {
+        title = 'Connection Error';
         description = 'Connection issue. Please check your internet and try again.';
       }
       
       toast({
-        title: "Try Again",
+        title,
         description,
         variant: "destructive",
       });
