@@ -1,14 +1,11 @@
 import { memo } from "react";
-import { LayoutDashboard, Trophy, ListTodo, Users, User, Settings, LogOut, Swords, ArrowLeftRight } from "lucide-react";
+import { LayoutDashboard, Trophy, Users, User, Settings, LogOut, Swords } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import XIcon from "@/components/icons/XIcon";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: ArrowLeftRight, label: "Nexus", path: "/nexus" },
   { icon: Swords, label: "Arena", path: "/arena" },
-  { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
   { icon: Users, label: "Referrals", path: "/referrals" },
   { icon: User, label: "Profile", path: "/profile" },
@@ -17,8 +14,6 @@ const navItems = [
 const bottomItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
-
-const xProfileItem = { label: "X Profile", path: "/x-profile" };
 
 const Sidebar = memo(() => {
   const { user, signOut } = useAuth();
@@ -37,15 +32,6 @@ const Sidebar = memo(() => {
             <span className="font-medium">{item.label}</span>
           </NavLink>
         ))}
-        <NavLink
-          to={xProfileItem.path}
-          className={({ isActive }) =>
-            `nav-item text-sm xl:text-base py-2.5 xl:py-3 ${isActive ? "nav-item-active" : ""}`
-          }
-        >
-          <XIcon className="h-4 w-4 xl:h-5 xl:w-5" />
-          <span className="font-medium">{xProfileItem.label}</span>
-        </NavLink>
       </nav>
 
       {/* Bottom section with Settings and Logout */}

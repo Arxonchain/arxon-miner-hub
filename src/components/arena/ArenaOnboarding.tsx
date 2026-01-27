@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
-import XIcon from '@/components/icons/XIcon';
+import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle } from 'lucide-react';
 import FingerprintScanner from './FingerprintScanner';
-import { useXProfile } from '@/hooks/useXProfile';
 import { toast } from 'sonner';
 
-type OnboardingStep = 'intro' | 'connect_x' | 'follow_x' | 'fingerprint' | 'assigned';
+type OnboardingStep = 'intro' | 'fingerprint' | 'assigned';
 
 interface ArenaOnboardingProps {
   onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
@@ -18,65 +16,6 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
   const [isVerifying, setIsVerifying] = useState(false);
   const [assignedClub, setAssignedClub] = useState<'alpha' | 'omega' | null>(null);
   const [fingerprintError, setFingerprintError] = useState<string | null>(null);
-  const [xInput, setXInput] = useState('');
-  const [isConnectingX, setIsConnectingX] = useState(false);
-  const [isCheckingFollow, setIsCheckingFollow] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
-  
-  const { xProfile, connectXProfile, loading: xProfileLoading } = useXProfile();
-
-  // Check if user already has X connected
-  useEffect(() => {
-    if (xProfile && step === 'connect_x') {
-      setStep('follow_x');
-    }
-  }, [xProfile, step]);
-
-  const handleConnectX = async () => {
-    if (!xInput.trim()) {
-      toast.error('Please enter your X username or profile URL');
-      return;
-    }
-    
-    setIsConnectingX(true);
-    const success = await connectXProfile(xInput.trim());
-    setIsConnectingX(false);
-    
-    if (success) {
-      setStep('follow_x');
-    }
-  };
-
-  const checkFollowStatus = async () => {
-    if (!xProfile) {
-      toast.error('Please connect your X account first');
-      return;
-    }
-    
-    setIsCheckingFollow(true);
-    
-    try {
-      // For now, we'll do a simple check - in production you'd verify via API
-      // We'll mark as following after user confirms they followed
-      // The scan-x-profile function can be extended to check following status
-      
-      // Simulate check delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // For now, trust the user that they followed
-      setIsFollowing(true);
-      toast.success('Follow status verified!');
-      
-      // Move to fingerprint step
-      setTimeout(() => {
-        setStep('fingerprint');
-      }, 500);
-    } catch (error) {
-      toast.error('Failed to verify follow status');
-    } finally {
-      setIsCheckingFollow(false);
-    }
-  };
 
   const handleFingerprintVerified = async (fingerprintHash?: string) => {
     if (!fingerprintHash) {
@@ -88,8 +27,6 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
     setFingerprintError(null);
     
     try {
-      // Register with the captured fingerprint hash
-      // This fingerprint is tied to THIS user - they'll need to use it for voting
       const result = await onComplete(fingerprintHash);
       
       if (result.success && result.club) {
@@ -116,8 +53,6 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
     { icon: Shield, text: 'Verified Voting', desc: 'Secure fingerprint authentication' },
     { icon: Zap, text: 'Earn Badges', desc: 'Collect achievements and climb ranks' },
   ];
-
-  const steps: OnboardingStep[] = ['intro', 'connect_x', 'follow_x', 'fingerprint', 'assigned'];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -190,7 +125,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Start Button */}
               <motion.button
-                onClick={() => setStep('connect_x')}
+                onClick={() => setStep('fingerprint')}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -201,168 +136,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Info text */}
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Connect your X account and verify your identity to join
-              </p>
-            </motion.div>
-          )}
-
-          {step === 'connect_x' && (
-            <motion.div
-              key="connect_x"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="glass-card p-8 border border-border/50"
-            >
-              <div className="text-center mb-8">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', duration: 0.5 }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 mb-4"
-                >
-                  <XIcon className="w-10 h-10 text-foreground" />
-                </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Connect Your X Account
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                  Your X account is required for Arena participation
-                </p>
-              </div>
-
-              {xProfileLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : xProfile ? (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-foreground">@{xProfile.username}</p>
-                      <p className="text-sm text-muted-foreground">Account connected</p>
-                    </div>
-                  </div>
-                  <motion.button
-                    onClick={() => setStep('follow_x')}
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Continue
-                    <ArrowRight className="w-5 h-5" />
-                  </motion.button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">X Username or Profile URL</label>
-                    <input
-                      type="text"
-                      value={xInput}
-                      onChange={(e) => setXInput(e.target.value)}
-                      placeholder="@username or https://x.com/username"
-                      className="w-full px-4 py-3 rounded-xl bg-secondary/50 border border-border focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
-                      disabled={isConnectingX}
-                    />
-                  </div>
-                  
-                  <motion.button
-                    onClick={handleConnectX}
-                    disabled={isConnectingX || !xInput.trim()}
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold hover:bg-foreground/90 transition-colors disabled:opacity-50"
-                    whileHover={{ scale: isConnectingX ? 1 : 1.02 }}
-                    whileTap={{ scale: isConnectingX ? 1 : 0.98 }}
-                  >
-                    {isConnectingX ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <XIcon className="w-5 h-5" />
-                        Connect X Account
-                      </>
-                    )}
-                  </motion.button>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground text-center mt-6">
-                We use your X account to verify your identity and prevent abuse
-              </p>
-            </motion.div>
-          )}
-
-          {step === 'follow_x' && (
-            <motion.div
-              key="follow_x"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="glass-card p-8 border border-border/50"
-            >
-              <div className="text-center mb-8">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', duration: 0.5 }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 mb-4"
-                >
-                  <XIcon className="w-10 h-10 text-primary" />
-                </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Follow @arxonarx
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                  Follow the official ARXON account to continue
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Follow Button - Opens X */}
-                <a
-                  href="https://x.com/arxonarx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold hover:bg-foreground/90 transition-colors"
-                >
-                  <XIcon className="w-5 h-5" />
-                  Follow @arxonarx
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-
-                {/* Verify Button */}
-                <motion.button
-                  onClick={checkFollowStatus}
-                  disabled={isCheckingFollow}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  whileHover={{ scale: isCheckingFollow ? 1 : 1.02 }}
-                  whileTap={{ scale: isCheckingFollow ? 1 : 0.98 }}
-                >
-                  {isCheckingFollow ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : isFollowing ? (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      Verified!
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      I've Followed - Verify
-                    </>
-                  )}
-                </motion.button>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center mt-6">
-                Click "Follow @arxonarx" first, then click verify to continue
+                Verify your identity to join
               </p>
             </motion.div>
           )}
@@ -391,7 +165,6 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                   <motion.button
                     onClick={() => {
                       setFingerprintError(null);
-                      setStep('fingerprint');
                     }}
                     className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
                     whileHover={{ scale: 1.02 }}
@@ -433,11 +206,10 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
               animate={{ opacity: 1, scale: 1 }}
               className="glass-card p-8 border border-border/50 text-center"
             >
-              {/* Celebration Animation */}
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', duration: 0.7, delay: 0.2 }}
+                transition={{ type: 'spring', duration: 0.8, delay: 0.2 }}
                 className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-6 ${
                   assignedClub === 'alpha' 
                     ? 'bg-gradient-to-br from-amber-500/30 to-amber-600/20' 
@@ -456,18 +228,12 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <h2 className="text-2xl font-black text-foreground mb-2">
-                  Welcome to Club
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Welcome to Club {assignedClub.toUpperCase()}!
                 </h2>
-                <h1 className={`text-4xl font-black mb-4 ${
-                  assignedClub === 'alpha' ? 'text-amber-500' : 'text-primary'
-                }`}>
-                  {assignedClub.toUpperCase()}
-                </h1>
                 <p className="text-muted-foreground mb-6">
-                  {assignedClub === 'alpha' 
-                    ? 'The Pioneers - First to conquer, last to fall!'
-                    : 'The Endgame - The final word in every battle!'}
+                  You've been assigned to the {assignedClub === 'alpha' ? 'Alpha' : 'Omega'} club.
+                  Battle alongside your teammates to earn rewards!
                 </p>
               </motion.div>
 
@@ -478,39 +244,33 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                 className="space-y-4"
               >
                 <div className={`p-4 rounded-xl ${
-                  assignedClub === 'alpha' 
-                    ? 'bg-amber-500/10 border border-amber-500/30' 
+                  assignedClub === 'alpha'
+                    ? 'bg-amber-500/10 border border-amber-500/30'
                     : 'bg-primary/10 border border-primary/30'
                 }`}>
-                  <p className="text-sm text-foreground">
-                    Your votes will always support <span className="font-bold">{assignedClub.toUpperCase()}</span> in every battle!
-                  </p>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Sparkles className={`w-5 h-5 ${assignedClub === 'alpha' ? 'text-amber-500' : 'text-primary'}`} />
+                    <span className="font-bold">Your Club Benefits</span>
+                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Stake ARX-P on battles</li>
+                    <li>• Earn rewards when your side wins</li>
+                    <li>• Build win streaks for bonus multipliers</li>
+                  </ul>
                 </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Entering the Arena in 3 seconds...
-                </p>
               </motion.div>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="text-xs text-muted-foreground mt-6"
+              >
+                Refreshing in a moment...
+              </motion.p>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Step indicators */}
-        <div className="flex justify-center gap-2 mt-6">
-          {steps.map((s, i) => (
-            <motion.div
-              key={s}
-              className={`h-2 rounded-full transition-colors ${
-                step === s
-                  ? 'w-8 bg-primary'
-                  : (steps.indexOf(step) > i
-                      ? 'w-2 bg-primary/50'
-                      : 'w-2 bg-border')
-              }`}
-              layout
-            />
-          ))}
-        </div>
       </motion.div>
     </div>
   );
