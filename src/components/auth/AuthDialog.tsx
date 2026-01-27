@@ -161,7 +161,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
           let description = error.message;
           if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
             description = 'Invalid email or password. Please try again.';
-          } else if (msg.includes('network') || msg.includes('fetch')) {
+          } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('edge function')) {
             description = 'Connection failed. Please check your internet and try again.';
           } else if (msg.includes('timed out') || msg.includes('timeout') || msg.includes('busy')) {
             description = 'Connection timed out. The server may be busy - please try again.';
@@ -210,7 +210,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
           if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already registered')) {
             description = 'This email is already registered. Try signing in instead.';
-          } else if (msg.includes('network') || msg.includes('fetch')) {
+          } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('edge function')) {
             description = 'Connection failed. Please check your internet and try again.';
           } else if (msg.includes('rate limit') || msg.includes('too many')) {
             description = 'Too many attempts. Please wait a minute and try again.';

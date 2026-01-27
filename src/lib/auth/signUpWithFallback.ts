@@ -23,7 +23,11 @@ function isTransientSignupError(msg: string) {
     m.includes("server busy") ||
     m.includes("timeout") ||
     m.includes("timed out") ||
-    m.includes("failed to fetch")
+    m.includes("failed to fetch") ||
+    // Supabase client error when the functions endpoint can't be reached
+    m.includes("failed to send a request to the edge function") ||
+    m.includes("edge function") ||
+    m.includes("functions/v1")
   );
 }
 
