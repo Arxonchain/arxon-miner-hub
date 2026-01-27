@@ -159,7 +159,8 @@ Deno.serve(async (req) => {
       const pointsPerHour = Math.min(basePointsPerHour * (1 + totalBoost / 100), 60)
       
       // Calculate points based on actual elapsed time (max 480 for 8 hours)
-      const calculatedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * pointsPerHour))
+      // ALWAYS round UP to whole number - no decimals
+      const calculatedPoints = Math.min(480, Math.ceil((effectiveSeconds / 3600) * pointsPerHour))
 
       // Use calculated points (ignore client-sent amount for mining)
       const finalPoints = calculatedPoints
@@ -232,8 +233,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // For task/social points, validate and cap the amount
-    const safeAmount = Math.min(Math.max(Math.floor(Number(amount) || 0), 0), 500)
+    // For task/social points, validate and cap the amount - ALWAYS round UP
+    const safeAmount = Math.min(Math.max(Math.ceil(Number(amount) || 0), 0), 500)
     if (safeAmount <= 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid amount' }),

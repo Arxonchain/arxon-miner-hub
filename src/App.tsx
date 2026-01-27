@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { PointsProvider } from "@/hooks/usePoints";
 import BackendHealthBanner from "@/components/system/BackendHealthBanner";
 import SessionRecovery from "@/components/system/SessionRecovery";
+import MaintenanceBanner from "@/components/system/MaintenanceBanner";
 import { BackendUnavailableError } from "@/lib/backendHealth";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -71,6 +72,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BackendHealthBanner />
+          <MaintenanceBanner />
           <SessionRecovery />
           <BrowserRouter>
             <Routes>

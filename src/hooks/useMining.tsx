@@ -237,7 +237,8 @@ export const useMining = (options?: UseMiningOptions) => {
 
   const endSession = useCallback(
     async (id: string, finalPoints: number) => {
-      const pointsToCredit = Math.max(0, Math.floor(finalPoints));
+      // ALWAYS round UP to whole number (no decimals)
+      const pointsToCredit = Math.max(0, Math.ceil(finalPoints));
 
       try {
         // First, end the session in DB
@@ -264,11 +265,11 @@ export const useMining = (options?: UseMiningOptions) => {
           credited = result.success;
           creditedPoints = result.points || pointsToCredit;
 
-          // Ensure the UI balance updates immediately even if realtime is delayed.
-          // Fire-and-forget; do not block the user.
-          void refreshPoints();
-          
-          if (!credited) {
+          // INSTANT UI UPDATE: Refresh points immediately after successful credit
+          if (credited) {
+            // Immediate refresh - don't wait
+            await refreshPoints();
+          } else {
             console.error('Failed to credit points for session:', id, result.error);
             // Session ended but points not credited - backend will pick this up in backfill
             toast({
@@ -276,6 +277,8 @@ export const useMining = (options?: UseMiningOptions) => {
               description: `Mining stopped. Points pending - they will be credited shortly.`,
               variant: 'default',
             });
+            // Still try to refresh to show any partial updates
+            void refreshPoints();
           }
         }
 
@@ -291,7 +294,7 @@ export const useMining = (options?: UseMiningOptions) => {
         if (credited && creditedPoints > 0) {
           toast({
             title: 'Mining Session Complete! 🎉',
-            description: `You earned ${creditedPoints} ARX-P points`,
+            description: `You earned ${Math.ceil(creditedPoints)} ARX-P points`,
           });
         }
       } catch (error) {
@@ -309,8 +312,9 @@ export const useMining = (options?: UseMiningOptions) => {
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
       const effectiveSeconds = Math.min(elapsedSeconds, maxTimeSeconds);
 
-      const calculatedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * cappedPointsPerHour));
-      const dbPoints = Math.max(0, Math.floor(Number(session.arx_mined ?? 0)));
+      // ALWAYS round UP to whole number
+      const calculatedPoints = Math.min(480, Math.ceil((effectiveSeconds / 3600) * cappedPointsPerHour));
+      const dbPoints = Math.max(0, Math.ceil(Number(session.arx_mined ?? 0)));
       const finalPoints = Math.max(calculatedPoints, dbPoints);
 
       const { data: updated, error: updateError } = await supabase
@@ -332,8 +336,8 @@ export const useMining = (options?: UseMiningOptions) => {
         // Pass session ID for secure backend validation
         await addPoints(finalPoints, 'mining', session.id);
 
-        // Keep UI in sync if the session belonged to current user and we're on this device.
-        void refreshPoints();
+        // INSTANT UI UPDATE: Refresh points immediately
+        await refreshPoints();
       }
 
       return finalPoints;

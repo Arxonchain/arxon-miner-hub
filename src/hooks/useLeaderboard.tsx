@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
 import { throttle } from '@/lib/requestDeduplication';
+import { formatPoints } from '@/lib/formatPoints';
 
 interface LeaderboardEntry {
   user_id: string;
@@ -40,11 +41,13 @@ export const useLeaderboard = (limit: number = 50) => {
 
       if (error || !mountedRef.current) return;
 
+      // CRITICAL: Sanitize points to whole numbers to fix UI display issues
       const leaderboardWithRanks: LeaderboardEntry[] = (data || []).map((entry, index) => ({
-        user_id: entry.user_id,
-        total_points: entry.total_points,
-        daily_streak: entry.daily_streak,
-        username: entry.username || `Miner${entry.user_id.slice(0, 4)}`,
+        user_id: entry.user_id || '',
+        // Use formatPoints to ensure whole numbers - fixes 900k display bug
+        total_points: formatPoints(entry.total_points),
+        daily_streak: entry.daily_streak || 0,
+        username: entry.username || `Miner${(entry.user_id || '').slice(0, 4)}`,
         avatar_url: entry.avatar_url || undefined,
         rank: index + 1,
       }));
@@ -64,7 +67,12 @@ export const useLeaderboard = (limit: number = 50) => {
 
     const cached = cacheGet<LeaderboardEntry[]>(cacheKey, { maxAgeMs: 5 * 60_000 });
     if (cached?.data?.length) {
-      setLeaderboard(cached.data);
+      // Sanitize cached data to ensure whole numbers
+      const sanitizedCache = cached.data.map(entry => ({
+        ...entry,
+        total_points: formatPoints(entry.total_points),
+      }));
+      setLeaderboard(sanitizedCache);
       setLoading(false);
     } else {
       // Don't hard-block UI; we'll render quickly even if fresh fetch is in progress.
