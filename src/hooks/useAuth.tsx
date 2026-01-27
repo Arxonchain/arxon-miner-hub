@@ -102,6 +102,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
+      const toError = (e: unknown, fallback = 'Sign up failed') => {
+        if (e instanceof Error) return e;
+        const maybeMsg = (e as any)?.message || (e as any)?.error_description || (e as any)?.error;
+        if (typeof maybeMsg === 'string' && maybeMsg.trim()) return new Error(maybeMsg);
+        try {
+          const asJson = JSON.stringify(e);
+          if (asJson && asJson !== '{}' ) return new Error(asJson);
+        } catch {
+          // ignore
+        }
+        return new Error(fallback);
+      };
+
+      // Primary path: use backend function that creates+confirms user via admin API,
+      // then issues a session via password grant. This avoids /auth/v1/signup timeouts.
+      const { data: fnData, error: fnError } = await withTimeout(
+        supabase.functions.invoke('auth-signup', {
+          body: {
+            email: normalizedEmail,
+            password,
+          },
+        }),
+        15_000,
+        'Connection timed out. The server may be busy - please try again.'
+      );
+
+      if (!fnError && fnData?.success && fnData?.session?.access_token && fnData?.session?.refresh_token) {
+        const { data: sessionData, error: setSessionError } = await withTimeout(
+          supabase.auth.setSession({
+            access_token: fnData.session.access_token,
+            refresh_token: fnData.session.refresh_token,
+          }),
+          15_000,
+          'Connection timed out. The server may be busy - please try again.'
+        );
+
+        if (setSessionError) {
+          return { error: toError(setSessionError, 'Could not start session'), user: null };
+        }
+
+        return { error: null, user: sessionData?.session?.user ?? null };
+      }
+
+      // If backend returns a meaningful error, surface it (don’t fall back to /signup by default,
+      // because /signup is currently returning 504 under load).
+      if (fnError || fnData?.error) {
+        return { error: toError(fnError ?? fnData?.error, 'Sign up failed'), user: null };
+      }
+
       // Use the standard Supabase signUp (client-side keeps connection open longer
       // than edge-function 10s limit). Wrapped with a generous timeout.
       const { data, error } = await withTimeout(
@@ -117,13 +166,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
 
       if (error) {
-        return { error: error as unknown as Error, user: null };
+        return { error: toError(error, 'Sign up failed'), user: null };
       }
 
       // If user object exists the signup succeeded (auto-confirm is on)
       return { error: null, user: data?.user ?? null };
     } catch (e) {
-      return { error: e as Error, user: null };
+      return { error: (e instanceof Error ? e : new Error('Sign up failed')), user: null };
     }
   };
 
