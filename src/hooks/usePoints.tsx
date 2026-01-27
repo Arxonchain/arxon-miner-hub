@@ -12,6 +12,7 @@ import confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
 import { useAuth } from './useAuth';
+import { formatPoints, sanitizeUserPoints } from '@/lib/formatPoints';
 
 interface UserPoints {
   id: string;
@@ -120,7 +121,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
 
       if (pointsError) throw pointsError;
 
-      let nextPoints = pointsData as UserPoints | null;
+      // Sanitize points to ensure whole numbers (fixes UI display issues)
+      let nextPoints = pointsData ? sanitizeUserPoints(pointsData) as UserPoints : null;
 
       if (!nextPoints) {
         // Ensure row exists (avoid unique race)
@@ -137,9 +139,10 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
           .maybeSingle();
 
         if (ensuredError) throw ensuredError;
-        nextPoints = ensured as UserPoints | null;
+        nextPoints = ensured ? sanitizeUserPoints(ensured) as UserPoints : null;
       }
 
+      // Set sanitized points (whole numbers only)
       setPoints(nextPoints);
       cacheSet(pointsCacheKey(user.id), nextPoints);
 
@@ -157,8 +160,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string): Promise<{ success: boolean; points?: number; error?: string }> => {
       if (!user) return { success: false, error: 'Not authenticated' };
 
-      const safeAmount = Math.min(Math.max(Math.floor(amount), 0), 500);
-      if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
+    // Always round up to whole number
+    const safeAmount = Math.min(Math.max(Math.ceil(amount), 0), 500);
+    if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
 
       // Retry logic for network failures (up to 3 attempts with exponential backoff)
       const MAX_RETRIES = 3;
@@ -192,9 +196,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             return { success: false, error: data?.error || 'Unknown error' };
           }
 
-          // Keep UI accurate even if the backend returns "Already credited".
+          // INSTANT UI UPDATE: Sanitize and apply points immediately
           if (data?.userPoints) {
-            const next = data.userPoints as UserPoints;
+            const next = sanitizeUserPoints(data.userPoints) as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
 
@@ -202,7 +206,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
             lastRankAtRef.current = 0;
             void calculateRank();
           } else {
-            // Fetch latest points from DB to sync UI
+            // Fetch latest points from DB to sync UI IMMEDIATELY
             try {
               const { data: latest } = await supabase
                 .from('user_points')
@@ -211,7 +215,7 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
                 .maybeSingle();
 
               if (latest) {
-                const next = latest as UserPoints;
+                const next = sanitizeUserPoints(latest) as UserPoints;
                 setPoints(next);
                 cacheSet(pointsCacheKey(user.id), next);
 
@@ -266,7 +270,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
       const cachedRank = cacheGet<number>(rankCacheKey(userId));
 
       if (cachedPoints?.data) {
-        setPoints(cachedPoints.data);
+        // Sanitize cached points to ensure whole numbers
+        const sanitized = sanitizeUserPoints(cachedPoints.data) as UserPoints;
+        setPoints(sanitized);
         setLoading(false);
       }
       
@@ -297,7 +303,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
         },
         (payload) => {
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            const next = payload.new as UserPoints;
+            // Sanitize realtime payload to ensure whole numbers
+            const next = sanitizeUserPoints(payload.new) as UserPoints;
             setPoints(next);
             cacheSet(pointsCacheKey(user.id), next);
             
