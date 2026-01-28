@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { User, Bell, Shield, ChevronRight } from "lucide-react";
+import { User, Bell, Shield, ChevronRight, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileSettings from "@/components/settings/ProfileSettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
@@ -27,6 +28,7 @@ const settingsSections = [
 ];
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   // Mobile: Show section list or specific section
@@ -120,7 +122,15 @@ const Settings = () => {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
-      <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Settings</h1>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Settings</h1>
+      </div>
 
       {/* Mobile view */}
       <div className="lg:hidden">

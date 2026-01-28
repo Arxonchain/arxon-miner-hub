@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Clock, Zap, Trophy, TrendingUp } from "lucide-react";
+import { Clock, Zap, Trophy, TrendingUp, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
@@ -60,6 +61,7 @@ const MinerEntry = memo(({ user, index }: { user: any; index: number }) => (
 MinerEntry.displayName = "MinerEntry";
 
 const Leaderboard = () => {
+  const navigate = useNavigate();
   const { leaderboard: minerEntries, loading } = useLeaderboard(100);
   const { isMining } = useMiningStatus();
   const { points, rank } = usePoints();
@@ -70,7 +72,15 @@ const Leaderboard = () => {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
-      <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Mining Leaderboard</h1>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Mining Leaderboard</h1>
+      </div>
 
       {/* User's own rank card - always visible for logged-in users */}
       {user && points && (

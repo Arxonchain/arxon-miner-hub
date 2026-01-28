@@ -1,4 +1,5 @@
-import { ArrowRight, Copy, Users, Activity, UserX } from "lucide-react";
+import { ArrowRight, ArrowLeft, Copy, Users, Activity, UserX } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import { toast } from "@/hooks/use-toast";
@@ -10,6 +11,7 @@ import { format } from "date-fns";
 import { useMemo } from "react";
 
 const Referrals = () => {
+  const navigate = useNavigate();
   
   const { user } = useAuth();
   const { isMining } = useMiningStatus();
@@ -110,7 +112,15 @@ const Referrals = () => {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
-      <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Referrals</h1>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => navigate('/')}
+          className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Referrals</h1>
+      </div>
 
       <WelcomeCard
         title="Welcome to ARXON Referrals Section"
