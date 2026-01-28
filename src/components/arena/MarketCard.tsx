@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift, Activity, Brain } from 'lucide-react';
+import { Clock, Users, TrendingUp, Trophy, Flame, ChevronRight, Zap, Gift, Activity, Sparkles, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { ArenaMarket, MarketVote } from '@/hooks/useArenaMarkets';
 import AIPredictionBadge from './AIPredictionBadge';
@@ -12,6 +12,50 @@ interface MarketCardProps {
   onClick: () => void;
   variant?: 'default' | 'compact' | 'featured';
 }
+
+const categoryConfig: Record<string, {
+  gradient: string;
+  glow: string;
+  icon: string;
+  accentFrom: string;
+  accentTo: string;
+}> = {
+  sports: {
+    gradient: 'from-emerald-500/20 via-green-500/10 to-teal-500/5',
+    glow: 'shadow-emerald-500/20',
+    icon: '⚽',
+    accentFrom: '#10b981',
+    accentTo: '#14b8a6',
+  },
+  politics: {
+    gradient: 'from-blue-500/20 via-indigo-500/10 to-violet-500/5',
+    glow: 'shadow-blue-500/20',
+    icon: '🏛️',
+    accentFrom: '#3b82f6',
+    accentTo: '#8b5cf6',
+  },
+  crypto: {
+    gradient: 'from-amber-500/20 via-orange-500/10 to-yellow-500/5',
+    glow: 'shadow-amber-500/20',
+    icon: '₿',
+    accentFrom: '#f59e0b',
+    accentTo: '#eab308',
+  },
+  entertainment: {
+    gradient: 'from-pink-500/20 via-purple-500/10 to-fuchsia-500/5',
+    glow: 'shadow-pink-500/20',
+    icon: '🎬',
+    accentFrom: '#ec4899',
+    accentTo: '#d946ef',
+  },
+  other: {
+    gradient: 'from-slate-500/20 via-gray-500/10 to-zinc-500/5',
+    glow: 'shadow-slate-500/20',
+    icon: '📊',
+    accentFrom: '#64748b',
+    accentTo: '#71717a',
+  },
+};
 
 const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: MarketCardProps) => {
   const [timeLeft, setTimeLeft] = useState('');
@@ -25,16 +69,15 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
   const sideBPercent = totalPool > 0 ? (market.side_b_power / totalPool) * 100 : hasSideC ? 33.33 : 50;
   const sideCPercent = totalPool > 0 && hasSideC ? ((market.side_c_power || 0) / totalPool) * 100 : 33.33;
   
-  // Recalculate status based on current time (updates every second)
+  const config = categoryConfig[market.category] || categoryConfig.other;
+  
+  // Recalculate status based on current time
   const isEnded = !!market.winner_side || new Date(market.ends_at) < currentTime;
   const isUpcoming = new Date(market.starts_at) > currentTime;
   const isLive = !isEnded && !isUpcoming;
 
-  // Update current time every second to check for status transitions
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
   
@@ -69,7 +112,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
     return () => clearInterval(interval);
   }, [market.ends_at, market.starts_at, isUpcoming]);
 
-  // Subscribe to real-time vote activity for live markets
+  // Real-time activity subscription
   useEffect(() => {
     if (!isLive) return;
 
@@ -100,19 +143,6 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
     };
   }, [market.id, isLive]);
 
-  const getCategoryBadge = () => {
-    const categories: Record<string, { color: string; label: string }> = {
-      sports: { color: 'bg-green-500/20 text-green-400', label: '⚽ Sports' },
-      politics: { color: 'bg-blue-500/20 text-blue-400', label: '🏛️ Politics' },
-      crypto: { color: 'bg-orange-500/20 text-orange-400', label: '₿ Crypto' },
-      entertainment: { color: 'bg-purple-500/20 text-purple-400', label: '🎬 Entertainment' },
-      other: { color: 'bg-muted text-muted-foreground', label: '📊 Other' },
-    };
-    return categories[market.category] || categories.other;
-  };
-
-  const categoryBadge = getCategoryBadge();
-
   if (variant === 'compact') {
     return (
       <button
@@ -124,7 +154,7 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground truncate">{market.title}</p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-muted-foreground">{categoryBadge.label}</span>
+              <span className="text-[10px] text-muted-foreground">{config.icon} {market.category}</span>
               <span className="text-[10px] text-muted-foreground">•</span>
               <span className="text-[10px] text-muted-foreground">{market.total_participants || 0} voters</span>
             </div>
@@ -145,186 +175,273 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={`
-        relative overflow-hidden rounded-xl border w-full text-left
-        touch-manipulation select-none transition-all duration-200
-        ${userPosition 
-          ? 'bg-primary/5 border-primary/30 shadow-sm shadow-primary/10' 
-          : recentActivity
-            ? 'bg-accent/5 border-accent/40'
-            : 'bg-card/60 border-border/40 hover:border-border active:bg-secondary/30'
-        } 
-        ${variant === 'featured' ? 'p-4' : 'p-3'}
+        relative overflow-hidden rounded-2xl w-full text-left
+        touch-manipulation select-none transition-all duration-300
+        bg-gradient-to-br ${config.gradient}
+        border-2 ${userPosition ? 'border-primary/50' : recentActivity ? 'border-accent/50' : 'border-border/30'}
+        hover:border-primary/40 hover:shadow-xl ${config.glow}
+        backdrop-blur-sm
+        ${variant === 'featured' ? 'p-5' : 'p-4'}
       `}
     >
+      {/* Animated background shimmer */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer pointer-events-none" />
+      
+      {/* Corner accent */}
+      <div 
+        className="absolute top-0 right-0 w-24 h-24 opacity-30 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at top right, ${config.accentFrom}40, transparent 70%)`,
+        }}
+      />
+
       {/* Live stake animation overlay */}
       <AnimatePresence>
         {liveStake && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="absolute top-0 left-0 right-0 px-2 py-1 flex items-center justify-center gap-1 z-10"
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-0 left-0 right-0 px-3 py-1.5 flex items-center justify-center gap-1.5 z-10 backdrop-blur-sm"
             style={{ 
-              backgroundColor: liveStake.side === 'a' ? `${market.side_a_color}20` : `${market.side_b_color}20`,
-              borderBottom: `1px solid ${liveStake.side === 'a' ? market.side_a_color : market.side_b_color}40`
+              background: `linear-gradient(90deg, ${liveStake.side === 'a' ? market.side_a_color : market.side_b_color}30, transparent)`,
+              borderBottom: `2px solid ${liveStake.side === 'a' ? market.side_a_color : market.side_b_color}60`
             }}
           >
-            <Activity className="w-3 h-3 text-foreground animate-pulse" />
-            <span className="text-[10px] font-bold text-foreground">
+            <Activity className="w-3.5 h-3.5 text-foreground animate-pulse" />
+            <span className="text-xs font-bold text-foreground">
               +{liveStake.amount >= 1000 ? `${(liveStake.amount / 1000).toFixed(1)}K` : liveStake.amount} on {liveStake.side === 'a' ? market.side_a_name : market.side_b_name}
             </span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Prize pool badge - Compact */}
-      {market.prize_pool > 0 && (
-        <div className="absolute top-2 right-2">
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
-            <Gift className="w-3 h-3 text-amber-400" />
-            <span className="text-[10px] font-bold text-amber-400">
-              {market.prize_pool >= 1000 ? `${(market.prize_pool / 1000).toFixed(0)}K` : market.prize_pool}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Header Row */}
-      <div className="flex items-start gap-2 mb-2">
-        <div className="flex-1 min-w-0 pr-14">
-          {/* Status indicators inline */}
-          <div className="flex items-center gap-1 mb-1 flex-wrap">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${categoryBadge.color}`}>
-              {categoryBadge.label}
-            </span>
-            {isEnded ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">Done</span>
-            ) : isUpcoming ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Soon</span>
-            ) : (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 flex items-center gap-0.5">
-                <span className="w-1 h-1 rounded-full bg-green-500" />
-                Live
-              </span>
-            )}
-            {userPosition && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">
-                <Zap className="w-2.5 h-2.5 inline" />
-              </span>
-            )}
-            {/* AI Prediction badge */}
-            {isLive && market.ai_side_a_probability !== undefined && market.ai_side_a_probability !== null && (
-              <AIPredictionBadge
-                sideAProbability={Number(market.ai_side_a_probability) || 50}
-                sideBProbability={Number(market.ai_side_b_probability) || 50}
-                confidence={market.ai_confidence || 'moderate'}
-                sideAName={market.side_a_name}
-                sideBName={market.side_b_name}
-                sideAColor={market.side_a_color}
-                sideBColor={market.side_b_color}
-                compact
-              />
-            )}
-            {/* Early staker bonus */}
-            {isLive && !userPosition && (
-              <EarlyStakerBonus startsAt={market.starts_at} endsAt={market.ends_at} compact />
-            )}
-          </div>
-
-          {/* Title */}
-          <h3 className={`font-bold text-foreground leading-tight ${variant === 'featured' ? 'text-base' : 'text-sm'}`}>
-            {market.title}
-          </h3>
-        </div>
-      </div>
-
-      {/* Compact Odds Display */}
-      <div className="space-y-1.5 mb-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_a_color }}>
-            {market.side_a_name}
-          </span>
-          <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
-            <motion.div
-              className="h-full"
-              style={{ backgroundColor: market.side_a_color }}
-              initial={{ width: hasSideC ? '33%' : '50%' }}
-              animate={{ width: `${sideAPercent}%` }}
-            />
-          </div>
-          <span className="font-bold text-[11px]" style={{ color: market.side_a_color }}>{sideAPercent.toFixed(0)}%</span>
-        </div>
-        
-        {hasSideC && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_c_color || '#888888' }}>
-              {market.side_c_name}
-            </span>
-            <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
-              <motion.div
-                className="h-full"
-                style={{ backgroundColor: market.side_c_color || '#888888' }}
-                initial={{ width: '33%' }}
-                animate={{ width: `${sideCPercent}%` }}
-              />
-            </div>
-            <span className="font-bold text-[11px]" style={{ color: market.side_c_color || '#888888' }}>{sideCPercent.toFixed(0)}%</span>
-          </div>
-        )}
-        
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-medium truncate max-w-[35%]" style={{ color: market.side_b_color }}>
-            {market.side_b_name}
-          </span>
-          <div className="flex-1 mx-2 h-1.5 rounded-full bg-muted overflow-hidden flex">
-            <motion.div
-              className="h-full"
-              style={{ backgroundColor: market.side_b_color }}
-              initial={{ width: hasSideC ? '33%' : '50%' }}
-              animate={{ width: `${sideBPercent}%` }}
-            />
-          </div>
-          <span className="font-bold text-[11px]" style={{ color: market.side_b_color }}>{sideBPercent.toFixed(0)}%</span>
-        </div>
-      </div>
-
-      {/* Footer Stats - Single line */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+      {/* Category & Status Header */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-0.5">
-            <Trophy className="w-3 h-3 text-primary" />
-            {totalPool >= 1000 ? `${(totalPool/1000).toFixed(0)}K` : totalPool}
-          </span>
-          <span className="flex items-center gap-0.5">
-            <Users className="w-3 h-3" />
-            {market.total_participants || 0}
+          <span className="text-lg">{config.icon}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            {market.category}
           </span>
         </div>
-        <span className="flex items-center gap-0.5">
-          <Clock className="w-3 h-3" />
-          {timeLeft}
-        </span>
+        
+        <div className="flex items-center gap-1.5">
+          {isEnded ? (
+            <span className="px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground text-[10px] font-bold">
+              Ended
+            </span>
+          ) : isUpcoming ? (
+            <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Soon
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              Live
+            </span>
+          )}
+          
+          {market.prize_pool > 0 && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/20 border border-amber-500/40">
+              <Gift className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] font-black text-amber-400">
+                {market.prize_pool >= 1000000 
+                  ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
+                  : market.prize_pool >= 1000 
+                    ? `${(market.prize_pool / 1000).toFixed(0)}K` 
+                    : market.prize_pool}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Winner - Compact */}
-      {isEnded && market.winner_side && (
-        <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center gap-1.5">
-          <Trophy className="w-3 h-3 text-amber-500" />
-          <span className="text-[11px] font-bold text-amber-500">
-            {market.winner_side === 'a' ? market.side_a_name : market.winner_side === 'c' ? market.side_c_name : market.side_b_name} won
+      {/* Title */}
+      <h3 className={`font-black text-foreground leading-tight mb-4 ${variant === 'featured' ? 'text-lg' : 'text-base'}`}>
+        {market.title}
+      </h3>
+
+      {/* VS Section - Premium Design */}
+      <div className="relative flex items-stretch gap-2 mb-4">
+        {/* Side A */}
+        <div 
+          className="flex-1 p-3 rounded-xl text-center transition-all duration-300 hover:scale-[1.02]"
+          style={{ 
+            background: `linear-gradient(135deg, ${market.side_a_color}25, ${market.side_a_color}10)`,
+            border: `2px solid ${market.side_a_color}40`,
+          }}
+        >
+          <div 
+            className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center text-lg font-black mb-2 shadow-lg"
+            style={{ 
+              background: `linear-gradient(135deg, ${market.side_a_color}, ${market.side_a_color}cc)`,
+              color: '#fff',
+            }}
+          >
+            {market.side_a_name.charAt(0)}
+          </div>
+          <p className="text-xs font-bold truncate mb-1" style={{ color: market.side_a_color }}>
+            {market.side_a_name}
+          </p>
+          <p className="text-xl font-black" style={{ color: market.side_a_color }}>
+            {sideAPercent.toFixed(0)}%
+          </p>
+        </div>
+
+        {/* VS Divider */}
+        <div className="flex flex-col items-center justify-center px-1">
+          <div className="w-8 h-8 rounded-full bg-background/80 border-2 border-border/50 flex items-center justify-center">
+            <span className="text-[10px] font-black text-muted-foreground">VS</span>
+          </div>
+        </div>
+
+        {/* Side B */}
+        <div 
+          className="flex-1 p-3 rounded-xl text-center transition-all duration-300 hover:scale-[1.02]"
+          style={{ 
+            background: `linear-gradient(135deg, ${market.side_b_color}25, ${market.side_b_color}10)`,
+            border: `2px solid ${market.side_b_color}40`,
+          }}
+        >
+          <div 
+            className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center text-lg font-black mb-2 shadow-lg"
+            style={{ 
+              background: `linear-gradient(135deg, ${market.side_b_color}, ${market.side_b_color}cc)`,
+              color: '#fff',
+            }}
+          >
+            {market.side_b_name.charAt(0)}
+          </div>
+          <p className="text-xs font-bold truncate mb-1" style={{ color: market.side_b_color }}>
+            {market.side_b_name}
+          </p>
+          <p className="text-xl font-black" style={{ color: market.side_b_color }}>
+            {sideBPercent.toFixed(0)}%
+          </p>
+        </div>
+      </div>
+
+      {/* Side C (Draw) if exists */}
+      {hasSideC && (
+        <div 
+          className="mb-4 p-2 rounded-lg text-center"
+          style={{ 
+            background: `linear-gradient(90deg, ${market.side_c_color || '#888'}20, transparent, ${market.side_c_color || '#888'}20)`,
+            border: `1px solid ${market.side_c_color || '#888'}30`,
+          }}
+        >
+          <span className="text-xs font-bold" style={{ color: market.side_c_color || '#888' }}>
+            {market.side_c_name}: {sideCPercent.toFixed(0)}%
           </span>
         </div>
       )}
 
-      {/* User position - Compact */}
+      {/* Pool Progress Bar */}
+      <div className="mb-3">
+        <div className="h-2 rounded-full bg-muted/30 overflow-hidden flex">
+          <motion.div
+            className="h-full"
+            style={{ backgroundColor: market.side_a_color }}
+            initial={{ width: hasSideC ? '33%' : '50%' }}
+            animate={{ width: `${sideAPercent}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+          {hasSideC && (
+            <motion.div
+              className="h-full"
+              style={{ backgroundColor: market.side_c_color || '#888' }}
+              initial={{ width: '33%' }}
+              animate={{ width: `${sideCPercent}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
+          )}
+          <motion.div
+            className="h-full"
+            style={{ backgroundColor: market.side_b_color }}
+            initial={{ width: hasSideC ? '33%' : '50%' }}
+            animate={{ width: `${sideBPercent}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+      </div>
+
+      {/* AI & Early Staker Badges */}
+      {isLive && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {market.ai_side_a_probability !== undefined && market.ai_side_a_probability !== null && (
+            <AIPredictionBadge
+              sideAProbability={Number(market.ai_side_a_probability) || 50}
+              sideBProbability={Number(market.ai_side_b_probability) || 50}
+              confidence={market.ai_confidence || 'moderate'}
+              sideAName={market.side_a_name}
+              sideBName={market.side_b_name}
+              sideAColor={market.side_a_color}
+              sideBColor={market.side_b_color}
+              compact
+            />
+          )}
+          {!userPosition && (
+            <EarlyStakerBonus startsAt={market.starts_at} endsAt={market.ends_at} compact />
+          )}
+        </div>
+      )}
+
+      {/* Footer Stats */}
+      <div className="flex items-center justify-between pt-3 border-t border-border/30">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-xs">
+            <BarChart3 className="w-3.5 h-3.5 text-primary" />
+            <span className="font-bold text-foreground">
+              {totalPool >= 1000 ? `${(totalPool/1000).toFixed(0)}K` : totalPool}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Users className="w-3.5 h-3.5" />
+            <span>{market.total_participants || 0}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="font-medium text-muted-foreground">{timeLeft}</span>
+        </div>
+      </div>
+
+      {/* Winner Badge */}
+      {isEnded && market.winner_side && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mt-3 pt-3 border-t border-amber-500/30 flex items-center justify-center gap-2"
+        >
+          <Trophy className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-black text-amber-500">
+            {market.winner_side === 'a' ? market.side_a_name : market.winner_side === 'c' ? market.side_c_name : market.side_b_name} Won!
+          </span>
+        </motion.div>
+      )}
+
+      {/* User Position */}
       {userPosition && (
-        <div className="mt-2 pt-2 border-t border-primary/20 flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground">Your stake</span>
-          <span className="text-[11px] font-bold text-primary">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-3 pt-3 border-t border-primary/30 flex items-center justify-between"
+        >
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Zap className="w-3 h-3 text-primary" />
+            Your stake
+          </span>
+          <span className="text-sm font-black text-primary">
             {userPosition.power_spent >= 1000 ? `${(userPosition.power_spent/1000).toFixed(1)}K` : userPosition.power_spent} on {userPosition.side === 'a' ? market.side_a_name : userPosition.side === 'c' ? market.side_c_name : market.side_b_name}
           </span>
-        </div>
+        </motion.div>
       )}
+      
+      {/* Tap to view indicator */}
+      <div className="absolute bottom-3 right-3 opacity-50">
+        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+      </div>
     </motion.button>
   );
 };
