@@ -18,6 +18,8 @@ import Mining from "./pages/Mining";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Arena from "./pages/Arena";
+import Nexus from "./pages/Nexus";
+import Tasks from "./pages/Tasks";
 import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
@@ -83,6 +85,8 @@ const App = () => (
                 <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
                 <Route path="/mining" element={<Mining />} />
                 <Route path="/arena" element={<Arena />} />
+                <Route path="/nexus" element={<Nexus />} />
+                <Route path="/tasks" element={<Tasks />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, Swords } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, Swords, Shield, ListTodo } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -166,8 +166,9 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Links - Tab Style */}
+      {/* Quick Links - 2x2 Grid */}
       <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3">
+        {/* Leaderboard */}
         <button
           onClick={() => navigate('/leaderboard')}
           className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
@@ -192,6 +193,8 @@ const Dashboard = () => {
           <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-amber-400/50 
                                   group-hover:text-amber-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
+
+        {/* Arena */}
         <button
           onClick={() => navigate('/arena')}
           className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
@@ -215,6 +218,58 @@ const Dashboard = () => {
           </div>
           <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-purple-400/50 
                                   group-hover:text-purple-300 group-hover:translate-x-1 transition-all hidden sm:block" />
+        </button>
+
+        {/* Nexus */}
+        <button
+          onClick={() => navigate('/nexus')}
+          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-cyan-500/20 to-blue-600/10 
+                     border border-cyan-500/30 rounded-lg sm:rounded-xl
+                     shadow-md shadow-cyan-500/10
+                     hover:from-cyan-500/30 hover:to-blue-600/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20
+                     active:scale-95 active:from-cyan-500/40
+                     focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-2 focus:ring-offset-background"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-cyan-500/20 border border-cyan-500/30 shrink-0">
+              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-cyan-400" />
+            </div>
+            <div className="text-center sm:text-left min-w-0">
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-cyan-300 transition-colors truncate">Nexus</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Send & earn boost</p>
+            </div>
+          </div>
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-cyan-400/50 
+                                  group-hover:text-cyan-300 group-hover:translate-x-1 transition-all hidden sm:block" />
+        </button>
+
+        {/* Tasks */}
+        <button
+          onClick={() => navigate('/tasks')}
+          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
+                     bg-gradient-to-br from-green-500/20 to-emerald-600/10 
+                     border border-green-500/30 rounded-lg sm:rounded-xl
+                     shadow-md shadow-green-500/10
+                     hover:from-green-500/30 hover:to-emerald-600/20 hover:border-green-400/50 hover:shadow-lg hover:shadow-green-500/20
+                     active:scale-95 active:from-green-500/40
+                     focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:ring-offset-2 focus:ring-offset-background"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
+                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-green-500/20 border border-green-500/30 shrink-0">
+              <ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-400" />
+            </div>
+            <div className="text-center sm:text-left min-w-0">
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-green-300 transition-colors truncate">Tasks</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Complete & earn</p>
+            </div>
+          </div>
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-400/50 
+                                  group-hover:text-green-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
       </div>
 
