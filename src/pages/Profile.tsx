@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { User, Wallet, Zap, Clock, Calendar, Trophy, History, Edit2, Check, Copy, ArrowLeftRight } from "lucide-react";
+import { User, Wallet, Zap, Clock, Calendar, Trophy, History, Edit2, Check, Copy, ArrowLeftRight, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useWallet } from "@/hooks/useWallet";
@@ -22,6 +23,7 @@ interface MiningHistory {
 const miningHistoryCacheKey = (userId: string) => `arxon:mining_history:v1:${userId}`;
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { points, rank, loading: pointsLoading } = usePoints();
   const { primaryWallet } = useWallet();
@@ -222,7 +224,15 @@ const Profile = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Profile</h1>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/')}
+            className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Profile</h1>
+        </div>
         <Button onClick={signOut} variant="outline" size="sm">
           Sign Out
         </Button>

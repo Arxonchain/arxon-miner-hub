@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, ListTodo } from "lucide-react";
-import XIcon from "@/components/icons/XIcon";
+import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, Swords } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePoints } from "@/hooks/usePoints";
 import { useMining } from "@/hooks/useMining";
@@ -168,31 +167,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Links - Tab Style */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 md:gap-3">
-        <button
-          onClick={() => navigate('/tasks')}
-          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-blue-500/20 to-blue-600/10 
-                     border border-blue-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-blue-500/10
-                     hover:from-blue-500/30 hover:to-blue-600/20 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20
-                     active:scale-95 active:from-blue-500/40
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 border border-blue-500/30 shrink-0">
-              <ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
-            </div>
-            <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-blue-300 transition-colors truncate">Tasks</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Complete & earn</p>
-            </div>
-          </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-400/50 
-                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all hidden sm:block" />
-        </button>
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3">
         <button
           onClick={() => navigate('/leaderboard')}
           className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
@@ -218,28 +193,28 @@ const Dashboard = () => {
                                   group-hover:text-amber-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
         <button
-          onClick={() => navigate('/x-profile')}
+          onClick={() => navigate('/arena')}
           className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-blue-500/20 to-sky-600/10 
-                     border border-blue-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-blue-500/10
-                     hover:from-blue-500/30 hover:to-sky-600/20 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20
-                     active:scale-95 active:from-blue-500/40
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-background"
+                     bg-gradient-to-br from-purple-500/20 to-pink-600/10 
+                     border border-purple-500/30 rounded-lg sm:rounded-xl
+                     shadow-md shadow-purple-500/10
+                     hover:from-purple-500/30 hover:to-pink-600/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20
+                     active:scale-95 active:from-purple-500/40
+                     focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-background"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
                           translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-blue-500/20 border border-blue-500/30 shrink-0">
-              <XIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground" />
+            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-purple-500/20 border border-purple-500/30 shrink-0">
+              <Swords className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />
             </div>
             <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-blue-300 transition-colors truncate">X Profile</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Boost mining rate</p>
+              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-purple-300 transition-colors truncate">Arena</p>
+              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Stake & earn</p>
             </div>
           </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-400/50 
-                                  group-hover:text-blue-300 group-hover:translate-x-1 transition-all hidden sm:block" />
+          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-purple-400/50 
+                                  group-hover:text-purple-300 group-hover:translate-x-1 transition-all hidden sm:block" />
         </button>
       </div>
 

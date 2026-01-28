@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle } from 'lucide-react';
+import XIcon from '@/components/icons/XIcon';
 import FingerprintScanner from './FingerprintScanner';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
-type OnboardingStep = 'intro' | 'fingerprint' | 'assigned';
+type OnboardingStep = 'intro' | 'x-connect' | 'fingerprint' | 'assigned';
 
 interface ArenaOnboardingProps {
   onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
@@ -12,10 +17,84 @@ interface ArenaOnboardingProps {
 }
 
 const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps) => {
+  const { user } = useAuth();
   const [step, setStep] = useState<OnboardingStep>('intro');
   const [isVerifying, setIsVerifying] = useState(false);
   const [assignedClub, setAssignedClub] = useState<'alpha' | 'omega' | null>(null);
   const [fingerprintError, setFingerprintError] = useState<string | null>(null);
+  
+  // X account connection state
+  const [xUsername, setXUsername] = useState('');
+  const [xConnecting, setXConnecting] = useState(false);
+  const [xConnected, setXConnected] = useState(false);
+  const [xError, setXError] = useState<string | null>(null);
+
+  const handleConnectX = async () => {
+    if (!xUsername.trim()) {
+      setXError('Please enter your X username');
+      return;
+    }
+
+    const username = xUsername.trim().replace('@', '');
+    if (!/^[a-zA-Z0-9_]{1,15}$/.test(username)) {
+      setXError('Invalid X username format');
+      return;
+    }
+
+    setXConnecting(true);
+    setXError(null);
+
+    try {
+      // Check if X profile already exists for this user
+      const { data: existingProfile } = await supabase
+        .from('x_profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('x_profiles')
+          .update({ 
+            username, 
+            profile_url: `https://x.com/${username}`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user?.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new profile
+        const { error } = await supabase
+          .from('x_profiles')
+          .insert({
+            user_id: user?.id,
+            username,
+            profile_url: `https://x.com/${username}`,
+          });
+
+        if (error) throw error;
+      }
+
+      setXConnected(true);
+      toast.success('X account connected!', {
+        description: `@${username} linked to your Arena profile`,
+      });
+
+      // Auto-advance to fingerprint step after short delay
+      setTimeout(() => {
+        setStep('fingerprint');
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('X connection error:', error);
+      setXError(error.message || 'Failed to connect X account');
+      toast.error('Connection failed');
+    } finally {
+      setXConnecting(false);
+    }
+  };
 
   const handleFingerprintVerified = async (fingerprintHash?: string) => {
     if (!fingerprintHash) {
@@ -125,7 +204,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Start Button */}
               <motion.button
-                onClick={() => setStep('fingerprint')}
+                onClick={() => setStep('x-connect')}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -136,8 +215,93 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
 
               {/* Info text */}
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Verify your identity to join
+                Connect your X account to join
               </p>
+            </motion.div>
+          )}
+
+          {step === 'x-connect' && (
+            <motion.div
+              key="x-connect"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              className="glass-card p-8 border border-border/50"
+            >
+              <div className="text-center mb-8">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 mb-4"
+                >
+                  <XIcon className="w-10 h-10 text-foreground" />
+                </motion.div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Connect Your X Account</h2>
+                <p className="text-muted-foreground text-sm">
+                  Link your X (Twitter) account to participate in Arena battles
+                </p>
+              </div>
+
+              {xConnected ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center space-y-4"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-foreground font-medium">@{xUsername.replace('@', '')} connected!</p>
+                  <p className="text-muted-foreground text-sm">Proceeding to fingerprint verification...</p>
+                </motion.div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="x-username">X Username</Label>
+                    <Input
+                      id="x-username"
+                      type="text"
+                      value={xUsername}
+                      onChange={(e) => setXUsername(e.target.value)}
+                      placeholder="@username"
+                      disabled={xConnecting}
+                      className="text-center text-lg"
+                    />
+                  </div>
+
+                  {xError && (
+                    <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {xError}
+                    </div>
+                  )}
+
+                  <motion.button
+                    onClick={handleConnectX}
+                    disabled={xConnecting || !xUsername.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold text-lg hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: xConnecting ? 1 : 1.02 }}
+                    whileTap={{ scale: xConnecting ? 1 : 0.98 }}
+                  >
+                    {xConnecting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <XIcon className="w-5 h-5" />
+                        Connect X Account
+                      </>
+                    )}
+                  </motion.button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    X account connection is <span className="text-primary font-medium">required</span> to participate in Arena
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
 
