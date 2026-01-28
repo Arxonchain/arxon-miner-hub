@@ -175,13 +175,13 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={`
-        relative overflow-hidden rounded-2xl w-full text-left
+        relative overflow-hidden rounded-xl md:rounded-2xl w-full text-left
         touch-manipulation select-none transition-all duration-300
         bg-gradient-to-br ${config.gradient}
-        border-2 ${userPosition ? 'border-primary/50' : recentActivity ? 'border-accent/50' : 'border-border/30'}
+        border ${userPosition ? 'border-primary/50' : recentActivity ? 'border-accent/50' : 'border-border/30'}
         hover:border-primary/40 hover:shadow-xl ${config.glow}
         backdrop-blur-sm
-        ${variant === 'featured' ? 'p-5' : 'p-4'}
+        ${variant === 'featured' ? 'p-3 md:p-5' : 'p-3 md:p-4'}
       `}
     >
       {/* Animated background shimmer */}
@@ -217,35 +217,35 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       </AnimatePresence>
 
       {/* Category & Status Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{config.icon}</span>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm md:text-lg">{config.icon}</span>
+          <span className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             {market.category}
           </span>
         </div>
         
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {isEnded ? (
-            <span className="px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground text-[9px] font-bold">
               Ended
             </span>
           ) : isUpcoming ? (
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold flex items-center gap-1">
-              <Clock className="w-3 h-3" />
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-bold flex items-center gap-0.5">
+              <Clock className="w-2.5 h-2.5" />
               Soon
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[9px] font-bold flex items-center gap-0.5">
+              <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
               Live
             </span>
           )}
           
           {market.prize_pool > 0 && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/20 border border-amber-500/40">
-              <Gift className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] font-black text-amber-400">
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/30 to-yellow-500/20 border border-amber-500/40">
+              <Gift className="w-2.5 h-2.5 text-amber-400" />
+              <span className="text-[9px] font-black text-amber-400">
                 {market.prize_pool >= 1000000 
                   ? `${(market.prize_pool / 1000000).toFixed(1)}M` 
                   : market.prize_pool >= 1000 
@@ -258,22 +258,22 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       </div>
 
       {/* Title */}
-      <h3 className={`font-black text-foreground leading-tight mb-4 ${variant === 'featured' ? 'text-lg' : 'text-base'}`}>
+      <h3 className={`font-black text-foreground leading-tight mb-2 md:mb-4 ${variant === 'featured' ? 'text-sm md:text-lg' : 'text-xs md:text-base'}`}>
         {market.title}
       </h3>
 
-      {/* VS Section - Premium Design */}
-      <div className="relative flex items-stretch gap-2 mb-4">
+      {/* VS Section - Compact Mobile Design */}
+      <div className="relative flex items-stretch gap-1.5 md:gap-2 mb-2 md:mb-4">
         {/* Side A */}
         <div 
-          className="flex-1 p-3 rounded-xl text-center transition-all duration-300 hover:scale-[1.02]"
+          className="flex-1 p-2 md:p-3 rounded-lg md:rounded-xl text-center transition-all duration-300"
           style={{ 
             background: `linear-gradient(135deg, ${market.side_a_color}25, ${market.side_a_color}10)`,
-            border: `2px solid ${market.side_a_color}40`,
+            border: `1px solid ${market.side_a_color}40`,
           }}
         >
           <div 
-            className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center text-lg font-black mb-2 shadow-lg"
+            className="w-7 h-7 md:w-10 md:h-10 mx-auto rounded-md md:rounded-lg flex items-center justify-center text-xs md:text-lg font-black mb-1 md:mb-2 shadow-lg"
             style={{ 
               background: `linear-gradient(135deg, ${market.side_a_color}, ${market.side_a_color}cc)`,
               color: '#fff',
@@ -281,31 +281,31 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           >
             {market.side_a_name.charAt(0)}
           </div>
-          <p className="text-xs font-bold truncate mb-1" style={{ color: market.side_a_color }}>
+          <p className="text-[10px] md:text-xs font-bold truncate mb-0.5" style={{ color: market.side_a_color }}>
             {market.side_a_name}
           </p>
-          <p className="text-xl font-black" style={{ color: market.side_a_color }}>
+          <p className="text-base md:text-xl font-black" style={{ color: market.side_a_color }}>
             {sideAPercent.toFixed(0)}%
           </p>
         </div>
 
         {/* VS Divider */}
-        <div className="flex flex-col items-center justify-center px-1">
-          <div className="w-8 h-8 rounded-full bg-background/80 border-2 border-border/50 flex items-center justify-center">
-            <span className="text-[10px] font-black text-muted-foreground">VS</span>
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-background/80 border border-border/50 flex items-center justify-center">
+            <span className="text-[8px] md:text-[10px] font-black text-muted-foreground">VS</span>
           </div>
         </div>
 
         {/* Side B */}
         <div 
-          className="flex-1 p-3 rounded-xl text-center transition-all duration-300 hover:scale-[1.02]"
+          className="flex-1 p-2 md:p-3 rounded-lg md:rounded-xl text-center transition-all duration-300"
           style={{ 
             background: `linear-gradient(135deg, ${market.side_b_color}25, ${market.side_b_color}10)`,
-            border: `2px solid ${market.side_b_color}40`,
+            border: `1px solid ${market.side_b_color}40`,
           }}
         >
           <div 
-            className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center text-lg font-black mb-2 shadow-lg"
+            className="w-7 h-7 md:w-10 md:h-10 mx-auto rounded-md md:rounded-lg flex items-center justify-center text-xs md:text-lg font-black mb-1 md:mb-2 shadow-lg"
             style={{ 
               background: `linear-gradient(135deg, ${market.side_b_color}, ${market.side_b_color}cc)`,
               color: '#fff',
@@ -313,10 +313,10 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
           >
             {market.side_b_name.charAt(0)}
           </div>
-          <p className="text-xs font-bold truncate mb-1" style={{ color: market.side_b_color }}>
+          <p className="text-[10px] md:text-xs font-bold truncate mb-0.5" style={{ color: market.side_b_color }}>
             {market.side_b_name}
           </p>
-          <p className="text-xl font-black" style={{ color: market.side_b_color }}>
+          <p className="text-base md:text-xl font-black" style={{ color: market.side_b_color }}>
             {sideBPercent.toFixed(0)}%
           </p>
         </div>
@@ -325,21 +325,21 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       {/* Side C (Draw) if exists */}
       {hasSideC && (
         <div 
-          className="mb-4 p-2 rounded-lg text-center"
+          className="mb-2 md:mb-4 p-1.5 md:p-2 rounded-md md:rounded-lg text-center"
           style={{ 
             background: `linear-gradient(90deg, ${market.side_c_color || '#888'}20, transparent, ${market.side_c_color || '#888'}20)`,
             border: `1px solid ${market.side_c_color || '#888'}30`,
           }}
         >
-          <span className="text-xs font-bold" style={{ color: market.side_c_color || '#888' }}>
+          <span className="text-[10px] md:text-xs font-bold" style={{ color: market.side_c_color || '#888' }}>
             {market.side_c_name}: {sideCPercent.toFixed(0)}%
           </span>
         </div>
       )}
 
       {/* Pool Progress Bar */}
-      <div className="mb-3">
-        <div className="h-2 rounded-full bg-muted/30 overflow-hidden flex">
+      <div className="mb-2 md:mb-3">
+        <div className="h-1.5 md:h-2 rounded-full bg-muted/30 overflow-hidden flex">
           <motion.div
             className="h-full"
             style={{ backgroundColor: market.side_a_color }}
@@ -366,9 +366,9 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
         </div>
       </div>
 
-      {/* AI & Early Staker Badges */}
+      {/* AI & Early Staker Badges - Hidden on mobile for space */}
       {isLive && (
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="hidden md:flex items-center gap-2 mb-3 flex-wrap">
           {market.ai_side_a_probability !== undefined && market.ai_side_a_probability !== null && (
             <AIPredictionBadge
               sideAProbability={Number(market.ai_side_a_probability) || 50}
@@ -388,21 +388,21 @@ const MarketCard = ({ market, userPosition, onClick, variant = 'default' }: Mark
       )}
 
       {/* Footer Stats */}
-      <div className="flex items-center justify-between pt-3 border-t border-border/30">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-xs">
-            <BarChart3 className="w-3.5 h-3.5 text-primary" />
+      <div className="flex items-center justify-between pt-2 md:pt-3 border-t border-border/30">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-0.5 text-[10px] md:text-xs">
+            <BarChart3 className="w-3 h-3 md:w-3.5 md:h-3.5 text-primary" />
             <span className="font-bold text-foreground">
               {totalPool >= 1000 ? `${(totalPool/1000).toFixed(0)}K` : totalPool}
             </span>
           </div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Users className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-0.5 text-[10px] md:text-xs text-muted-foreground">
+            <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
             <span>{market.total_participants || 0}</span>
           </div>
         </div>
-        <div className="flex items-center gap-1 text-xs">
-          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+        <div className="flex items-center gap-0.5 text-[10px] md:text-xs">
+          <Clock className="w-3 h-3 md:w-3.5 md:h-3.5 text-muted-foreground" />
           <span className="font-medium text-muted-foreground">{timeLeft}</span>
         </div>
       </div>

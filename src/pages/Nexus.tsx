@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Send, Users, Zap, Shield, Gift, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowLeft, Send, Users, Zap, Shield, Gift, ArrowUpRight, ArrowDownLeft, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +23,19 @@ const Nexus = () => {
   const [sending, setSending] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingTx, setLoadingTx] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyAddress = async () => {
+    if (!profile?.nexus_address) return;
+    try {
+      await navigator.clipboard.writeText(profile.nexus_address);
+      setCopied(true);
+      toast({ title: 'Copied!', description: 'Nexus address copied to clipboard' });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to copy address', variant: 'destructive' });
+    }
+  };
 
   // Fetch recent transactions
   const fetchTransactions = async () => {
@@ -134,11 +147,29 @@ const Nexus = () => {
       <main className="relative z-10 px-4 py-6 space-y-6 max-w-lg mx-auto">
         {/* Your Address */}
         <div className="glass-card p-4 border border-primary/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Your Nexus Address</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              <span className="text-xs text-muted-foreground">Your Nexus Address</span>
+            </div>
+            <button
+              onClick={copyAddress}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary text-xs font-bold transition-all active:scale-95"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy
+                </>
+              )}
+            </button>
           </div>
-          <p className="text-lg font-bold text-foreground font-mono break-all">
+          <p className="text-sm md:text-lg font-bold text-foreground font-mono break-all">
             {profile?.nexus_address || 'Loading...'}
           </p>
         </div>
