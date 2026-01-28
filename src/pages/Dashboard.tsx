@@ -10,8 +10,7 @@ import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import StatCard from "@/components/dashboard/StatCard";
 import EarningStatistics from "@/components/dashboard/EarningStatistics";
 import { Button } from "@/components/ui/button";
-import AuthDialog from "@/components/auth/AuthDialog";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -19,8 +18,6 @@ const Dashboard = () => {
   const { points, loading: pointsLoading, rank } = usePoints();
   const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading, pointsPerHour } = useMining();
   const { canCheckin, performCheckin, currentStreak, streakBoost, loading: checkinLoading } = useCheckin();
-  
-  const [showAuth, setShowAuth] = useState(false);
 
   const miningDisabled = !settingsLoading && !miningSettings.publicMiningEnabled;
 
@@ -31,7 +28,7 @@ const Dashboard = () => {
 
   const handleStartMining = () => {
     if (!user) {
-      setShowAuth(true);
+      navigate('/auth?mode=signup');
       return;
     }
     navigate('/mining');
@@ -39,7 +36,7 @@ const Dashboard = () => {
 
   const handleCheckin = async () => {
     if (!user) {
-      setShowAuth(true);
+      navigate('/auth?mode=signup');
       return;
     }
     await performCheckin();
@@ -247,8 +244,6 @@ const Dashboard = () => {
       </div>
 
       <EarningStatistics />
-
-      <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
     </div>
   );
 };

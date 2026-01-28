@@ -8,6 +8,7 @@ import { PointsProvider } from "@/hooks/usePoints";
 import BackendHealthBanner from "@/components/system/BackendHealthBanner";
 import SessionRecovery from "@/components/system/SessionRecovery";
 import MaintenanceBanner from "@/components/system/MaintenanceBanner";
+import ErrorBoundary from "@/components/system/ErrorBoundary";
 import { BackendUnavailableError } from "@/lib/backendHealth";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -62,48 +63,50 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <PointsProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BackendHealthBanner />
-          <MaintenanceBanner />
-          <SessionRecovery />
-          <BrowserRouter>
-            <Routes>
-              {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/leaderboard" element={<PublicLeaderboard />} />
-              <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
-              <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
-              <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-              <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
-              <Route path="/mining" element={<Mining />} />
-              <Route path="/arena" element={<Arena />} />
-              <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <PointsProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BackendHealthBanner />
+            <MaintenanceBanner />
+            <SessionRecovery />
+            <BrowserRouter>
+              <Routes>
+                {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/leaderboard" element={<PublicLeaderboard />} />
+                <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
+                <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
+                <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+                <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
+                <Route path="/mining" element={<Mining />} />
+                <Route path="/arena" element={<Arena />} />
+                <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
-              {/* Admin routes */}
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="signups" element={<AdminSignups />} />
-                <Route path="controls" element={<AdminControls />} />
-                <Route path="arena" element={<AdminArena />} />
-                <Route path="reconciliation" element={<AdminReconciliation />} />
-              </Route>
+                {/* Admin routes */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="signups" element={<AdminSignups />} />
+                  <Route path="controls" element={<AdminControls />} />
+                  <Route path="arena" element={<AdminArena />} />
+                  <Route path="reconciliation" element={<AdminReconciliation />} />
+                </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </PointsProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </PointsProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
