@@ -25,6 +25,7 @@ import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import Auth from "./pages/Auth";
+import AuthConfirm from "./pages/AuthConfirm";
 
 // Admin imports
 import AdminLayout from "./components/admin/AdminLayout";
@@ -80,6 +81,7 @@ const App = () => (
                 {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/confirm" element={<AuthConfirm />} />
                 <Route path="/leaderboard" element={<PublicLeaderboard />} />
                 <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
                 <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
