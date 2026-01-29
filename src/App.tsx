@@ -9,6 +9,7 @@ import BackendHealthBanner from "@/components/system/BackendHealthBanner";
 import SessionRecovery from "@/components/system/SessionRecovery";
 import ErrorBoundary from "@/components/system/ErrorBoundary";
 import { BackendUnavailableError } from "@/lib/backendHealth";
+import RecoveryLinkHandler from "@/components/auth/RecoveryLinkHandler";
 import Index from "./pages/Index";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import PublicLeaderboard from "./pages/PublicLeaderboard";
@@ -74,6 +75,7 @@ const App = () => (
             <BackendHealthBanner />
             <SessionRecovery />
             <BrowserRouter>
+              <RecoveryLinkHandler />
               <Routes>
                 {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
                 <Route path="/" element={<Index />} />
