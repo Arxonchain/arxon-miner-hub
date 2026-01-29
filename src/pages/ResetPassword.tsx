@@ -20,53 +20,104 @@ const ResetPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [hasCheckedUrl, setHasCheckedUrl] = useState(false);
 
   useEffect(() => {
-    // Listen for auth state changes to detect PASSWORD_RECOVERY event
+    let mounted = true;
+
+    // Check if we have recovery tokens in the URL hash
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+    
+    console.log('URL hash type:', type, 'Has tokens:', !!accessToken);
+
+    // If we have recovery tokens in URL, set the session
+    if (accessToken && type === 'recovery') {
+      console.log('Recovery tokens found, setting session...');
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      }).then(({ data, error }) => {
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error setting recovery session:', error);
+          setChecking(false);
+          setHasCheckedUrl(true);
+          toast({
+            title: "Invalid or Expired Link",
+            description: "Please request a new password reset link.",
+            variant: "destructive"
+          });
+        } else if (data.session) {
+          console.log('Recovery session set successfully');
+          setIsValidSession(true);
+          setChecking(false);
+          setHasCheckedUrl(true);
+          // Clear the hash from URL for cleaner look
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      });
+      return;
+    }
+
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
         console.log('Auth event:', event, 'Session:', !!session);
         
         if (event === 'PASSWORD_RECOVERY') {
           setIsValidSession(true);
           setChecking(false);
-        } else if (event === 'SIGNED_IN' && session) {
+          setHasCheckedUrl(true);
+        } else if (event === 'SIGNED_IN' && session && !hasCheckedUrl) {
           // User might have been redirected with a valid recovery session
           setIsValidSession(true);
           setChecking(false);
+          setHasCheckedUrl(true);
         }
       }
     );
 
-    // Also check for existing session (in case the event already fired)
+    // Also check for existing session after a delay
     const checkSession = async () => {
+      if (!mounted) return;
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (session && !hasCheckedUrl) {
+        // Check if this looks like a password recovery flow
+        // The session will be valid if we came from a recovery link
         setIsValidSession(true);
       }
       setChecking(false);
+      setHasCheckedUrl(true);
     };
     
-    // Give a small delay to allow auth state to process the URL hash
-    const timer = setTimeout(checkSession, 1000);
+    // Give time for auth state to process
+    const timer = setTimeout(checkSession, 1500);
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
       clearTimeout(timer);
     };
   }, []);
 
-  // Show error only after checking is complete and no valid session
+  // Show error only after all checks complete and no valid session
   useEffect(() => {
-    if (!checking && !isValidSession && !success) {
+    if (!checking && hasCheckedUrl && !isValidSession && !success) {
       toast({
         title: "Invalid or Expired Link",
         description: "Please request a new password reset link.",
         variant: "destructive"
       });
-      navigate("/");
+      // Redirect to auth page with forgot mode
+      navigate("/auth?mode=forgot");
     }
-  }, [checking, isValidSession, success, navigate, toast]);
+  }, [checking, hasCheckedUrl, isValidSession, success, navigate, toast]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +229,7 @@ const ResetPassword = () => {
                 Redirecting you to the home page...
               </p>
             </div>
-          ) : (
+          ) : isValidSession ? (
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="new-password">New Password</Label>
@@ -250,6 +301,10 @@ const ResetPassword = () => {
                 ← Back to Home
               </button>
             </form>
+          ) : (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">Redirecting...</p>
+            </div>
           )}
         </CardContent>
       </Card>
