@@ -43,9 +43,21 @@ export const useProfile = () => {
         if (!data?.referral_code || !data?.nexus_address) {
           const ensured = await ensureProfileFields(user.id, { usernameHint: data?.username });
           if (ensured) {
-            const merged = { ...data, ...ensured };
-            setProfile(merged);
-            cacheSet(`arxon:profile:v1:${user.id}`, merged);
+            // Re-fetch from DB to get canonical values and update UI instantly
+            const { data: refreshed } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            
+            if (refreshed) {
+              setProfile(refreshed);
+              cacheSet(`arxon:profile:v1:${user.id}`, refreshed);
+            } else {
+              const merged = { ...data, ...ensured } as UserProfile;
+              setProfile(merged);
+              cacheSet(`arxon:profile:v1:${user.id}`, merged);
+            }
           }
         }
       }

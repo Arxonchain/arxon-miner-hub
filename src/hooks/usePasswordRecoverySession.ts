@@ -70,8 +70,9 @@ export function usePasswordRecoverySession() {
         }
       }
 
-      // Wait briefly for the auth library to settle and persist the session.
-      const deadline = Date.now() + 3500;
+      // Wait for the auth library to settle and persist the session.
+      // Extended timeout (6s) for slow devices / networks.
+      const deadline = Date.now() + 6000;
       let sessionFound = false;
 
       while (!cancelled && Date.now() < deadline) {
@@ -80,7 +81,7 @@ export function usePasswordRecoverySession() {
           sessionFound = true;
           break;
         }
-        await sleep(250);
+        await sleep(300);
       }
 
       if (cancelled) return;
