@@ -303,7 +303,7 @@ const Mining = () => {
         >
           <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span className="text-[10px] sm:text-xs md:text-sm font-medium">
-            {profile?.referral_code || "Copy referral code"}
+            {profile?.referral_code || "Generating code..."}
           </span>
         </button>
       </div>
