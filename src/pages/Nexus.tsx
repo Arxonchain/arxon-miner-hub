@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Send, Users, Zap, Shield, Gift, ArrowUpRight, ArrowDownLeft, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,12 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import AuthDialog from '@/components/auth/AuthDialog';
+import { ensureProfileFields } from '@/lib/profile/ensureProfileFields';
 
 const Nexus = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { points, refreshPoints } = usePoints();
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading, fetchProfile } = useProfile();
   const [showAuth, setShowAuth] = useState(false);
   const [receiverAddress, setReceiverAddress] = useState('');
   const [amount, setAmount] = useState('');
@@ -24,6 +25,18 @@ const Nexus = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingTx, setLoadingTx] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [generatingAddress, setGeneratingAddress] = useState(false);
+
+  // Self-heal: ensure nexus_address exists
+  useEffect(() => {
+    if (!user || profileLoading) return;
+    if (profile && !profile.nexus_address) {
+      setGeneratingAddress(true);
+      ensureProfileFields(user.id, { usernameHint: profile.username })
+        .then(() => fetchProfile())
+        .finally(() => setGeneratingAddress(false));
+    }
+  }, [user, profile, profileLoading, fetchProfile]);
 
   const copyAddress = async () => {
     if (!profile?.nexus_address) return;
@@ -170,7 +183,9 @@ const Nexus = () => {
             </button>
           </div>
           <p className="text-sm md:text-lg font-bold text-foreground font-mono break-all">
-            {profile?.nexus_address || 'Loading...'}
+            {profileLoading || generatingAddress 
+              ? 'Generating address...' 
+              : profile?.nexus_address || 'Address unavailable'}
           </p>
         </div>
 
