@@ -36,6 +36,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * - ?access_token=...&refresh_token=...&type=recovery
  * - ?code=... (PKCE/code exchange)
  * - ?token_hash=...&type=recovery (OTP verification)
+ * - PASSWORD_RECOVERY auth event from Supabase
  */
 export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
@@ -43,6 +44,18 @@ export function usePasswordRecoverySession() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Listen for PASSWORD_RECOVERY event from Supabase auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        setIsValidSession(true);
+        setChecking(false);
+        // Clean URL after recovery session is established
+        window.history.replaceState(null, "", "/reset-password");
+      }
+    });
 
     const run = async () => {
       const params = parseRecoveryUrl();
@@ -52,17 +65,26 @@ export function usePasswordRecoverySession() {
       if (params.type === "recovery") {
         try {
           if (params.accessToken && params.refreshToken) {
-            await supabase.auth.setSession({
+            const { error } = await supabase.auth.setSession({
               access_token: params.accessToken,
               refresh_token: params.refreshToken,
             });
+            if (error) {
+              console.error("Failed to set session from tokens:", error);
+            }
           } else if (params.code) {
-            await supabase.auth.exchangeCodeForSession(params.code);
+            const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+            if (error) {
+              console.error("Failed to exchange code for session:", error);
+            }
           } else if (params.tokenHash) {
-            await supabase.auth.verifyOtp({
+            const { error } = await supabase.auth.verifyOtp({
               type: "recovery",
               token_hash: params.tokenHash,
             });
+            if (error) {
+              console.error("Failed to verify OTP:", error);
+            }
           }
         } catch (e) {
           // Do not toast here—fallback to checking whether a session exists anyway.
@@ -71,8 +93,8 @@ export function usePasswordRecoverySession() {
       }
 
       // Wait for the auth library to settle and persist the session.
-      // Extended timeout (6s) for slow devices / networks.
-      const deadline = Date.now() + 6000;
+      // Extended timeout (8s) for slow devices / networks.
+      const deadline = Date.now() + 8000;
       let sessionFound = false;
 
       while (!cancelled && Date.now() < deadline) {
@@ -96,8 +118,10 @@ export function usePasswordRecoverySession() {
     };
 
     run();
+    
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 
