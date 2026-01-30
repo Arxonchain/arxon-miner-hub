@@ -68,13 +68,17 @@ const ResetPassword = () => {
         setSuccess(true);
         toast({
           title: "Password Updated!",
-          description: "Your password has been successfully reset.",
+          description: "Your password has been successfully reset. Please sign in with your new password.",
         });
+
+        // Sign out the recovery session so the user can sign in fresh.
+        // This prevents stale-session issues ("Invalid login credentials").
+        await supabase.auth.signOut().catch(() => {});
         
-        // Redirect to home after 3 seconds
+        // Redirect to sign-in page after 2 seconds
         setTimeout(() => {
-          navigate("/");
-        }, 3000);
+          navigate("/auth?mode=signin");
+        }, 2000);
       }
     } catch (error) {
       console.error('Password reset error:', error);
@@ -140,7 +144,7 @@ const ResetPassword = () => {
                 <CheckCircle className="h-16 w-16 text-green-500 animate-pulse" />
               </div>
               <p className="text-muted-foreground">
-                Redirecting you to the home page...
+                Redirecting you to sign in...
               </p>
             </div>
           ) : isValidSession ? (
