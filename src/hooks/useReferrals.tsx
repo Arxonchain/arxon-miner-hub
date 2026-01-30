@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { cacheGet, cacheSet } from '@/lib/localCache';
 import { withTimeout } from '@/lib/utils';
+import { ensureProfileFields } from '@/lib/profile/ensureProfileFields';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface ReferralData {
   id: string;
@@ -39,18 +42,31 @@ export const useReferrals = (user: User | null) => {
   const fetchReferralCode = useCallback(async () => {
     if (!user) return;
 
-    try {
-      const { data, error } = await withTimeout(
-        supabase.from('profiles').select('referral_code').eq('user_id', user.id).maybeSingle(),
-        12_000
-      );
+    // Retry a few times because some devices/networks occasionally time out,
+    // which made users appear to have “no referral code” even when it existed.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const timeoutMs = 12_000 + attempt * 4_000;
+        const { data, error } = await withTimeout(
+          supabase.from('profiles').select('referral_code').eq('user_id', user.id).maybeSingle(),
+          timeoutMs
+        );
 
-      if (!error && data?.referral_code) {
-        setReferralCode(data.referral_code);
-        cacheSet(referralCodeCacheKey(user.id), data.referral_code);
+        if (!error && data?.referral_code) {
+          setReferralCode(data.referral_code);
+          cacheSet(referralCodeCacheKey(user.id), data.referral_code);
+          return;
+        }
+
+        // If the code is missing for this account, self-heal once, then re-check.
+        if (!data?.referral_code && attempt === 0) {
+          await ensureProfileFields(user.id);
+        }
+      } catch {
+        // keep cached UI
       }
-    } catch {
-      // keep cached UI
+
+      await sleep(250 + attempt * 250);
     }
   }, [user]);
 
