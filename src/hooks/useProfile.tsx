@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
 import { useAuth } from './useAuth';
 import { ensureProfileFields } from '@/lib/profile/ensureProfileFields';
+import { withTimeout } from '@/lib/utils';
 
 interface UserProfile {
   id: string;
@@ -26,11 +27,14 @@ export const useProfile = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        12_000
+      );
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -44,11 +48,14 @@ export const useProfile = () => {
           const ensured = await ensureProfileFields(user.id, { usernameHint: data?.username });
           if (ensured) {
             // Re-fetch from DB to get canonical values and update UI instantly
-            const { data: refreshed } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', user.id)
-              .maybeSingle();
+            const { data: refreshed } = await withTimeout(
+              supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle(),
+              12_000
+            );
             
             if (refreshed) {
               setProfile(refreshed);

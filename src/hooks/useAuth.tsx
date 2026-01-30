@@ -30,7 +30,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (mounted) setLoading(false);
     }, 2500);
 
-    // Check for existing session FIRST for faster initial load
+    // Set up auth state listener BEFORE getSession() to avoid missing the initial session
+    // on slower devices / flaky storage environments.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+      window.clearTimeout(failSafe);
+    });
+
+    // Then fetch current session (fast path).
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -44,16 +56,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) setLoading(false);
         window.clearTimeout(failSafe);
       });
-
-    // Set up auth state listener for subsequent changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
 
     return () => {
       mounted = false;
@@ -105,6 +107,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Defensive: clear any stale/partial session (e.g. after password recovery flows)
+      // so sign-in doesn't get stuck on some devices.
+      await supabase.auth.signOut().catch(() => {});
+
       const { error } = await withTimeout(
         supabase.auth.signInWithPassword({
           email: email.trim(),
