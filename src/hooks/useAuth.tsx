@@ -36,6 +36,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
+      
+      // Handle PASSWORD_RECOVERY event - redirect to reset password page
+      if (event === 'PASSWORD_RECOVERY') {
+        // Session is established, user can now update password
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        window.clearTimeout(failSafe);
+        
+        // Navigate to reset password page if not already there
+        if (window.location.pathname !== '/reset-password') {
+          window.location.href = '/reset-password';
+        }
+        return;
+      }
+      
+      // Handle successful sign-in after password change
+      if (event === 'SIGNED_IN' && session) {
+        setSession(session);
+        setUser(session.user);
+        setLoading(false);
+        window.clearTimeout(failSafe);
+        return;
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);

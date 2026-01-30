@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,26 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { checking, isValidSession } = usePasswordRecoverySession();
+
+  // Clear any stale session data on mount to prevent conflicts
+  const clearStaleAuth = useCallback(async () => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-') && key.includes('-auth-token')) {
+          // Don't remove the current recovery session token
+          continue;
+        }
+      }
+    } catch (e) {
+      // Ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    clearStaleAuth();
+  }, [clearStaleAuth]);
 
   useEffect(() => {
     if (!checking && !isValidSession && !success) {
@@ -64,22 +84,45 @@ const ResetPassword = () => {
           description: error.message,
           variant: "destructive"
         });
-      } else {
-        setSuccess(true);
-        toast({
-          title: "Password Updated!",
-          description: "Your password has been successfully reset. Please sign in with your new password.",
-        });
-
-        // Sign out the recovery session so the user can sign in fresh.
-        // This prevents stale-session issues ("Invalid login credentials").
-        await supabase.auth.signOut().catch(() => {});
-        
-        // Redirect to sign-in page after 2 seconds
-        setTimeout(() => {
-          navigate("/auth?mode=signin");
-        }, 2000);
+        setLoading(false);
+        return;
       }
+
+      // Force refresh the session to ensure new credentials are valid
+      try {
+        await supabase.auth.refreshSession();
+      } catch (refreshError) {
+        console.warn("Session refresh after password update:", refreshError);
+      }
+
+      setSuccess(true);
+      toast({
+        title: "Password Updated!",
+        description: "Your password has been successfully reset. Please sign in with your new password.",
+      });
+
+      // Clear all Supabase auth tokens to force fresh login
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {
+        // Ignore storage errors
+      }
+
+      // Sign out the recovery session so the user can sign in fresh.
+      // This prevents stale-session issues ("Invalid login credentials").
+      await supabase.auth.signOut().catch(() => {});
+      
+      // Redirect to sign-in page after 2 seconds
+      setTimeout(() => {
+        navigate("/auth?mode=signin");
+      }, 2000);
     } catch (error) {
       console.error('Password reset error:', error);
       toast({

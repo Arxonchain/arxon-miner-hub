@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { getEmailConfirmRedirectUrl } from "./getRedirectUrl";
 
 type SignUpResult = { error: Error | null; user: User | null };
 
@@ -104,7 +105,7 @@ export async function signUpWithFallback(
     email: normalizedEmail,
     password,
     options: {
-      emailRedirectTo: `${window.location.origin}/`,
+      emailRedirectTo: getEmailConfirmRedirectUrl(),
     },
   });
 

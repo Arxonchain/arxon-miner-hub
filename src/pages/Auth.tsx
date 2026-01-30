@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getPasswordResetRedirectUrl } from "@/lib/auth/getRedirectUrl";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 type Mode = "signin" | "signup" | "forgot";
@@ -66,8 +67,9 @@ export default function Auth() {
     setLoading(true);
 
     try {
+      // Use proper redirect URL for custom domain support
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: getPasswordResetRedirectUrl(),
       });
 
       if (error) {
