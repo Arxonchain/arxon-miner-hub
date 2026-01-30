@@ -107,9 +107,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Defensive: clear any stale/partial session (e.g. after password recovery flows)
-      // so sign-in doesn't get stuck on some devices.
+      // Clear any stale/partial session (e.g. after password recovery flows)
+      // to prevent "Invalid login credentials" on some devices.
       await supabase.auth.signOut().catch(() => {});
+
+      // Also clear localStorage Supabase keys in case signOut didn't fully clear them
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) { /* ignore storage errors */ }
+
+      // Small delay to ensure signOut propagates
+      await new Promise(r => setTimeout(r, 100));
 
       const { error } = await withTimeout(
         supabase.auth.signInWithPassword({
