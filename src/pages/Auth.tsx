@@ -98,10 +98,26 @@ export default function Auth() {
 
     try {
       if (mode === "signin") {
+        // Force clear any stale localStorage/sessionStorage auth remnants before attempting sign-in
+        try {
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(k => localStorage.removeItem(k));
+        } catch (e) { /* ignore */ }
+
         const { error } = await signIn(email, password);
         if (error) {
-          setErrorText(error.message || "Sign in failed");
-          toast({ title: "Sign In Failed", description: error.message, variant: "destructive" });
+          // If "Invalid login credentials", give clearer guidance
+          const msg = error.message?.toLowerCase().includes('invalid')
+            ? "Invalid email or password. Please check your credentials and try again."
+            : (error.message || "Sign in failed");
+          setErrorText(msg);
+          toast({ title: "Sign In Failed", description: msg, variant: "destructive" });
           return;
         }
         navigate("/");
