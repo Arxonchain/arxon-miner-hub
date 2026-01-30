@@ -188,8 +188,8 @@ const ArenaTeamLeaderboard = ({
               <span className="font-medium text-foreground">{alphaStats.members}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Staked</span>
-              <span className="font-medium text-cyan-500">{alphaStats.totalStaked.toLocaleString()}</span>
+            <span className="text-muted-foreground">Total Staked</span>
+            <span className="font-medium text-cyan-500">{Math.floor(alphaStats.totalStaked).toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Wins</span>
@@ -208,8 +208,8 @@ const ArenaTeamLeaderboard = ({
               <span className="font-medium text-foreground">{omegaStats.members}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Staked</span>
-              <span className="font-medium text-purple-500">{omegaStats.totalStaked.toLocaleString()}</span>
+            <span className="text-muted-foreground">Total Staked</span>
+            <span className="font-medium text-purple-500">{Math.floor(omegaStats.totalStaked).toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Wins</span>
