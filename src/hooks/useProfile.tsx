@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
 import { useAuth } from './useAuth';
+import { ensureProfileFields } from '@/lib/profile/ensureProfileFields';
 
 interface UserProfile {
   id: string;
@@ -36,6 +37,17 @@ export const useProfile = () => {
       } else {
         setProfile(data);
         cacheSet(`arxon:profile:v1:${user.id}`, data);
+
+        // Self-heal: ensure derived fields always exist.
+        // This fixes accounts showing missing referral codes / nexus addresses.
+        if (!data?.referral_code || !data?.nexus_address) {
+          const ensured = await ensureProfileFields(user.id, { usernameHint: data?.username });
+          if (ensured) {
+            const merged = { ...data, ...ensured };
+            setProfile(merged);
+            cacheSet(`arxon:profile:v1:${user.id}`, merged);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
