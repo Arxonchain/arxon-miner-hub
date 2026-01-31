@@ -1,6 +1,7 @@
 import { Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { useProfile } from "@/hooks/useProfile";
 
 interface MiningWidgetProps {
   isMining: boolean;
@@ -10,6 +11,7 @@ interface MiningWidgetProps {
 const MiningWidget = ({ isMining, onToggleMining }: MiningWidgetProps) => {
   const [earnings, setEarnings] = useState(890);
   const [countdown, setCountdown] = useState({ minutes: 4, seconds: 34 });
+  const { profile, loading: profileLoading } = useProfile();
 
   useEffect(() => {
     if (!isMining) return;
@@ -32,12 +34,25 @@ const MiningWidget = ({ isMining, onToggleMining }: MiningWidgetProps) => {
   }, [isMining]);
 
   const copyReferralCode = () => {
-    navigator.clipboard.writeText("ARX-REF-12345");
+    const code = profile?.referral_code;
+    if (!code) {
+      toast({
+        title: "Not Ready",
+        description: "Your referral code is still generating",
+        variant: "destructive"
+      });
+      return;
+    }
+    navigator.clipboard.writeText(code);
     toast({
       title: "Copied!",
       description: "Referral code copied to clipboard",
     });
   };
+
+  const displayCode = profileLoading 
+    ? "Generating..." 
+    : profile?.referral_code || "Generating...";
 
   return (
     <div className="relative flex flex-col items-center justify-center py-16">
@@ -73,7 +88,7 @@ const MiningWidget = ({ isMining, onToggleMining }: MiningWidgetProps) => {
         className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mt-8 relative z-10"
       >
         <Copy className="h-4 w-4" />
-        <span className="text-sm">Copy referral code</span>
+        <span className="text-sm">{displayCode}</span>
       </button>
     </div>
   );

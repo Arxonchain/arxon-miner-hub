@@ -19,7 +19,7 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = useCallback(async (forceRefresh = false) => {
     if (!user) {
       setProfile(null);
       setLoading(false);
@@ -27,6 +27,7 @@ export const useProfile = () => {
     }
 
     try {
+      // Fresh fetch from database
       const { data, error } = await withTimeout(
         supabase
           .from('profiles')
@@ -45,6 +46,7 @@ export const useProfile = () => {
         // Self-heal: ensure derived fields always exist.
         // This fixes accounts showing missing referral codes / nexus addresses.
         if (!data?.referral_code || !data?.nexus_address) {
+          setLoading(true); // Keep loading state while generating
           const ensured = await ensureProfileFields(user.id, { usernameHint: data?.username });
           if (ensured) {
             // Re-fetch from DB to get canonical values and update UI instantly
@@ -74,6 +76,15 @@ export const useProfile = () => {
       setLoading(false);
     }
   }, [user]);
+
+  // Force refetch profile (useful after referral actions)
+  const refetchProfile = useCallback(() => {
+    // Clear cache for fresh data
+    if (user?.id) {
+      cacheSet(`arxon:profile:v1:${user.id}`, null);
+    }
+    return fetchProfile(true);
+  }, [fetchProfile, user?.id]);
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return false;
@@ -118,6 +129,7 @@ export const useProfile = () => {
     profile,
     loading,
     fetchProfile,
+    refetchProfile,
     updateProfile,
   };
 };

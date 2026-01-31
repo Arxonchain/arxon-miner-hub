@@ -136,7 +136,7 @@ const Referrals = () => {
               <p className="text-xs sm:text-sm text-muted-foreground mb-1">Your Unique Referral Code</p>
               <div className="flex items-center gap-3">
                 <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary tracking-wider">
-                  {loading ? "Generating code..." : referralCode || "Loading..."}
+                  {loading && !referralCode ? "Generating..." : referralCode || "Generating..."}
                 </span>
                 {referralCode && !loading && (
                   <button 
