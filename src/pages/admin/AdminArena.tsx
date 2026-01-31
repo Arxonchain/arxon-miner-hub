@@ -46,7 +46,8 @@ const CATEGORIES = [
   { value: 'other', label: '🎯 Other' },
 ];
 
-const DURATIONS = [
+const DURATION_PRESETS = [
+  { value: 'custom', label: 'Custom' },
   { value: '1', label: '1 Hour' },
   { value: '3', label: '3 Hours' },
   { value: '6', label: '6 Hours' },
@@ -75,7 +76,9 @@ const AdminArena = () => {
     side_b_name: '',
     side_b_color: '#f87171',
     category: 'crypto',
+    duration_preset: '24',
     duration_hours: '24',
+    duration_minutes: '0',
     prize_pool: '0',
     bonus_percentage: '200',
     schedule_type: 'now' as 'now' | 'scheduled',
@@ -169,8 +172,11 @@ const AdminArena = () => {
         // Start immediately
         startsAt = new Date();
       }
+
+      // Calculate total duration in hours (including fractional hours from minutes)
+      const totalDurationHours = parseInt(formData.duration_hours) + (parseInt(formData.duration_minutes) / 60);
       
-      const endsAt = new Date(startsAt.getTime() + parseInt(formData.duration_hours) * 60 * 60 * 1000);
+      const endsAt = new Date(startsAt.getTime() + totalDurationHours * 60 * 60 * 1000);
 
       const { error } = await supabase.from('arena_battles').insert({
         title: formData.title,
@@ -180,7 +186,7 @@ const AdminArena = () => {
         side_b_name: formData.side_b_name,
         side_b_color: formData.side_b_color,
         category: formData.category,
-        duration_hours: parseInt(formData.duration_hours),
+        duration_hours: totalDurationHours,
         prize_pool: parseFloat(formData.prize_pool) || 0,
         bonus_percentage: parseFloat(formData.bonus_percentage) || 200,
         starts_at: startsAt.toISOString(),
@@ -201,7 +207,9 @@ const AdminArena = () => {
         side_b_name: '',
         side_b_color: '#f87171',
         category: 'crypto',
+        duration_preset: '24',
         duration_hours: '24',
+        duration_minutes: '0',
         prize_pool: '0',
         bonus_percentage: '200',
         schedule_type: 'now',
@@ -482,16 +490,22 @@ const AdminArena = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Duration</Label>
+                    <Label>Duration Preset</Label>
                     <Select
-                      value={formData.duration_hours}
-                      onValueChange={(v) => setFormData({ ...formData, duration_hours: v })}
+                      value={formData.duration_preset}
+                      onValueChange={(v) => {
+                        if (v === 'custom') {
+                          setFormData({ ...formData, duration_preset: v });
+                        } else {
+                          setFormData({ ...formData, duration_preset: v, duration_hours: v, duration_minutes: '0' });
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {DURATIONS.map((dur) => (
+                        {DURATION_PRESETS.map((dur) => (
                           <SelectItem key={dur.value} value={dur.value}>
                             {dur.label}
                           </SelectItem>
@@ -499,6 +513,40 @@ const AdminArena = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Custom Duration Input */}
+                {formData.duration_preset === 'custom' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Hours</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="720"
+                        placeholder="0"
+                        value={formData.duration_hours}
+                        onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Minutes</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        placeholder="0"
+                        value={formData.duration_minutes}
+                        onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Duration Preview */}
+                <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Total duration: {formData.duration_hours}h {formData.duration_minutes}m
                 </div>
 
                 {/* Schedule Type */}
