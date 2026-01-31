@@ -39,11 +39,18 @@ export const useReferrals = (user: User | null) => {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchReferralCode = useCallback(async () => {
+  const fetchReferralCode = useCallback(async (forceRefresh?: boolean) => {
     if (!user) return;
 
+    // Clear cache if forcing refresh
+    if (forceRefresh) {
+      try {
+        localStorage.removeItem(referralCodeCacheKey(user.id));
+      } catch {}
+    }
+
     // Retry a few times because some devices/networks occasionally time out,
-    // which made users appear to have “no referral code” even when it existed.
+    // which made users appear to have "no referral code" even when it existed.
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const timeoutMs = 12_000 + attempt * 4_000;
@@ -55,12 +62,19 @@ export const useReferrals = (user: User | null) => {
         if (!error && data?.referral_code) {
           setReferralCode(data.referral_code);
           cacheSet(referralCodeCacheKey(user.id), data.referral_code);
+          setLoading(false);
           return;
         }
 
-        // If the code is missing for this account, self-heal once, then re-check.
-        if (!data?.referral_code && attempt === 0) {
-          await ensureProfileFields(user.id);
+        // If the code is missing for this account, self-heal to generate it
+        if (!data?.referral_code) {
+          const ensured = await ensureProfileFields(user.id);
+          if (ensured?.referral_code) {
+            setReferralCode(ensured.referral_code);
+            cacheSet(referralCodeCacheKey(user.id), ensured.referral_code);
+            setLoading(false);
+            return;
+          }
         }
       } catch {
         // keep cached UI
@@ -68,6 +82,7 @@ export const useReferrals = (user: User | null) => {
 
       await sleep(250 + attempt * 250);
     }
+    setLoading(false);
   }, [user]);
 
   const fetchReferrals = useCallback(async () => {
@@ -225,6 +240,7 @@ export const useReferrals = (user: User | null) => {
       return;
     }
 
+    // Hydrate from cache initially
     const cachedCode = cacheGet<string>(referralCodeCacheKey(user.id), { maxAgeMs: 24 * 60 * 60_000 });
     if (cachedCode?.data) setReferralCode(cachedCode.data);
 
@@ -234,11 +250,13 @@ export const useReferrals = (user: User | null) => {
     const cachedStats = cacheGet<ReferralStats>(referralStatsCacheKey(user.id), { maxAgeMs: 5 * 60_000 });
     if (cachedStats?.data) setStats(cachedStats.data);
 
-    // Avoid long spinners
-    setLoading(false);
+    // Don't show loading if we have cached data
+    if (cachedCode?.data) {
+      setLoading(false);
+    }
 
-    // Refresh in background
-    void fetchReferralCode();
+    // Always fetch fresh data from server (force refresh to bypass any stale cache)
+    void fetchReferralCode(true);
     void fetchReferrals();
   }, [user, fetchReferralCode, fetchReferrals]);
 
@@ -300,4 +318,3 @@ export const useReferrals = (user: User | null) => {
     refreshReferrals: fetchReferrals,
   };
 };
-
