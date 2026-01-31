@@ -7,33 +7,12 @@ const corsHeaders = {
 };
 
 /**
- * New Reward System (supports 3-way markets):
- * - Winners get their original stake back
- * - Dynamic multiplier (2x to 5x) based on pool ratio
- * - Winners share the ENTIRE combined losing pools proportionally
- * - Losers get NOTHING back (full risk, full reward)
- * 
- * For 3-way markets (A/B/C):
- * - If Side A wins: losingPool = side_b_power + side_c_power
- * - If Side B wins: losingPool = side_a_power + side_c_power
- * - If Side C (Draw) wins: losingPool = side_a_power + side_b_power
+ * Simplified Reward System:
+ * - Total Pool = Prize Pool (admin set) + All Stakes (winners + losers)
+ * - Winners share the ENTIRE pool proportionally with 200% bonus applied
+ * - Losers get NOTHING (full risk, full reward)
+ * - Rewards are CAPPED to total pool (no over-distribution)
  */
-function calculateMultiplier(winningPool: number, losingPool: number): number {
-  const MIN_MULTIPLIER = 2.0;
-  const MAX_MULTIPLIER = 5.0;
-
-  if (winningPool <= 0) return MIN_MULTIPLIER;
-  
-  if (winningPool >= losingPool) {
-    // Favorites won - lower multiplier
-    const ratio = losingPool / winningPool;
-    return Math.min(MIN_MULTIPLIER + (ratio * (MAX_MULTIPLIER - MIN_MULTIPLIER)), MAX_MULTIPLIER);
-  } else {
-    // Underdogs won - maximum multiplier
-    return MAX_MULTIPLIER;
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -44,17 +23,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if this is a manual resolution with specified winner
     const body = await req.json().catch(() => ({}));
-    const manualWinner = body.winner_side; // 'a', 'b', or 'c' for admin-verified outcomes
+    const manualWinner = body.winner_side; // 'a', 'b', or 'c'
     const battleId = body.battle_id;
 
-    console.log("Starting battle resolution check...", { manualWinner, battleId });
+    console.log("Starting battle resolution...", { manualWinner, battleId });
 
     let battlesToResolve;
 
     if (battleId && manualWinner) {
-      // Manual resolution for specific battle with verified outcome
       const { data, error } = await supabase
         .from("arena_battles")
         .select("*")
@@ -67,7 +44,6 @@ serve(async (req) => {
       }
       battlesToResolve = [{ ...data, verified_winner: manualWinner }];
     } else {
-      // Auto-resolution for ended battles (fallback to pool-based winner)
       const { data, error } = await supabase
         .from("arena_battles")
         .select("*")
@@ -97,30 +73,25 @@ serve(async (req) => {
       const sideCPower = Number(battle.side_c_power) || 0;
       const hasSideC = !!battle.side_c_name;
 
-      // Determine winner - use verified winner if provided, otherwise use pool sizes
+      // Determine winner
       let winnerSide: string | null = null;
       if (battle.verified_winner) {
         winnerSide = battle.verified_winner;
       } else if (hasSideC) {
-        // 3-way market: find side with most power
         if (sideAPower > sideBPower && sideAPower > sideCPower) {
           winnerSide = "a";
         } else if (sideBPower > sideAPower && sideBPower > sideCPower) {
           winnerSide = "b";
         } else if (sideCPower > sideAPower && sideCPower > sideBPower) {
           winnerSide = "c";
-        } else {
-          // Tie - pick by priority: a > b > c, or null if all zero
-          if (sideAPower >= sideBPower && sideAPower >= sideCPower && sideAPower > 0) {
-            winnerSide = "a";
-          } else if (sideBPower > 0) {
-            winnerSide = "b";
-          } else if (sideCPower > 0) {
-            winnerSide = "c";
-          }
+        } else if (sideAPower >= sideBPower && sideAPower >= sideCPower && sideAPower > 0) {
+          winnerSide = "a";
+        } else if (sideBPower > 0) {
+          winnerSide = "b";
+        } else if (sideCPower > 0) {
+          winnerSide = "c";
         }
       } else {
-        // Binary market
         if (sideAPower > sideBPower) {
           winnerSide = "a";
         } else if (sideBPower > sideAPower) {
@@ -128,7 +99,7 @@ serve(async (req) => {
         }
       }
 
-      // Calculate pools based on winner
+      // Calculate pools
       let winningPool = 0;
       let losingPool = 0;
 
@@ -142,19 +113,22 @@ serve(async (req) => {
         winningPool = sideCPower;
         losingPool = sideAPower + sideBPower;
       }
-      
-      // Get admin-set prize pool and bonus percentage
-      const prizePool = Number(battle.prize_pool) || 0;
-      const bonusPercentage = Number(battle.bonus_percentage) || 200; // Default 200%
 
-      // Calculate multiplier
-      const multiplier = winnerSide ? calculateMultiplier(winningPool, losingPool) : 0;
+      // Prize pool and bonus percentage from admin settings
+      const prizePool = Number(battle.prize_pool) || 0;
+      const bonusPercentage = Number(battle.bonus_percentage) || 200;
+
+      // TOTAL POOL = Admin Prize Pool + All Stakes (winners + losers)
+      const totalStakes = sideAPower + sideBPower + sideCPower;
+      const TOTAL_POOL = prizePool + totalStakes;
 
       const winnerSideName = winnerSide === "a" ? battle.side_a_name : 
                              winnerSide === "c" ? (battle.side_c_name || "Draw") : 
                              battle.side_b_name;
 
-      console.log(`Winner: ${winnerSide} (${winnerSideName}), Winning Pool: ${winningPool}, Losing Pool: ${losingPool}, Prize Pool: ${prizePool}, Multiplier: ${multiplier}x`);
+      console.log(`Winner: ${winnerSide} (${winnerSideName})`);
+      console.log(`Prize Pool: ${prizePool}, Total Stakes: ${totalStakes}, TOTAL POOL: ${TOTAL_POOL}`);
+      console.log(`Winning Pool: ${winningPool}, Losing Pool: ${losingPool}, Bonus %: ${bonusPercentage}`);
 
       // Update battle as resolved
       await supabase
@@ -168,7 +142,7 @@ serve(async (req) => {
         .eq("id", battle.id);
 
       if (winnerSide) {
-        // Get all votes for this battle (including early_stake_multiplier)
+        // Get all votes
         const { data: allVotes, error: votesError } = await supabase
           .from("arena_votes")
           .select("user_id, power_spent, side, early_stake_multiplier, created_at")
@@ -181,127 +155,96 @@ serve(async (req) => {
 
         const winningVotes = (allVotes || []).filter(v => v.side === winnerSide);
         const losingVotes = (allVotes || []).filter(v => v.side !== winnerSide);
-        const allParticipants = allVotes || [];
 
-        console.log(`Winners: ${winningVotes.length}, Losers: ${losingVotes.length}, Total Participants: ${allParticipants.length}`);
+        console.log(`Winners: ${winningVotes.length}, Losers: ${losingVotes.length}`);
 
-        let totalRewardsDistributed = 0;
-        let prizePoolDistributed = 0;
-
-        // Prize pool distribution: Winners get bonus % of their stake FROM the pool
-        // The pool is fixed (e.g., 100k), bonus % determines how much of stake as bonus
-        // If total requested bonuses exceed pool, scale down proportionally
-        
-        console.log(`Prize Pool: ${prizePool}, Bonus %: ${bonusPercentage}%, Winners: ${winningVotes.length}`);
-
-        // First pass: Calculate each winner's requested bonus (stake * bonus% * early_stake_multiplier)
-        const winnerBonusRequests: { vote: typeof winningVotes[0]; requestedBonus: number; earlyMultiplier: number }[] = [];
-        let totalRequestedBonus = 0;
+        // First pass: Calculate each winner's weighted share
+        // Weight = stake * early_multiplier * (1 + bonus%/100)
+        let totalWeight = 0;
+        const winnerWeights: { vote: typeof winningVotes[0]; weight: number; earlyMultiplier: number }[] = [];
 
         for (const vote of winningVotes) {
-          // Early staker multiplier: 1.0 to 1.5x based on when they voted
           const earlyMultiplier = Number(vote.early_stake_multiplier) || 1.0;
-          
-          // Each winner's bonus = their stake * (bonusPercentage / 100) * earlyMultiplier
-          const requestedBonus = vote.power_spent * (bonusPercentage / 100) * earlyMultiplier;
-          winnerBonusRequests.push({ vote, requestedBonus, earlyMultiplier });
-          totalRequestedBonus += requestedBonus;
-          
-          console.log(`User ${vote.user_id}: Early multiplier ${earlyMultiplier.toFixed(2)}x, Requested bonus: ${requestedBonus.toFixed(0)}`);
+          // Weight includes early multiplier and bonus percentage
+          const weight = vote.power_spent * earlyMultiplier * (1 + bonusPercentage / 100);
+          winnerWeights.push({ vote, weight, earlyMultiplier });
+          totalWeight += weight;
+          console.log(`User ${vote.user_id}: Stake ${vote.power_spent}, Early ${earlyMultiplier.toFixed(2)}x, Weight ${weight.toFixed(0)}`);
         }
 
-        // Calculate scale factor: if total requests exceed pool, scale down
-        const scaleFactor = totalRequestedBonus > prizePool && totalRequestedBonus > 0
-          ? prizePool / totalRequestedBonus
-          : 1;
+        let totalRewardsDistributed = 0;
 
-        console.log(`Total requested bonus: ${totalRequestedBonus}, Scale factor: ${scaleFactor}`);
-
-        // Second pass: Process winners with scaled bonuses (includes early staker bonus)
-        for (const { vote, requestedBonus, earlyMultiplier } of winnerBonusRequests) {
-          // Get current win streak for this user
+        // Second pass: Distribute TOTAL_POOL proportionally by weight (capped to pool)
+        for (const { vote, weight, earlyMultiplier } of winnerWeights) {
+          // Get win streak
           const { data: memberData } = await supabase
             .from("arena_members")
-            .select("current_win_streak, best_win_streak")
+            .select("current_win_streak, best_win_streak, total_wins")
             .eq("user_id", vote.user_id)
             .single();
 
           const currentStreak = (memberData?.current_win_streak || 0) + 1;
           const bestStreak = Math.max(currentStreak, memberData?.best_win_streak || 0);
 
-          // Calculate streak bonus (3+ wins = 25%, 5+ = 50%, 10+ = 100%)
+          // Streak bonus: 3+ = 25%, 5+ = 50%, 10+ = 100%
           let streakBonusPercent = 0;
-          if (currentStreak >= 10) {
-            streakBonusPercent = 100;
-          } else if (currentStreak >= 5) {
-            streakBonusPercent = 50;
-          } else if (currentStreak >= 3) {
-            streakBonusPercent = 25;
+          if (currentStreak >= 10) streakBonusPercent = 100;
+          else if (currentStreak >= 5) streakBonusPercent = 50;
+          else if (currentStreak >= 3) streakBonusPercent = 25;
+
+          // User's share of TOTAL POOL based on their weight
+          const baseReward = totalWeight > 0 ? (weight / totalWeight) * TOTAL_POOL : 0;
+          
+          // Apply streak bonus
+          const streakBonus = baseReward * (streakBonusPercent / 100);
+          let totalReward = baseReward + streakBonus;
+
+          // CRITICAL: Cap total distributed to TOTAL_POOL
+          const remainingPool = TOTAL_POOL - totalRewardsDistributed;
+          if (totalReward > remainingPool) {
+            totalReward = remainingPool;
           }
 
-          const stakeReturn = vote.power_spent; // Original stake back
-          // Apply early staker multiplier to the stake bonus as well
-          const stakeBonus = vote.power_spent * (multiplier - 1) * earlyMultiplier; // Multiplier bonus + early bonus
-          const loserPoolShare = winningPool > 0 
-            ? (vote.power_spent / winningPool) * losingPool * earlyMultiplier
-            : 0;
-          
-          // Winner's prize pool share = their requested bonus * scale factor (already has early multiplier)
-          const winnerPrizeShare = requestedBonus * scaleFactor;
-          
-          // Apply streak bonus to total earnings
-          const baseReward = stakeReturn + stakeBonus + loserPoolShare + winnerPrizeShare;
-          const streakBonus = baseReward * (streakBonusPercent / 100);
-          const totalReward = baseReward + streakBonus;
-          
-          prizePoolDistributed += winnerPrizeShare;
           totalRewardsDistributed += totalReward;
 
-          console.log(`User ${vote.user_id}: Early ${earlyMultiplier.toFixed(2)}x, Streak ${currentStreak}, Bonus ${streakBonusPercent}%, Reward ${totalReward.toFixed(0)}`);
+          console.log(`User ${vote.user_id}: Base ${baseReward.toFixed(0)}, Streak ${streakBonusPercent}%, Total ${totalReward.toFixed(0)}`);
 
-          // Update win streak
+          // Update member stats
           await supabase
             .from("arena_members")
             .update({
               current_win_streak: currentStreak,
               best_win_streak: bestStreak,
-              total_wins: (memberData as any)?.total_wins ? (memberData as any).total_wins + 1 : 1,
+              total_wins: (memberData?.total_wins || 0) + 1,
             })
             .eq("user_id", vote.user_id);
 
-          // Record the reward with streak bonus and prize pool share
+          // Record staking reward
           await supabase.from("arena_staking_rewards").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
             original_stake: vote.power_spent,
-            multiplier: multiplier,
-            stake_return: stakeReturn,
-            loser_pool_share: loserPoolShare + winnerPrizeShare,
+            multiplier: totalReward / vote.power_spent,
+            stake_return: 0, // No separate stake return - all included in total
+            loser_pool_share: totalReward,
             total_reward: totalReward,
             is_winner: true,
           });
 
-          // Record in arena_earnings with streak bonus and prize pool
+          // Record earnings
           await supabase.from("arena_earnings").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
             stake_amount: vote.power_spent,
-            bonus_earned: stakeBonus + winnerPrizeShare,
-            pool_share_earned: loserPoolShare,
+            bonus_earned: totalReward - vote.power_spent,
+            pool_share_earned: totalReward,
             streak_bonus: streakBonus,
             total_earned: totalReward,
             is_winner: true,
           });
 
-          // Add ARX-P back to winner's balance
-          await supabase.rpc("increment_user_points", {
-            p_user_id: vote.user_id,
-            p_amount: Math.min(totalReward, 500),
-            p_type: "mining",
-          });
-
-          // For large rewards, we need multiple increments (RPC has 500 cap)
-          let remainingReward = totalReward - 500;
+          // Credit points (500 cap per RPC call)
+          let remainingReward = Math.ceil(totalReward);
           while (remainingReward > 0) {
             const increment = Math.min(remainingReward, 500);
             await supabase.rpc("increment_user_points", {
@@ -312,32 +255,30 @@ serve(async (req) => {
             remainingReward -= 500;
           }
 
-          // Award winner badge with streak info
+          // Award winner badge
           const streakText = currentStreak >= 3 ? ` 🔥 ${currentStreak}-Win Streak!` : "";
           await supabase.from("user_badges").insert({
             user_id: vote.user_id,
             badge_type: "winner",
             badge_name: `${winnerSideName} Champion`,
-            description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}" (${multiplier.toFixed(1)}x return)${streakText}`,
+            description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}"${streakText}`,
             battle_id: battle.id,
           });
 
-          // Extended arena boost for 7 days post-win
+          // Extended boost
           const boostExpiry = new Date();
           boostExpiry.setDate(boostExpiry.getDate() + 7);
           
           await supabase.from("arena_boosts").upsert({
             user_id: vote.user_id,
             battle_id: battle.id,
-            boost_percentage: 25, // 25% boost for 7 more days after winning
+            boost_percentage: 25,
             expires_at: boostExpiry.toISOString(),
           });
         }
 
-        // Process losers - reset their streak, they only keep the instant mining boost (applied by trigger)
-        // NO points returned - full risk, full reward system
+        // Process losers - reset streak, they get NOTHING
         for (const vote of losingVotes) {
-          // Reset win streak
           await supabase
             .from("arena_members")
             .update({ current_win_streak: 0 })
@@ -354,7 +295,6 @@ serve(async (req) => {
             is_winner: false,
           });
 
-          // Record loss in arena_earnings (zero earnings)
           await supabase.from("arena_earnings").insert({
             battle_id: battle.id,
             user_id: vote.user_id,
@@ -366,8 +306,6 @@ serve(async (req) => {
             is_winner: false,
           });
 
-          // Award participation badge (losers still get a badge for participating)
-          // Get the side name for the loser
           const loserSideName = vote.side === "a" ? battle.side_a_name : 
                                 vote.side === "c" ? (battle.side_c_name || "Draw") : 
                                 battle.side_b_name;
@@ -375,21 +313,21 @@ serve(async (req) => {
             user_id: vote.user_id,
             badge_type: "participant",
             badge_name: `${loserSideName} Warrior`,
-            description: `Staked ${vote.power_spent} ARX-P on ${loserSideName} in "${battle.title}" (Mining boost active!)`,
+            description: `Staked ${vote.power_spent} ARX-P on ${loserSideName} in "${battle.title}"`,
             battle_id: battle.id,
           });
         }
 
-        // Update battle with total rewards distributed including prize pool
+        // Update battle with total distributed
         await supabase
           .from("arena_battles")
           .update({
             losing_pool_distributed: true,
-            total_rewards_distributed: totalRewardsDistributed + prizePoolDistributed,
+            total_rewards_distributed: totalRewardsDistributed,
           })
           .eq("id", battle.id);
 
-        // Award Arena Legend badge to top winner
+        // Award legend badge to top winner
         if (winningVotes.length > 0) {
           const topVoter = winningVotes.reduce((max, vote) =>
             vote.power_spent > max.power_spent ? vote : max
@@ -408,11 +346,10 @@ serve(async (req) => {
           battle: battle.title,
           winner: winnerSide,
           winnerName: winnerSideName,
-          multiplier: multiplier,
           winnersCount: winningVotes.length,
           losersCount: losingVotes.length,
+          totalPool: TOTAL_POOL,
           totalDistributed: totalRewardsDistributed,
-          prizePoolDistributed: prizePoolDistributed,
         });
       }
 
