@@ -46,17 +46,8 @@ const CATEGORIES = [
   { value: 'other', label: '🎯 Other' },
 ];
 
-const DURATION_PRESETS = [
-  { value: 'custom', label: 'Custom' },
-  { value: '1', label: '1 Hour' },
-  { value: '3', label: '3 Hours' },
-  { value: '6', label: '6 Hours' },
-  { value: '12', label: '12 Hours' },
-  { value: '24', label: '24 Hours' },
-  { value: '48', label: '48 Hours' },
-  { value: '72', label: '72 Hours (3 Days)' },
-  { value: '168', label: '168 Hours (1 Week)' },
-];
+const HOUR_OPTIONS = [0, 1, 2, 3, 4, 6, 12, 24, 48, 72, 168];
+const MINUTE_OPTIONS = [0, 5, 10, 15, 30, 45];
 
 const AdminArena = () => {
   const [battles, setBattles] = useState<ArenaBattle[]>([]);
@@ -76,7 +67,6 @@ const AdminArena = () => {
     side_b_name: '',
     side_b_color: '#f87171',
     category: 'crypto',
-    duration_preset: '24',
     duration_hours: '24',
     duration_minutes: '0',
     prize_pool: '0',
@@ -173,10 +163,18 @@ const AdminArena = () => {
         startsAt = new Date();
       }
 
-      // Calculate total duration in hours (including fractional hours from minutes)
-      const totalDurationHours = parseInt(formData.duration_hours) + (parseInt(formData.duration_minutes) / 60);
+      // Calculate total duration in milliseconds (hours + minutes separately)
+      const hours = parseInt(formData.duration_hours) || 0;
+      const minutes = parseInt(formData.duration_minutes) || 0;
+      const totalDurationMs = (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
       
-      const endsAt = new Date(startsAt.getTime() + totalDurationHours * 60 * 60 * 1000);
+      if (totalDurationMs < 5 * 60 * 1000) {
+        toast.error('Duration must be at least 5 minutes');
+        setCreating(false);
+        return;
+      }
+      
+      const endsAt = new Date(startsAt.getTime() + totalDurationMs);
 
       const { error } = await supabase.from('arena_battles').insert({
         title: formData.title,
@@ -186,7 +184,7 @@ const AdminArena = () => {
         side_b_name: formData.side_b_name,
         side_b_color: formData.side_b_color,
         category: formData.category,
-        duration_hours: totalDurationHours,
+        duration_hours: hours, // Store just the hours as integer
         prize_pool: parseFloat(formData.prize_pool) || 0,
         bonus_percentage: parseFloat(formData.bonus_percentage) || 200,
         starts_at: startsAt.toISOString(),
@@ -207,7 +205,6 @@ const AdminArena = () => {
         side_b_name: '',
         side_b_color: '#f87171',
         category: 'crypto',
-        duration_preset: '24',
         duration_hours: '24',
         duration_minutes: '0',
         prize_pool: '0',
@@ -489,59 +486,44 @@ const AdminArena = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  {/* Duration - Hours */}
                   <div className="space-y-2">
-                    <Label>Duration Preset</Label>
-                    <Select
-                      value={formData.duration_preset}
-                      onValueChange={(v) => {
-                        if (v === 'custom') {
-                          setFormData({ ...formData, duration_preset: v });
-                        } else {
-                          setFormData({ ...formData, duration_preset: v, duration_hours: v, duration_minutes: '0' });
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DURATION_PRESETS.map((dur) => (
-                          <SelectItem key={dur.value} value={dur.value}>
-                            {dur.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Hours</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {HOUR_OPTIONS.map((h) => (
+                        <Button
+                          key={h}
+                          type="button"
+                          size="sm"
+                          variant={formData.duration_hours === String(h) ? 'default' : 'outline'}
+                          className="min-w-[40px]"
+                          onClick={() => setFormData({ ...formData, duration_hours: String(h) })}
+                        >
+                          {h}h
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Custom Duration Input */}
-                {formData.duration_preset === 'custom' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Hours</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="720"
-                        placeholder="0"
-                        value={formData.duration_hours}
-                        onChange={(e) => setFormData({ ...formData, duration_hours: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Minutes</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="59"
-                        placeholder="0"
-                        value={formData.duration_minutes}
-                        onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                      />
-                    </div>
+                {/* Duration - Minutes */}
+                <div className="space-y-2">
+                  <Label>Minutes</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {MINUTE_OPTIONS.map((m) => (
+                      <Button
+                        key={m}
+                        type="button"
+                        size="sm"
+                        variant={formData.duration_minutes === String(m) ? 'default' : 'outline'}
+                        className="min-w-[40px]"
+                        onClick={() => setFormData({ ...formData, duration_minutes: String(m) })}
+                      >
+                        {m}m
+                      </Button>
+                    ))}
                   </div>
-                )}
+                </div>
 
                 {/* Duration Preview */}
                 <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
