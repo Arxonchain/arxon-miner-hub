@@ -84,8 +84,15 @@ const Nexus = () => {
       return;
     }
 
-    const numAmount = parseInt(amount);
-    if (isNaN(numAmount) || numAmount < 1 || numAmount > 10) {
+    // Parse and validate amount as integer
+    const trimmedAmount = amount.trim();
+    if (!trimmedAmount || !/^\d+$/.test(trimmedAmount)) {
+      toast({ title: 'Error', description: 'Amount must be a whole number (1-10 ARX-P)', variant: 'destructive' });
+      return;
+    }
+
+    const numAmount = Number(trimmedAmount);
+    if (!Number.isInteger(numAmount) || numAmount < 1 || numAmount > 10) {
       toast({ title: 'Error', description: 'Amount must be between 1 and 10 ARX-P', variant: 'destructive' });
       return;
     }
