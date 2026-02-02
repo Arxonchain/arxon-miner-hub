@@ -1,16 +1,65 @@
 // Admin Dashboard - centralized stats with tooltips
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Activity, Coins, Server, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { Users, Activity, Coins, Server, Clock, CheckCircle, Loader2, Download } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subHours, startOfHour, eachHourOfInterval } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { useAdminStats, formatNumber } from "@/hooks/useAdminStats";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
+  const [isExporting, setIsExporting] = useState(false);
+  
   // Use centralized stats hook for consistent data
   const { data: stats, isLoading: loadingStats } = useAdminStats();
+
+  const handleExportUsers = async () => {
+    setIsExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-users-csv`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Export failed');
+      }
+
+      // Get the CSV content and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `auth_users_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success("Users CSV downloaded successfully!");
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to export users');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Fetch 24h miner activity
   const { data: hourlyData = [], isLoading: loadingHourly } = useQuery({
@@ -133,9 +182,24 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
-        <p className="text-sm md:text-base text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
+        </div>
+        <Button 
+          onClick={handleExportUsers} 
+          disabled={isExporting}
+          variant="outline"
+          className="gap-2"
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          {isExporting ? "Exporting..." : "Download Users CSV"}
+        </Button>
       </div>
 
       {/* Stats Grid */}
