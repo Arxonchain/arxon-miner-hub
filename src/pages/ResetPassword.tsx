@@ -26,7 +26,7 @@ function sanitizeNext(nextRaw: string | null): string {
   return "/";
 }
 
-export default function ResetPassword() {
+export default function AuthConfirm() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -41,8 +41,6 @@ export default function ResetPassword() {
   const next = useMemo(() => sanitizeNext(searchParams.get("next")), [searchParams]);
 
   useEffect(() => {
-    console.log("[RESET DEBUG] ResetPassword component loaded for /reset-password");
-
     let cancelled = false;
 
     const run = async () => {
@@ -50,19 +48,14 @@ export default function ResetPassword() {
       const tokenHash = searchParams.get("token_hash");
       const typeRaw = searchParams.get("type");
 
-      console.log("[RESET DEBUG] Query params:", { token, tokenHash, typeRaw });
-
       const effectiveToken = token || tokenHash;
       const type = typeRaw?.toLowerCase() as EmailOtpType | null;
 
       if (!effectiveToken || !type) {
-        console.log("[RESET DEBUG] Missing token or type");
-        setErrorMessage("Invalid reset link. Please request a new one.");
+        setErrorMessage("Missing recovery token or type. Please request a new reset link.");
         setLoading(false);
         return;
       }
-
-      console.log("[RESET DEBUG] Attempting verifyOtp");
 
       try {
         const { data, error } = await supabase.auth.verifyOtp({
@@ -70,26 +63,20 @@ export default function ResetPassword() {
           type,
         });
 
-        console.log("[RESET DEBUG] verifyOtp result:", {
-          data: data ? JSON.stringify(data) : 'null',
-          error: error ? error.message : 'null'
-        });
-
         if (error) {
-          setErrorMessage(error.message || "Invalid or expired link.");
+          setErrorMessage(error.message || "Invalid or expired link. Please request a new one.");
           toast({
             title: "Verification Failed",
-            description: error.message || "Request a new link.",
+            description: error.message || "Please request a new reset link.",
             variant: "destructive",
           });
         } else {
-          console.log("[RESET DEBUG] Verification success - showing password form");
+          // No error = success (even if data is empty/null - common for recovery)
           setVerified(true);
-          setSuccessMessage("Link verified! Set your new password.");
+          setSuccessMessage("Link verified! Enter your new password below.");
         }
       } catch (e: any) {
-        console.error("[RESET DEBUG] verifyOtp error:", e.message || e);
-        setErrorMessage("Verification error. Try a new link.");
+        setErrorMessage("Unexpected error during verification. Please request a new link.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -112,7 +99,7 @@ export default function ResetPassword() {
     }
 
     if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters");
+      setErrorMessage("Password must be at least 8 characters long");
       return;
     }
 
@@ -126,13 +113,16 @@ export default function ResetPassword() {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Password reset complete. Sign in now.",
+        title: "Password Updated",
+        description: "Your password has been reset successfully. Please sign in.",
       });
 
-      navigate("/auth?mode=signin", { replace: true });
+      setSuccessMessage("Password updated! Redirecting to sign in...");
+      setTimeout(() => {
+        navigate("/auth?mode=signin", { replace: true });
+      }, 2000);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to reset password.");
+      setErrorMessage(err.message || "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
     }
