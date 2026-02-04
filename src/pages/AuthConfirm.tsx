@@ -13,7 +13,39 @@ const AuthConfirm = () => {
     const confirmEmail = async () => {
       const token_hash = searchParams.get("token_hash");
       const type = searchParams.get("type");
+      const code = searchParams.get("code");
+      const next = searchParams.get("next") || "/";
 
+      // Handle PKCE code exchange
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            setStatus("error");
+            setMessage(error.message || "Failed to confirm. Please try again.");
+            return;
+          }
+          
+          // Check if this is a recovery flow
+          if (type === "recovery") {
+            setStatus("success");
+            setMessage("Link verified! Redirecting to password reset...");
+            setTimeout(() => navigate("/reset-password"), 1500);
+            return;
+          }
+          
+          setStatus("success");
+          setMessage("Email confirmed successfully! Redirecting...");
+          setTimeout(() => navigate(next), 2000);
+          return;
+        } catch (err) {
+          setStatus("error");
+          setMessage("An unexpected error occurred. Please try again.");
+          return;
+        }
+      }
+
+      // Handle token_hash verification
       if (!token_hash || !type) {
         setStatus("error");
         setMessage("Invalid confirmation link. Please request a new one.");
@@ -29,11 +61,20 @@ const AuthConfirm = () => {
         if (error) {
           setStatus("error");
           setMessage(error.message || "Failed to confirm email. Please try again.");
-        } else {
-          setStatus("success");
-          setMessage("Email confirmed successfully! Redirecting...");
-          setTimeout(() => navigate("/"), 2000);
+          return;
         }
+        
+        // If this is a recovery/password reset, redirect to reset page
+        if (type === "recovery") {
+          setStatus("success");
+          setMessage("Link verified! Redirecting to password reset...");
+          setTimeout(() => navigate("/reset-password"), 1500);
+          return;
+        }
+        
+        setStatus("success");
+        setMessage("Email confirmed successfully! Redirecting...");
+        setTimeout(() => navigate(next), 2000);
       } catch (err) {
         setStatus("error");
         setMessage("An unexpected error occurred. Please try again.");
