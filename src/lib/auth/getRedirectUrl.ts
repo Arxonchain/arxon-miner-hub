@@ -1,23 +1,20 @@
 /**
  * Returns the appropriate redirect URL for auth callbacks.
- * Handles custom domains (arxonchain.xyz) and all deployment environments.
+ * Uses window.location.origin to work with any domain (custom or Lovable).
  */
 export function getAuthRedirectUrl(path = "/"): string {
   const origin = window.location.origin;
-  
-  // Ensure path starts with /
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  
   return `${origin}${normalizedPath}`;
 }
 
 /**
- * Returns the password reset redirect URL
+ * Returns the password reset redirect URL.
+ * Points directly to /reset-password - Supabase will append the recovery tokens.
  */
 export function getPasswordResetRedirectUrl(): string {
-  // Route through /auth/confirm so we can handle all callback formats (PKCE code, token_hash, hash access_token)
-  // and then forward into the reset-password page.
-  return getAuthRedirectUrl("/auth/confirm?type=recovery&next=/reset-password");
+  // Direct to reset-password page - Supabase appends tokens as hash or query params
+  return getAuthRedirectUrl("/reset-password");
 }
 
 /**
@@ -28,7 +25,7 @@ export function getEmailConfirmRedirectUrl(): string {
 }
 
 /**
- * Returns the magic-link redirect URL for password change flow
+ * Returns the magic-link redirect URL for password change flow.
  * The user clicks a magic link → lands on /auth/confirm → goes to /change-password
  */
 export function getMagicLinkRedirectUrl(): string {

@@ -1,28 +1,30 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePasswordRecoverySession } from "@/hooks/usePasswordRecoverySession";
-import { looksLikeRecoveryLink } from "@/lib/auth/recoveryUrl";
 import arxonLogo from "@/assets/arxon-logo.jpg";
-import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
-import RecoveryEmailVerifyForm from "@/components/auth/RecoveryEmailVerifyForm";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { checking, isValidSession, error: sessionError } = usePasswordRecoverySession();
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const { checking, isValidSession, establishError, params, requiresEmail, verifyTokenWithEmail } =
-    usePasswordRecoverySession();
-  const looksLikeRecovery = useMemo(() => (params ? looksLikeRecoveryLink(params) : false), [params]);
-
-  const handleReset = async (password: string, confirmPassword: string) => {
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMessage(null);
 
     if (password !== confirmPassword) {
@@ -38,149 +40,79 @@ export default function ResetPassword() {
     setUpdating(true);
 
     try {
-      console.log("ResetPassword: Updating password...");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
-      console.log("ResetPassword: Password updated successfully");
-
-      // Refresh session after password change
+      // Refresh session
       await supabase.auth.refreshSession();
-
+      
       // Sign out to clear recovery session
       await supabase.auth.signOut();
 
+      setSuccess(true);
       toast({
         title: "Password Reset Complete",
         description: "Your password has been updated. Please sign in with your new password.",
       });
 
-      navigate("/auth?mode=signin");
+      // Redirect after a moment
+      setTimeout(() => navigate("/auth?mode=signin"), 2000);
     } catch (err: any) {
-      console.error("ResetPassword: Update error:", err.message);
+      console.error("Password update error:", err);
       setErrorMessage(err.message || "Failed to reset password. Please try again.");
     } finally {
       setUpdating(false);
     }
   };
 
-  if (checking && !requiresEmail) {
+  // Loading state
+  if (checking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-foreground">Verifying reset link...</p>
+        <p className="text-foreground">Verifying reset link...</p>
       </div>
     );
   }
 
-  if (!isValidSession) {
-    if (requiresEmail && params?.token) {
-      return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <img src={arxonLogo} alt="ARXON Logo" className="h-16 w-16 rounded-full border-2 border-accent" />
-              </div>
-
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Lock className="h-6 w-6 text-accent" />
-                <CardTitle className="text-2xl font-bold">Confirm Email</CardTitle>
-              </div>
-              <CardDescription>
-                This reset link requires your email address to verify. After verification, you can set a new password.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-6">
-              <RecoveryEmailVerifyForm
-                verifying={checking}
-                errorMessage={establishError}
-                onVerify={verifyTokenWithEmail}
-              />
-
-              <details className="rounded-md border border-border/60 bg-secondary/30 p-3 text-sm">
-                <summary className="cursor-pointer select-none text-foreground">Details</summary>
-                <div className="mt-2 space-y-2 text-muted-foreground">
-                  <p>
-                    <span className="font-medium text-foreground">Detected params:</span>{" "}
-                    {JSON.stringify(
-                      {
-                        type: params?.type,
-                        hasCode: Boolean(params?.code),
-                        hasTokenHash: Boolean(params?.tokenHash),
-                        hasToken: Boolean(params?.token),
-                        hasAccessToken: Boolean(params?.accessToken),
-                      },
-                      null,
-                      2
-                    )}
-                  </p>
-                </div>
-              </details>
-
-              <div className="flex flex-col gap-2">
-                <Button onClick={() => navigate("/auth?mode=forgot")} className="w-full">
-                  Request New Reset Link
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/auth?mode=signin")} className="w-full">
-                  Back to Sign In
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    const primaryError =
-      errorMessage ||
-      (looksLikeRecovery
-        ? (establishError || "This reset link has expired or is invalid. Please request a new one.")
-        : "No reset link detected. Please use the link from your email.");
-
+  // Success state
+  if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <img src={arxonLogo} alt="ARXON Logo" className="h-16 w-16 rounded-full border-2 border-accent" />
+              <CheckCircle className="h-16 w-16 text-primary" />
+            </div>
+            <CardTitle className="text-xl text-primary">Password Reset Complete!</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">Your password has been updated successfully.</p>
+            <p className="text-sm text-muted-foreground">Redirecting to sign in...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Invalid/expired link state
+  if (!isValidSession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <img src={arxonLogo} alt="ARXON" className="h-16 w-16 rounded-full border-2 border-accent" />
             </div>
             <CardTitle className="text-xl text-destructive">Reset Link Invalid</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-center text-muted-foreground">{primaryError}</p>
-
-            {(establishError || looksLikeRecovery) && (
-              <details className="rounded-md border border-border/60 bg-secondary/30 p-3 text-sm">
-                <summary className="cursor-pointer select-none text-foreground">Details</summary>
-                <div className="mt-2 space-y-2 text-muted-foreground">
-                  {establishError && (
-                    <p>
-                      <span className="font-medium text-foreground">Auth error:</span> {establishError}
-                    </p>
-                  )}
-                  <p>
-                    <span className="font-medium text-foreground">Detected params:</span>{" "}
-                    {JSON.stringify(
-                      {
-                        type: params?.type,
-                        hasCode: Boolean(params?.code),
-                        hasTokenHash: Boolean(params?.tokenHash),
-                        hasToken: Boolean(params?.token),
-                        hasAccessToken: Boolean(params?.accessToken),
-                      },
-                      null,
-                      2
-                    )}
-                  </p>
-                </div>
-              </details>
-            )}
-
+            <p className="text-center text-muted-foreground">
+              {sessionError || "This reset link has expired or is invalid. Please request a new one."}
+            </p>
             <div className="flex flex-col gap-2">
               <Button onClick={() => navigate("/auth?mode=forgot")} className="w-full">
                 Request New Reset Link
@@ -195,33 +127,98 @@ export default function ResetPassword() {
     );
   }
 
+  // Valid session - show password reset form
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={arxonLogo} alt="ARXON Logo" className="h-16 w-16 rounded-full border-2 border-accent" />
+            <img src={arxonLogo} alt="ARXON" className="h-16 w-16 rounded-full border-2 border-accent" />
           </div>
-
           <div className="flex items-center justify-center gap-2 mb-2">
             <Lock className="h-6 w-6 text-accent" />
             <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
           </div>
-
           <CardDescription>Enter your new password below.</CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          <ResetPasswordForm updating={updating} errorMessage={errorMessage} onSubmit={handleReset} />
+        <CardContent>
+          <form onSubmit={handleReset} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  minLength={8}
+                  required
+                  disabled={updating}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
 
-          <div className="text-center text-sm">
-            <button
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirm ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  minLength={8}
+                  required
+                  disabled={updating}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errorMessage}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={updating}>
+              {updating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Reset Password"
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
               onClick={() => navigate("/auth?mode=signin")}
-              className="text-primary hover:underline"
+              disabled={updating}
             >
               Back to Sign In
-            </button>
-          </div>
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
