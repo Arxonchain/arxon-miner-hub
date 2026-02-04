@@ -45,27 +45,43 @@ export default function AuthConfirm() {
 
     const run = async () => {
       const token_hash = searchParams.get("token_hash");
+      const token = searchParams.get("token"); // fallback for your links
       const type = (searchParams.get("type") || "") as EmailOtpType;
 
-      if (!token_hash || !type) {
+      // Debug logs to see what we actually received
+      console.log("AuthConfirm loaded with params:");
+      console.log("  token_hash:", token_hash);
+      console.log("  token:", token);
+      console.log("  type:", type);
+      console.log("  full search params:", window.location.search);
+
+      const effectiveToken = token_hash || token;
+
+      if (!effectiveToken || !type) {
         if (cancelled) return;
-        setErrorMessage("Missing recovery token. Please request a new reset link.");
+        setErrorMessage("Missing recovery token or type. Please request a new reset link.");
         setLoading(false);
         return;
       }
 
+      setLoading(true);
+
       try {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash,
+        console.log(`Calling verifyOtp with: type=${type}, token_hash=${effectiveToken}`);
+
+        const { error, data } = await supabase.auth.verifyOtp({
+          token_hash: effectiveToken,
           type,
         });
+
+        console.log("verifyOtp result:", { error, data });
 
         if (error) {
           if (cancelled) return;
           setErrorMessage(error.message || "Invalid or expired link. Please request a new one.");
           toast({
             title: "Invalid or Expired Link",
-            description: "Please request a new password reset link.",
+            description: error.message || "Please request a new password reset link.",
             variant: "destructive",
           });
           setLoading(false);
@@ -74,11 +90,13 @@ export default function AuthConfirm() {
 
         if (cancelled) return;
 
-        // Verification succeeded → show password reset form
+        // Success → show password reset form
+        console.log("Verification succeeded!");
         setVerified(true);
         setSuccessMessage("Link verified! Enter your new password below.");
         setLoading(false);
       } catch (e: any) {
+        console.error("verifyOtp exception:", e);
         if (cancelled) return;
         setErrorMessage("Something went wrong verifying the link. Please request a new reset link.");
         setLoading(false);
@@ -109,11 +127,15 @@ export default function AuthConfirm() {
     setLoading(true);
 
     try {
+      console.log("Updating password...");
+
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
+
+      console.log("Password update succeeded");
 
       toast({
         title: "Password Updated",
@@ -125,6 +147,7 @@ export default function AuthConfirm() {
         navigate("/auth?mode=signin", { replace: true });
       }, 2000);
     } catch (err: any) {
+      console.error("Password update failed:", err);
       setErrorMessage(err.message || "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
