@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,22 +7,60 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { usePasswordRecoverySession } from "@/hooks/usePasswordRecoverySession";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 export default function ResetPassword() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { checking, isValidSession } = usePasswordRecoverySession();
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleReset = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const recover = async () => {
+      console.log("ResetPassword mounted - trying to recover session");
+
+      const token = searchParams.get("token");
+      const type = searchParams.get("type")?.toLowerCase();
+
+      if (!token || type !== "recovery") {
+        setErrorMessage("Invalid reset link.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log("verifyOtp called");
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: token,
+          type: "recovery",
+        });
+
+        if (error) throw error;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log("Session recovered");
+          setLoading(false);
+        } else {
+          throw new Error("No session after verify");
+        }
+      } catch (err: any) {
+        console.error("Recovery error:", err.message);
+        setErrorMessage("Session expired or invalid. Please request a new link.");
+        setLoading(false);
+      }
+    };
+
+    recover();
+  }, [searchParams]);
+
+  const handleReset = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -36,40 +74,36 @@ export default function ResetPassword() {
       return;
     }
 
-    setSubmitting(true);
+    setLoading(true);
 
     try {
+      console.log("updateUser called");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
-      await supabase.auth.refreshSession();
-
+      console.log("Password reset success");
       toast({
         title: "Success",
-        description: "Password reset complete. Please sign in with your new password.",
+        description: "Password reset complete. Please sign in.",
       });
 
-      await supabase.auth.signOut();
       navigate("/auth?mode=signin");
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to reset password. Link may be expired.");
+      console.error("updateUser error:", err.message);
+      setErrorMessage(err.message || "Failed to reset password.");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
-  if (checking) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Verifying your reset link...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin" />
+        <p className="ml-4">Verifying reset link...</p>
       </div>
     );
   }
@@ -78,29 +112,19 @@ export default function ResetPassword() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={arxonLogo} alt="ARXON Logo" className="h-16 w-16 rounded-full border-2 border-accent" />
+          </div>
+
           <div className="flex items-center justify-center gap-2 mb-2">
             <Lock className="h-6 w-6 text-accent" />
             <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
           </div>
-          <CardDescription>
-            Enter your new password below. Your reset link has been verified.
-          </CardDescription>
+
+          <CardDescription>Enter your new password below. Your reset link has been verified.</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {!isValidSession && (
-            <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm text-center">
-              Session expired or invalid. Please{" "}
-              <button
-                onClick={() => navigate("/auth?mode=forgot")}
-                className="underline font-medium"
-              >
-                request a new reset link
-              </button>
-              .
-            </div>
-          )}
-
           {errorMessage && (
             <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm text-center">
               {errorMessage}
@@ -117,7 +141,7 @@ export default function ResetPassword() {
                   placeholder="New password (min 8 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={submitting || !isValidSession}
+                  disabled={loading}
                   required
                   minLength={8}
                   className="pr-10"
@@ -125,8 +149,7 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -142,27 +165,22 @@ export default function ResetPassword() {
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={submitting || !isValidSession}
+                  disabled={loading}
                   required
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={submitting || !isValidSession}
-            >
-              {submitting ? (
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Updating...
