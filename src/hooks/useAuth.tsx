@@ -24,6 +24,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    // IMPORTANT: Avoid hard page reloads during auth callbacks.
+    // A full reload can break custom-domain deployments if the host doesn't serve SPA routes
+    // (e.g., /reset-password). We instead update history and dispatch popstate.
+    const softNavigate = (path: string) => {
+      try {
+        window.history.replaceState(null, '', path);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } catch {
+        // Fallback: last resort hard navigation
+        window.location.assign(path);
+      }
+    };
+
     // Fail-safe: never block the whole app on a hung network request.
     // Reduced to 2.5s for faster fallback to landing page when backend is down.
     const failSafe = window.setTimeout(() => {
@@ -44,10 +57,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session.user);
         setLoading(false);
         window.clearTimeout(failSafe);
-        
-        // Navigate to reset password page if not already there
-        if (window.location.pathname !== '/reset-password') {
-          window.location.href = '/reset-password';
+
+        // If we're on /auth/confirm, let that page finish its own routing.
+        // Otherwise, do a soft navigation to avoid hard reloads.
+        if (
+          window.location.pathname !== '/reset-password' &&
+          !window.location.pathname.startsWith('/auth/confirm')
+        ) {
+          softNavigate('/reset-password');
         }
         return;
       }
