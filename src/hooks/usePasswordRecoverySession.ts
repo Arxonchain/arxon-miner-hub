@@ -9,6 +9,7 @@ export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
   const [isValidSession, setIsValidSession] = useState(false);
   const [establishError, setEstablishError] = useState<string | null>(null);
+  const [requiresEmail, setRequiresEmail] = useState(false);
 
   const params = useMemo(() => {
     try {
@@ -21,19 +22,24 @@ export function usePasswordRecoverySession() {
   useEffect(() => {
     let cancelled = false;
 
+    const p = params;
+    const looksLikeRecovery = p ? looksLikeRecoveryLink(p) : false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       
-      if (event === 'PASSWORD_RECOVERY' && session) {
+      // Some recovery flows emit PASSWORD_RECOVERY; others can emit SIGNED_IN.
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session && looksLikeRecovery) {
         setIsValidSession(true);
         setChecking(false);
+        setRequiresEmail(false);
         window.history.replaceState(null, "", "/reset-password");
       }
     });
 
     const run = async () => {
-      const p = params;
-      const looksLikeRecovery = p ? looksLikeRecoveryLink(p) : false;
+      setRequiresEmail(false);
+      setEstablishError(null);
 
       if (looksLikeRecovery) {
         try {
@@ -59,6 +65,11 @@ export function usePasswordRecoverySession() {
             });
             if (error) setEstablishError(error.message);
           } else if (p?.token) {
+            // If the link only contains a token (no token_hash/code/access_token) we need the email to verify.
+            // Some email templates use `?token=...&type=recovery` (OTP). Supabase requires email+token.
+            if (!p.email) {
+              setRequiresEmail(true);
+            } else {
             // Legacy templates sometimes use `token=`. Some projects still pass the hashed token in `token`.
             // Try token_hash first; if email is present we can also attempt token+email.
             const { error: tokenHashErr } = await supabase.auth.verifyOtp({
@@ -75,6 +86,7 @@ export function usePasswordRecoverySession() {
               if (tokenErr) setEstablishError(tokenErr.message);
             } else if (tokenHashErr) {
               setEstablishError(tokenHashErr.message);
+            }
             }
           }
         } catch (e) {
@@ -113,5 +125,60 @@ export function usePasswordRecoverySession() {
     };
   }, []);
 
-  return { checking, isValidSession, establishError, params };
+  const verifyTokenWithEmail = async (email: string) => {
+    const p = params;
+    if (!p?.token) {
+      setEstablishError("Missing token in reset link.");
+      return false;
+    }
+    if (!email.trim()) {
+      setEstablishError("Please enter your email address.");
+      return false;
+    }
+
+    setChecking(true);
+    setEstablishError(null);
+
+    try {
+      // Ensure no stale session blocks OTP verification
+      clearSupabaseAuthStorage();
+      await supabase.auth.signOut().catch(() => {});
+
+      const { error } = await supabase.auth.verifyOtp({
+        type: "recovery",
+        email: email.trim(),
+        token: p.token,
+      } as any);
+
+      if (error) {
+        setEstablishError(error.message);
+        setChecking(false);
+        return false;
+      }
+
+      // Poll for session to be safe across browsers
+      const deadline = Date.now() + 8000;
+      while (Date.now() < deadline) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setIsValidSession(true);
+          setRequiresEmail(false);
+          setChecking(false);
+          window.history.replaceState(null, "", "/reset-password");
+          return true;
+        }
+        await sleep(300);
+      }
+
+      setEstablishError("Could not establish session. Please request a new reset link.");
+      setChecking(false);
+      return false;
+    } catch (e) {
+      setEstablishError(e instanceof Error ? e.message : "Failed to verify reset token");
+      setChecking(false);
+      return false;
+    }
+  };
+
+  return { checking, isValidSession, establishError, params, requiresEmail, verifyTokenWithEmail };
 }
