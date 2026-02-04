@@ -1,8 +1,6 @@
-// VERCEL TEST AFTER RECONNECT - 2026-02-04 - must trigger deploy
-// DEPLOY TEST - February 04 2026 - should show password form now
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +10,50 @@ import { useToast } from "@/hooks/use-toast";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 export default function ResetPassword() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Auto-recover session from recovery link
+  useEffect(() => {
+    const recoverSession = async () => {
+      console.log("Attempting session recovery from reset link...");
+
+      try {
+        // Supabase auto-uses URL params for recovery
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) throw error;
+
+        if (!session) {
+          // Force refresh or sign in with recovery token
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) throw refreshError;
+
+          const { data: refreshed } = await supabase.auth.getSession();
+          if (!refreshed.session) {
+            throw new Error("No session after refresh");
+          }
+        }
+
+        console.log("Session recovered successfully");
+        setLoading(false);
+      } catch (err: any) {
+        console.error("Session recovery failed:", err.message);
+        setErrorMessage("Failed to verify reset link. Please request a new one.");
+        setLoading(false);
+      }
+    };
+
+    recoverSession();
+  }, []);
 
   const handleReset = async (e) => {
     e.preventDefault();
@@ -37,12 +72,14 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
+      console.log("Updating password...");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
+      console.log("Password updated");
       toast({
         title: "Success",
         description: "Password reset complete. Please sign in.",
@@ -50,7 +87,8 @@ export default function ResetPassword() {
 
       navigate("/auth?mode=signin");
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to reset password. The link may be expired or invalid.");
+      console.error("updateUser error:", err.message);
+      setErrorMessage(err.message || "Failed to reset password. Link may be expired.");
     } finally {
       setLoading(false);
     }
@@ -88,29 +126,47 @@ export default function ResetPassword() {
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="New password (min 8 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-                minLength={8}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="New password (min 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
