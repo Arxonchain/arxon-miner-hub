@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { validatePassword } from "@/lib/passwordValidation";
 import PasswordStrengthMeter from "@/components/auth/PasswordStrengthMeter";
+import { getPasswordResetRedirectUrl } from "@/lib/auth/getRedirectUrl";
 
 interface AuthDialogProps {
   open: boolean;
@@ -70,9 +71,7 @@ const AuthDialog = ({ open, onOpenChange, initialReferralCode = "" }: AuthDialog
 
     setLoading(true);
     try {
-      // Use fixed production URL for reliability (exact match required in Supabase dashboard)
-      // If testing on preview, temporarily change to window.location.origin + '/reset-password'
-      const redirectTo = 'https://www.arxonchain.xyz/reset-password';
+      const redirectTo = getPasswordResetRedirectUrl();
 
       const { error } = await withTimeout(
         supabase.auth.resetPasswordForEmail(trimmedEmail, {

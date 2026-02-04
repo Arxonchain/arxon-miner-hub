@@ -10,11 +10,12 @@ export function getAuthRedirectUrl(path = "/"): string {
 
 /**
  * Returns the password reset redirect URL.
- * Points directly to /reset-password - Supabase will append the recovery tokens.
+ * IMPORTANT: Route through /auth/confirm so we can reliably exchange PKCE codes,
+ * token_hash links, and legacy OTP tokens before showing /reset-password.
  */
 export function getPasswordResetRedirectUrl(): string {
-  // Direct to reset-password page - Supabase appends tokens as hash or query params
-  return getAuthRedirectUrl("/reset-password");
+  // Supabase appends tokens (code/token_hash/token/etc). AuthConfirm turns those into a session.
+  return getAuthRedirectUrl("/auth/confirm?next=/reset-password");
 }
 
 /**
