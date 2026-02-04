@@ -1,4 +1,4 @@
-// VERCEL DEPLOY TEST - 2026-02-04 - should trigger build now
+// VERCEL TEST AFTER RECONNECT - 2026-02-04 - must trigger deploy
 // DEPLOY TEST - February 04 2026 - should show password form now
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
