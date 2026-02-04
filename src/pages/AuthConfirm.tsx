@@ -44,72 +44,58 @@ export default function AuthConfirm() {
     let cancelled = false;
 
     const run = async () => {
-      console.log("[AUTH CONFIRM] === STEP 1: Page mounted ===");
-      console.log("[AUTH CONFIRM] Current URL:", window.location.href);
-      console.log("[AUTH CONFIRM] All params:", Object.fromEntries(searchParams.entries()));
+      console.log("[AUTH CONFIRM] === PAGE LOADED ===");
+      console.log("[AUTH CONFIRM] URL:", window.location.href);
+      console.log("[AUTH CONFIRM] Params:", Object.fromEntries(searchParams.entries()));
 
       const rawToken = searchParams.get("token");
       const rawTokenHash = searchParams.get("token_hash");
       const rawType = searchParams.get("type");
 
-      const effectiveToken = rawToken || rawTokenHash;
-      const effectiveType = rawType?.toLowerCase() as EmailOtpType | null;
+      const token = rawToken || rawTokenHash;
+      const type = rawType?.toLowerCase() as EmailOtpType | null;
 
-      console.log("[AUTH CONFIRM] STEP 2: Parsed values", {
-        rawToken,
-        rawTokenHash,
-        rawType,
-        effectiveToken: effectiveToken ? effectiveToken.substring(0, 10) + '...' : null,
-        effectiveType,
-      });
+      console.log("[AUTH CONFIRM] Parsed:", { token: token ? token.substring(0, 10) + '...' : null, type });
 
-      if (!effectiveToken || !effectiveType) {
-        console.log("[AUTH CONFIRM] STEP 3: Missing params → error");
-        setErrorMessage("Missing recovery token or type. Please request a new reset link.");
+      if (!token || !type) {
+        console.log("[AUTH CONFIRM] Missing token or type");
+        setErrorMessage("Missing recovery token or type.");
         setLoading(false);
         return;
       }
 
-      console.log("[AUTH CONFIRM] STEP 4: Calling verifyOtp");
+      console.log("[AUTH CONFIRM] Calling verifyOtp");
 
       try {
-        const verifyParams = {
-          token_hash: effectiveToken,
-          type: effectiveType,
-        };
-
-        console.log("[AUTH CONFIRM] STEP 5: verifyOtp params sent:", verifyParams);
-
-        const { data, error } = await supabase.auth.verifyOtp(verifyParams);
-
-        console.log("[AUTH CONFIRM] STEP 6: verifyOtp returned", {
-          data: data ? JSON.stringify(data) : null,
-          error: error ? error.message : null,
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: token,
+          type,
         });
 
+        console.log("[AUTH CONFIRM] verifyOtp result:", {
+          data: data ? JSON.stringify(data) : 'null',
+          error: error ? error.message : 'null'
+        });
+
+        // Success if NO error (even if data is empty/null - common for recovery)
         if (error) {
-          console.log("[AUTH CONFIRM] STEP 7: verifyOtp error detected", error.message);
+          console.log("[AUTH CONFIRM] verifyOtp ERROR:", error.message);
           setErrorMessage(error.message || "Invalid or expired link.");
           toast({
             title: "Verification Failed",
-            description: error.message || "Please request a new reset link.",
+            description: error.message || "Request a new link.",
             variant: "destructive",
           });
-          setLoading(false);
-          return;
+        } else {
+          console.log("[AUTH CONFIRM] verifyOtp SUCCESS (no error)");
+          setVerified(true);
+          setSuccessMessage("Link verified! Set your new password.");
         }
-
-        // If no error → assume success (even if data is empty)
-        console.log("[AUTH CONFIRM] STEP 8: No error from verifyOtp → SUCCESS");
-        if (cancelled) return;
-
-        setVerified(true);
-        setSuccessMessage("Link verified! Enter your new password below.");
-        setLoading(false);
       } catch (e: any) {
-        console.error("[AUTH CONFIRM] STEP 9: Exception in verifyOtp", e.message || e);
-        setErrorMessage("Unexpected error verifying link. Please request a new one.");
-        setLoading(false);
+        console.error("[AUTH CONFIRM] verifyOtp EXCEPTION:", e.message || e);
+        setErrorMessage("Unexpected verification error.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -130,33 +116,30 @@ export default function AuthConfirm() {
     }
 
     if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters long");
+      setErrorMessage("Password must be at least 8 characters");
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log("[AUTH CONFIRM] STEP 10: Calling updateUser");
+      console.log("[AUTH CONFIRM] updateUser called");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
-      console.log("[AUTH CONFIRM] STEP 11: updateUser SUCCESS");
+      console.log("[AUTH CONFIRM] updateUser SUCCESS");
       toast({
-        title: "Password Updated",
-        description: "Your password has been reset successfully. Please sign in.",
+        title: "Success",
+        description: "Password reset complete. Sign in now.",
       });
 
-      setSuccessMessage("Password updated! Redirecting to sign in...");
-      setTimeout(() => {
-        navigate("/auth?mode=signin", { replace: true });
-      }, 2000);
+      navigate("/auth?mode=signin", { replace: true });
     } catch (err: any) {
-      console.error("[AUTH CONFIRM] STEP 12: updateUser error", err.message);
-      setErrorMessage(err.message || "Failed to update password.");
+      console.error("[AUTH CONFIRM] updateUser error:", err.message);
+      setErrorMessage(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
