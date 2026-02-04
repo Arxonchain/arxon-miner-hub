@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Loader2 } from "lucide-react";
+import { Lock, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import arxonLogo from "@/assets/arxon-logo.jpg";
-import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 
 /**
  * Allows an already-authenticated user to set a new password.
@@ -17,10 +19,16 @@ export default function ChangePassword() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const handleReset = async (password: string, confirmPassword: string) => {
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMessage(null);
 
     if (password !== confirmPassword) {
@@ -40,13 +48,14 @@ export default function ChangePassword() {
 
       if (error) throw error;
 
+      setSuccess(true);
       toast({
         title: "Password Updated",
         description: "Your password has been changed successfully.",
       });
 
-      // Stay logged in and redirect to dashboard
-      navigate("/");
+      // Redirect to dashboard after a moment
+      setTimeout(() => navigate("/"), 2000);
     } catch (err: any) {
       console.error("ChangePassword error:", err.message);
       setErrorMessage(err.message || "Failed to update password. Please try again.");
@@ -60,6 +69,26 @@ export default function ChangePassword() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Success state
+  if (success) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-border/50 bg-card/95 backdrop-blur-xl">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <CheckCircle className="h-16 w-16 text-primary" />
+            </div>
+            <CardTitle className="text-xl text-primary">Password Changed!</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">Your password has been updated successfully.</p>
+            <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -79,12 +108,9 @@ export default function ChangePassword() {
             <p className="text-center text-muted-foreground">
               You need to be logged in to change your password. If you received a magic link, click it to sign in first.
             </p>
-            <button
-              onClick={() => navigate("/auth?mode=signin")}
-              className="w-full py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-            >
+            <Button onClick={() => navigate("/auth?mode=signin")} className="w-full">
               Go to Sign In
-            </button>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -109,17 +135,83 @@ export default function ChangePassword() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          <ResetPasswordForm updating={updating} errorMessage={errorMessage} onSubmit={handleReset} />
+        <CardContent>
+          <form onSubmit={handleReset} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  minLength={8}
+                  required
+                  disabled={updating}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
 
-          <div className="text-center text-sm">
-            <button
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirm ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  minLength={8}
+                  required
+                  disabled={updating}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errorMessage}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={updating}>
+              {updating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Change Password"
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
               onClick={() => navigate("/")}
-              className="text-primary hover:underline"
+              disabled={updating}
             >
               Cancel &amp; go to dashboard
-            </button>
-          </div>
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

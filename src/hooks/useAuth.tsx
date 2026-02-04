@@ -38,20 +38,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return;
       
       // Handle PASSWORD_RECOVERY event - redirect to reset password page
-       if (event === 'PASSWORD_RECOVERY') {
-        // Session is established, user can now update password
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        console.log('useAuth: PASSWORD_RECOVERY event received');
         setSession(session);
-        setUser(session?.user ?? null);
+        setUser(session.user);
         setLoading(false);
         window.clearTimeout(failSafe);
         
-         // Navigate to reset password page if not already there.
-         // Preserve URL params/hash because some recovery flows require them to establish the session.
-         if (window.location.pathname !== '/reset-password') {
-           const qs = window.location.search || '';
-           const hash = window.location.hash || '';
-           window.location.href = `/reset-password${qs}${hash}`;
-         }
+        // Navigate to reset password page if not already there
+        if (window.location.pathname !== '/reset-password') {
+          window.location.href = '/reset-password';
+        }
         return;
       }
       
