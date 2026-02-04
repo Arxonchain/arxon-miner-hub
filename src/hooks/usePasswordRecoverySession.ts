@@ -7,6 +7,25 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const looksLikeNumericOtp = (token: string) => /^\d{4,10}$/.test(token.trim());
 
+type VerifyAttemptResult = { ok: true } | { ok: false; message: string };
+
+async function verifyRecoveryViaTokenHash(tokenHash: string): Promise<VerifyAttemptResult> {
+  const { error } = await supabase.auth.verifyOtp({
+    type: "recovery",
+    token_hash: tokenHash,
+  });
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
+async function verifyRecoveryViaEmailToken(email: string, token: string): Promise<VerifyAttemptResult> {
+  const { error } = await supabase.auth.verifyOtp({
+    type: "recovery",
+    email: email.trim(),
+    token,
+  } as any);
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
 export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
   const [isValidSession, setIsValidSession] = useState(false);
@@ -76,34 +95,23 @@ export function usePasswordRecoverySession() {
             if (error) setEstablishError(error.message);
           } else if (p?.tokenHash) {
             // Newer template format
-            const { error } = await supabase.auth.verifyOtp({
-              type: "recovery",
-              token_hash: p.tokenHash,
-            });
-            if (error) setEstablishError(error.message);
+            const res = await verifyRecoveryViaTokenHash(p.tokenHash);
+            if (res.ok === false) {
+              setEstablishError(res.message);
+            }
           } else if (p?.token) {
             // Legacy templates sometimes use `token=`.
-            // In practice this is often a numeric OTP code which MUST be verified using email+token.
-            // Trying it as token_hash first can lead to confusing "invalid/expired" results.
-            if (looksLikeNumericOtp(p.token)) {
-              setRequiresEmail(true);
-            } else {
-              // Some projects pass the hashed token in `token`.
-              const { error: tokenHashErr } = await supabase.auth.verifyOtp({
-                type: "recovery",
-                token_hash: p.token,
-              });
-
-              if (tokenHashErr) {
-                if (!p.email) {
-                  setRequiresEmail(true);
-                } else {
-                  const { error: tokenErr } = await supabase.auth.verifyOtp({
-                    type: "recovery",
-                    email: p.email,
-                    token: p.token,
-                  } as any);
-                  if (tokenErr) setEstablishError(tokenErr.message);
+            // Some projects pass the token hash in `token` (even if it's numeric).
+            // To be maximally compatible we attempt token_hash verification first, then fall back to email+token.
+            const asHash = await verifyRecoveryViaTokenHash(p.token);
+            if (asHash.ok === false) {
+              if (!p.email) {
+                // Many OTP-style links require the email address to verify.
+                setRequiresEmail(true);
+              } else {
+                const asToken = await verifyRecoveryViaEmailToken(p.email, p.token);
+                if (asToken.ok === false) {
+                  setEstablishError(asToken.message);
                 }
               }
             }
@@ -173,38 +181,22 @@ export function usePasswordRecoverySession() {
       clearSupabaseAuthStorage();
       await supabase.auth.signOut().catch(() => {});
 
-      // If token looks like a numeric OTP, verify via email+token directly.
-      // Otherwise, attempt token_hash first, then fall back to email+token.
-      if (looksLikeNumericOtp(p.token)) {
-        const { error } = await supabase.auth.verifyOtp({
-          type: "recovery",
-          email: email.trim(),
-          token: p.token,
-        } as any);
-
-        if (error) {
-          setEstablishError(error.message);
+      // Max compatibility: try token_hash first (some templates put it in `token`),
+      // then fall back to email+token (OTP-style).
+      const asHash = await verifyRecoveryViaTokenHash(p.token);
+      if (asHash.ok === false) {
+        const asToken = await verifyRecoveryViaEmailToken(email, p.token);
+        if (asToken.ok === false) {
+          // If it looks like an OTP, give a more actionable error hint.
+          if (looksLikeNumericOtp(p.token)) {
+            setEstablishError(
+              `${asToken.message}. If you requested multiple reset emails, only the most recent link/code will work.`
+            );
+          } else {
+            setEstablishError(asToken.message);
+          }
           setChecking(false);
           return false;
-        }
-      } else {
-        const { error: asHashErr } = await supabase.auth.verifyOtp({
-          type: "recovery",
-          token_hash: p.token,
-        });
-
-        if (asHashErr) {
-          const { error: asTokenErr } = await supabase.auth.verifyOtp({
-            type: "recovery",
-            email: email.trim(),
-            token: p.token,
-          } as any);
-
-          if (asTokenErr) {
-            setEstablishError(asTokenErr.message);
-            setChecking(false);
-            return false;
-          }
         }
       }
 
