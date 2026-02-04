@@ -2,7 +2,7 @@
 
 ## Project Info
 
-**URL**: https://your-vercel-app.vercel.app (or your custom domain once set up)
+**URL**:(https://arxon-mining-app.vercel.app/) (or https://www.arxonchain.xyz/)
 
 ## How Can I Edit This Code?
 
