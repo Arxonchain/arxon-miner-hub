@@ -1,281 +1,268 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Flame, Trophy, Zap, Calendar, CheckCircle2, Swords, Shield, ListTodo } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { usePoints } from "@/hooks/usePoints";
-import { useMining } from "@/hooks/useMining";
-import { useCheckin } from "@/hooks/useCheckin";
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { LogOut, Zap, TrendingUp, Clock, Trophy } from 'lucide-react';
+import arxonLogo from '@/assets/arxon-logo.jpg';
 
-import WelcomeCard from "@/components/dashboard/WelcomeCard";
-import StatCard from "@/components/dashboard/StatCard";
-import EarningStatistics from "@/components/dashboard/EarningStatistics";
-import { Button } from "@/components/ui/button";
-import { useMemo } from "react";
+interface MiningSession {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  arx_mined: number;
+  is_active: boolean;
+}
 
-const Dashboard = () => {
+interface UserPoints {
+  total_points: number;
+  mining_points: number;
+}
+
+export default function Dashboard() {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { points, loading: pointsLoading, rank } = usePoints();
-  const { isMining, elapsedTime, formatTime, earnedPoints, miningSettings, settingsLoading, pointsPerHour } = useMining();
-  const { canCheckin, performCheckin, currentStreak, streakBoost, loading: checkinLoading } = useCheckin();
+  
+  const [mining, setMining] = useState(false);
+  const [session, setSession] = useState<MiningSession | null>(null);
+  const [points, setPoints] = useState<UserPoints>({ total_points: 0, mining_points: 0 });
+  const [currentMined, setCurrentMined] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const miningDisabled = !settingsLoading && !miningSettings.publicMiningEnabled;
-
-  // Calculate current mining rate with all boosts - real-time from useMining hook
-  const currentMiningRate = useMemo(() => {
-    return pointsPerHour;
-  }, [pointsPerHour]);
-
-  const handleStartMining = () => {
-    if (!user) {
-      navigate('/auth?mode=signup');
-      return;
+  // Fetch user data
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Get active mining session
+      const { data: sessions } = await supabase
+        .from('mining_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('started_at', { ascending: false })
+        .limit(1);
+      
+      if (sessions && sessions.length > 0) {
+        setSession(sessions[0]);
+        setMining(true);
+        setCurrentMined(sessions[0].arx_mined || 0);
+      }
+      
+      // Get user points
+      const { data: pointsData } = await supabase
+        .from('user_points')
+        .select('total_points, mining_points')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (pointsData) {
+        setPoints(pointsData);
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
     }
-    navigate('/mining');
+  }, [user]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Mining tick effect
+  useEffect(() => {
+    if (!mining || !session) return;
+
+    const interval = setInterval(() => {
+      const startTime = new Date(session.started_at).getTime();
+      const elapsed = (Date.now() - startTime) / 1000 / 3600; // hours
+      const pointsPerHour = 10;
+      const mined = Math.min(elapsed * pointsPerHour, 480);
+      setCurrentMined(mined);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [mining, session]);
+
+  const startMining = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('mining_sessions')
+        .insert({
+          user_id: user.id,
+          started_at: new Date().toISOString(),
+          is_active: true,
+          arx_mined: 0,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setSession(data);
+      setMining(true);
+      setCurrentMined(0);
+      toast({ title: 'Mining Started!', description: 'Earning ARX-P points...' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
   };
 
-  const handleCheckin = async () => {
-    if (!user) {
-      navigate('/auth?mode=signup');
-      return;
+  const stopMining = async () => {
+    if (!user || !session) return;
+    
+    try {
+      // Calculate final mined amount
+      const startTime = new Date(session.started_at).getTime();
+      const elapsed = (Date.now() - startTime) / 1000 / 3600;
+      const finalMined = Math.min(Math.floor(elapsed * 10), 480);
+      
+      // End the session
+      const { error } = await supabase
+        .from('mining_sessions')
+        .update({
+          is_active: false,
+          ended_at: new Date().toISOString(),
+          arx_mined: finalMined,
+        })
+        .eq('id', session.id);
+      
+      if (error) throw error;
+      
+      // Update user points via RPC
+      await supabase.rpc('increment_user_points', {
+        p_user_id: user.id,
+        p_amount: finalMined,
+        p_type: 'mining',
+      });
+      
+      setMining(false);
+      setSession(null);
+      setPoints(prev => ({
+        ...prev,
+        total_points: prev.total_points + finalMined,
+        mining_points: prev.mining_points + finalMined,
+      }));
+      
+      toast({ title: 'Mining Complete!', description: `You earned ${finalMined} ARX-P` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-    await performCheckin();
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Overview</h1>
-        {user && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Flame className="h-4 w-4 text-orange-500" />
-            <span>{currentStreak} day streak</span>
+    <div className="min-h-screen bg-background">
+      {/* Background effects */}
+      <div className="glow-orb glow-orb-steel w-96 h-96 top-20 left-10 opacity-20 fixed" />
+      <div className="glow-orb glow-orb-blue w-64 h-64 bottom-20 right-10 opacity-15 fixed" />
+      
+      {/* Header */}
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={arxonLogo} alt="Arxon" className="h-10 w-10 rounded-lg" />
+            <span className="text-xl font-bold">Arxon</span>
           </div>
-        )}
-      </div>
-
-      <WelcomeCard
-        title="Welcome to ARXON Points Mining!"
-        description="Mine ARX-P points now, convert to $ARX tokens later. Check in daily, complete tasks, and climb the leaderboard!"
-        isActive={isMining}
-      />
-
-      {/* Daily Check-in Card */}
-      {user && (
-        <div className="glass-card p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-1">
-            <div className={`p-2 rounded-lg ${canCheckin ? 'bg-primary/20 animate-pulse' : 'bg-green-500/20'}`}>
-              <Calendar className={`h-5 w-5 ${canCheckin ? 'text-primary' : 'text-green-500'}`} />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-foreground">Daily Check-in</p>
-                {currentStreak > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">
-                    🔥 {currentStreak} day{currentStreak !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {canCheckin 
-                  ? `Check in for +${5 + Math.min(currentStreak + 1, 30)} ARX-P & +${Math.min(currentStreak + 1, 30)}% boost` 
-                  : `+${streakBoost}% mining boost active`}
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={handleCheckin}
-            disabled={!canCheckin || checkinLoading}
-            className={canCheckin ? 'btn-glow btn-mining' : 'btn-claimed'}
-          >
-            {canCheckin ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Check In
-              </>
-            ) : (
-              '✓ Checked In'
-            )}
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
           </Button>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
-        <StatCard 
-          label="ARX-P Balance" 
-          value={pointsLoading ? '...' : `${points?.total_points?.toLocaleString() || 0}`}
-          suffix=" ARX-P"
-          icon={<Zap className="h-4 w-4 text-accent" />}
-        />
-        <StatCard 
-          label="Mining Rate" 
-          value={`+${currentMiningRate.toFixed(currentMiningRate % 1 === 0 ? 0 : 1)}`}
-          suffix=" ARX-P/hr" 
-          icon={<Flame className="h-4 w-4 text-orange-500" />}
-        />
-        <StatCard 
-          label="Daily Streak" 
-          value={currentStreak.toString()} 
-          suffix=" days"
-          icon={<Calendar className="h-4 w-4 text-green-500" />}
-        />
-        <StatCard 
-          label="Rank" 
-          value={rank ? `#${rank}` : '-'}
-          icon={<Trophy className="h-4 w-4 text-yellow-500" />}
-        />
-      </div>
-
-      {/* Mining Status Card */}
-      <div className="glass-card p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
-        {isMining ? (
-          <>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                ⛏️ Mining Active
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Session: {formatTime(elapsedTime)} | Earned: {earnedPoints} ARX-P
-              </p>
+      </header>
+      
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Welcome, Miner!</h1>
+          <p className="text-muted-foreground">{user?.email}</p>
+        </div>
+        
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Trophy className="h-5 w-5 text-accent" />
+              <span className="text-sm text-muted-foreground">Total Points</span>
             </div>
-            <button 
-              onClick={() => navigate('/mining')}
-              className="btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5"
+            <p className="text-2xl font-bold">{Math.floor(points.total_points).toLocaleString()}</p>
+          </div>
+          
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <span className="text-sm text-muted-foreground">Mining Points</span>
+            </div>
+            <p className="text-2xl font-bold">{Math.floor(points.mining_points).toLocaleString()}</p>
+          </div>
+          
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingUp className="h-5 w-5 text-accent" />
+              <span className="text-sm text-muted-foreground">Rate</span>
+            </div>
+            <p className="text-2xl font-bold">10/hr</p>
+          </div>
+        </div>
+        
+        {/* Mining Widget */}
+        <div className="glass-card p-8">
+          <div className="flex flex-col items-center">
+            {/* Mining Circle */}
+            <div className={`mining-circle w-48 h-48 mb-6 ${mining ? 'animate-pulse' : ''}`}>
+              <Zap className={`h-12 w-12 mb-2 ${mining ? 'text-accent' : 'text-muted-foreground'}`} />
+              <span className="text-3xl font-bold">{currentMined.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground">ARX-P</span>
+            </div>
+            
+            {/* Status */}
+            <div className="mb-6">
+              {mining ? (
+                <div className="flex items-center gap-2 text-accent">
+                  <Clock className="h-4 w-4 animate-spin" />
+                  <span>Mining in progress...</span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">Ready to mine</span>
+              )}
+            </div>
+            
+            {/* Action Button */}
+            <Button
+              onClick={mining ? stopMining : startMining}
+              className={`btn-glow px-8 py-6 text-lg ${mining ? 'bg-destructive hover:bg-destructive/90' : 'btn-mining'}`}
             >
-              <span className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-green-400 animate-pulse" />
-              View Mining
-              <ArrowRight className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-xs sm:text-sm lg:text-base text-muted-foreground">
-              {miningDisabled
-                ? "Mining is currently paused by the admin."
-                : "Start mining to earn ARX-P points. Max 8 hours per session, 10 points/hour."}
-            </p>
-            <button
-              onClick={miningDisabled ? undefined : handleStartMining}
-              disabled={miningDisabled}
-              className={`btn-glow btn-mining w-full sm:w-auto justify-center text-xs sm:text-sm lg:text-base px-4 lg:px-6 py-2 lg:py-2.5 ${miningDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-            >
-              <span className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${miningDisabled ? 'bg-muted-foreground' : 'bg-foreground'}`} />
-              {miningDisabled ? 'Mining Disabled' : 'Start Mining'}
-              <ArrowRight className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Quick Links - 2x2 Grid */}
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3">
-        {/* Leaderboard */}
-        <button
-          onClick={() => navigate('/leaderboard')}
-          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-amber-500/20 to-orange-600/10 
-                     border border-amber-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-amber-500/10
-                     hover:from-amber-500/30 hover:to-orange-600/20 hover:border-amber-400/50 hover:shadow-lg hover:shadow-amber-500/20
-                     active:scale-95 active:from-amber-500/40
-                     focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-amber-500/20 border border-amber-500/30 shrink-0">
-              <Trophy className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
-            </div>
-            <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-amber-300 transition-colors truncate">Leaderboard</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Top 100 miners</p>
-            </div>
+              {mining ? 'Stop Mining' : 'Start Mining'}
+            </Button>
+            
+            {mining && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Max session: 480 ARX-P (48 hours)
+              </p>
+            )}
           </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-amber-400/50 
-                                  group-hover:text-amber-300 group-hover:translate-x-1 transition-all hidden sm:block" />
-        </button>
-
-        {/* Arena */}
-        <button
-          onClick={() => navigate('/arena')}
-          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-purple-500/20 to-pink-600/10 
-                     border border-purple-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-purple-500/10
-                     hover:from-purple-500/30 hover:to-pink-600/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20
-                     active:scale-95 active:from-purple-500/40
-                     focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-purple-500/20 border border-purple-500/30 shrink-0">
-              <Swords className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />
-            </div>
-            <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-purple-300 transition-colors truncate">Arena</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Stake & earn</p>
-            </div>
-          </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-purple-400/50 
-                                  group-hover:text-purple-300 group-hover:translate-x-1 transition-all hidden sm:block" />
-        </button>
-
-        {/* Nexus */}
-        <button
-          onClick={() => navigate('/nexus')}
-          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-cyan-500/20 to-blue-600/10 
-                     border border-cyan-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-cyan-500/10
-                     hover:from-cyan-500/30 hover:to-blue-600/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20
-                     active:scale-95 active:from-cyan-500/40
-                     focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-cyan-500/20 border border-cyan-500/30 shrink-0">
-              <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-cyan-400" />
-            </div>
-            <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-cyan-300 transition-colors truncate">Nexus</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Send & earn boost</p>
-            </div>
-          </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-cyan-400/50 
-                                  group-hover:text-cyan-300 group-hover:translate-x-1 transition-all hidden sm:block" />
-        </button>
-
-        {/* Tasks */}
-        <button
-          onClick={() => navigate('/tasks')}
-          className="relative overflow-hidden p-2 sm:p-3 md:p-4 text-left transition-all duration-200 group cursor-pointer
-                     bg-gradient-to-br from-green-500/20 to-emerald-600/10 
-                     border border-green-500/30 rounded-lg sm:rounded-xl
-                     shadow-md shadow-green-500/10
-                     hover:from-green-500/30 hover:to-emerald-600/20 hover:border-green-400/50 hover:shadow-lg hover:shadow-green-500/20
-                     active:scale-95 active:from-green-500/40
-                     focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:ring-offset-2 focus:ring-offset-background"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent 
-                          translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-1.5 sm:gap-2 md:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-green-500/20 border border-green-500/30 shrink-0">
-              <ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-400" />
-            </div>
-            <div className="text-center sm:text-left min-w-0">
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-green-300 transition-colors truncate">Tasks</p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:block">Complete & earn</p>
-            </div>
-          </div>
-          <ArrowRight className="absolute right-1.5 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-400/50 
-                                  group-hover:text-green-300 group-hover:translate-x-1 transition-all hidden sm:block" />
-        </button>
-      </div>
-
-      <EarningStatistics />
+        </div>
+      </main>
     </div>
   );
-};
-
-export default Dashboard;
+}

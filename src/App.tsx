@@ -1,118 +1,105 @@
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
-import { PointsProvider } from "@/hooks/usePoints";
-import BackendHealthBanner from "@/components/system/BackendHealthBanner";
-import SessionRecovery from "@/components/system/SessionRecovery";
-import ErrorBoundary from "@/components/system/ErrorBoundary";
-import { BackendUnavailableError } from "@/lib/backendHealth";
-import Index from "./pages/Index";
-import DashboardLayout from "./components/layout/DashboardLayout";
-import PublicLeaderboard from "./pages/PublicLeaderboard";
-import Claim from "./pages/Claim";
-import Referrals from "./pages/Referrals";
-import Mining from "./pages/Mining";
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
-import Arena from "./pages/Arena";
-import Nexus from "./pages/Nexus";
-import Tasks from "./pages/Tasks";
-import WalletPage from "./pages/Wallet";
-import NotFound from "./pages/NotFound";
-import ResetPassword from "./pages/ResetPassword";
-import ChangePassword from "./pages/ChangePassword";
-import Auth from "./pages/Auth";
-import AuthConfirm from "./pages/AuthConfirm";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
-// Admin imports
-import AdminLayout from "./components/admin/AdminLayout";
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminControls from "./pages/admin/AdminControls";
-import AdminSignups from "./pages/admin/AdminSignups";
-import AdminReconciliation from "./pages/admin/AdminReconciliation";
-import AdminArena from "./pages/admin/AdminArena";
+// Pages
+import LandingPage from "@/pages/LandingPage";
+import AuthPage from "@/pages/AuthPage";
+import AuthCallback from "@/pages/AuthCallback";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import Dashboard from "@/pages/Dashboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => {
-        if (error instanceof BackendUnavailableError) return false;
-        return failureCount < 2;
-      },
-      retryDelay: (attemptIndex, error) => {
-        if (error instanceof BackendUnavailableError) return error.retryAfterMs;
-        return Math.min(1000 * 2 ** attemptIndex, 30_000);
-      },
+      retry: 2,
+      staleTime: 5000,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-      staleTime: 5_000,
-    },
-    mutations: {
-      retry: (failureCount, error) => {
-        if (error instanceof BackendUnavailableError) return false;
-        return failureCount < 1;
-      },
-      retryDelay: (attemptIndex, error) => {
-        if (error instanceof BackendUnavailableError) return error.retryAfterMs;
-        return Math.min(1000 * 2 ** attemptIndex, 15_000);
-      },
     },
   },
 });
 
-const App = () => (
-  <ErrorBoundary>
+// Protected route wrapper
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Public route - redirects to dashboard if logged in
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Main router content
+function AppRoutes() {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  
+  return (
+    <Routes>
+      {/* Landing or Dashboard based on auth state */}
+      <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
+      
+      {/* Auth routes */}
+      <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+      <Route path="/auth/confirm" element={<AuthCallback />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PointsProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BackendHealthBanner />
-            <SessionRecovery />
-            <BrowserRouter>
-              <Routes>
-                {/* Landing/Dashboard - shows Landing for unauthenticated, Dashboard for authenticated */}
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/confirm" element={<AuthConfirm />} />
-                <Route path="/leaderboard" element={<PublicLeaderboard />} />
-                <Route path="/claim" element={<DashboardLayout><Claim /></DashboardLayout>} />
-                <Route path="/referrals" element={<DashboardLayout><Referrals /></DashboardLayout>} />
-                <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-                <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
-                <Route path="/mining" element={<Mining />} />
-                <Route path="/arena" element={<Arena />} />
-                <Route path="/nexus" element={<Nexus />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/wallet" element={<WalletPage />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/change-password" element={<ChangePassword />} />
-
-                {/* Admin routes */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="signups" element={<AdminSignups />} />
-                  <Route path="controls" element={<AdminControls />} />
-                  <Route path="arena" element={<AdminArena />} />
-                  <Route path="reconciliation" element={<AdminReconciliation />} />
-                </Route>
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </PointsProvider>
+        <TooltipProvider>
+          <Toaster />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
-  </ErrorBoundary>
-);
+  );
+}
 
 export default App;
