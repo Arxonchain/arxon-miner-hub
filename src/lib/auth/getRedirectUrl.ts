@@ -14,8 +14,10 @@ export function getAuthRedirectUrl(path = "/"): string {
  * token_hash links, and legacy OTP tokens before showing /reset-password.
  */
 export function getPasswordResetRedirectUrl(): string {
-  // Supabase appends tokens (code/token_hash/token/etc). AuthConfirm turns those into a session.
-  return getAuthRedirectUrl("/auth/confirm?next=/reset-password");
+  // Route through /auth/confirm; it will detect type=recovery and forward to /reset-password.
+  // NOTE: Avoid query-string based redirects (e.g. ?next=...) because some auth configs
+  // whitelist only exact callback paths.
+  return getAuthRedirectUrl("/auth/confirm");
 }
 
 /**
@@ -30,5 +32,8 @@ export function getEmailConfirmRedirectUrl(): string {
  * The user clicks a magic link → lands on /auth/confirm → goes to /change-password
  */
 export function getMagicLinkRedirectUrl(): string {
-  return getAuthRedirectUrl("/auth/confirm?next=/change-password");
+  // Route through /auth/confirm; it will detect type=magiclink and forward to /change-password.
+  // NOTE: Avoid query-string based redirects (e.g. ?next=...) because some auth configs
+  // whitelist only exact callback paths.
+  return getAuthRedirectUrl("/auth/confirm");
 }
