@@ -5,6 +5,8 @@ import { looksLikeRecoveryLink, parseRecoveryUrl } from "@/lib/auth/recoveryUrl"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const looksLikeNumericOtp = (token: string) => /^\d{4,10}$/.test(token.trim());
+
 export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
   const [isValidSession, setIsValidSession] = useState(false);
@@ -43,10 +45,25 @@ export function usePasswordRecoverySession() {
 
       if (looksLikeRecovery) {
         try {
-          // Clear any stale/partial auth state first (common cause of verifyOtp failures)
-          // Then ensure we are not currently authenticated with another session.
-          clearSupabaseAuthStorage();
-          await supabase.auth.signOut().catch(() => {});
+          // If we already have a session (e.g. user came from a callback route that already established it),
+          // don't blow it away by clearing storage/signing out.
+          const { data: existing } = await supabase.auth.getSession();
+          if (existing.session) {
+            setIsValidSession(true);
+            setChecking(false);
+            setRequiresEmail(false);
+            window.history.replaceState(null, "", "/reset-password");
+            return;
+          }
+
+          // For PKCE code exchange, we must NOT clear auth storage up-front because it can contain the code_verifier.
+          const isPkceCodeFlow = Boolean(p?.code);
+          if (!isPkceCodeFlow) {
+            // Clear any stale/partial auth state first (common cause of verifyOtp failures)
+            // Then ensure we are not currently authenticated with another session.
+            clearSupabaseAuthStorage();
+            await supabase.auth.signOut().catch(() => {});
+          }
 
           if (p?.accessToken && p?.refreshToken) {
             const { error } = await supabase.auth.setSession({
@@ -65,28 +82,30 @@ export function usePasswordRecoverySession() {
             });
             if (error) setEstablishError(error.message);
           } else if (p?.token) {
-            // If the link only contains a token (no token_hash/code/access_token) we need the email to verify.
-            // Some email templates use `?token=...&type=recovery` (OTP). Supabase requires email+token.
-            if (!p.email) {
+            // Legacy templates sometimes use `token=`.
+            // In practice this is often a numeric OTP code which MUST be verified using email+token.
+            // Trying it as token_hash first can lead to confusing "invalid/expired" results.
+            if (looksLikeNumericOtp(p.token)) {
               setRequiresEmail(true);
             } else {
-            // Legacy templates sometimes use `token=`. Some projects still pass the hashed token in `token`.
-            // Try token_hash first; if email is present we can also attempt token+email.
-            const { error: tokenHashErr } = await supabase.auth.verifyOtp({
-              type: "recovery",
-              token_hash: p.token,
-            });
-
-            if (tokenHashErr && p.email) {
-              const { error: tokenErr } = await supabase.auth.verifyOtp({
+              // Some projects pass the hashed token in `token`.
+              const { error: tokenHashErr } = await supabase.auth.verifyOtp({
                 type: "recovery",
-                email: p.email,
-                token: p.token,
-              } as any);
-              if (tokenErr) setEstablishError(tokenErr.message);
-            } else if (tokenHashErr) {
-              setEstablishError(tokenHashErr.message);
-            }
+                token_hash: p.token,
+              });
+
+              if (tokenHashErr) {
+                if (!p.email) {
+                  setRequiresEmail(true);
+                } else {
+                  const { error: tokenErr } = await supabase.auth.verifyOtp({
+                    type: "recovery",
+                    email: p.email,
+                    token: p.token,
+                  } as any);
+                  if (tokenErr) setEstablishError(tokenErr.message);
+                }
+              }
             }
           }
         } catch (e) {
@@ -140,20 +159,53 @@ export function usePasswordRecoverySession() {
     setEstablishError(null);
 
     try {
+      // If we already have a session, no need to verify again.
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session) {
+        setIsValidSession(true);
+        setRequiresEmail(false);
+        setChecking(false);
+        window.history.replaceState(null, "", "/reset-password");
+        return true;
+      }
+
       // Ensure no stale session blocks OTP verification
       clearSupabaseAuthStorage();
       await supabase.auth.signOut().catch(() => {});
 
-      const { error } = await supabase.auth.verifyOtp({
-        type: "recovery",
-        email: email.trim(),
-        token: p.token,
-      } as any);
+      // If token looks like a numeric OTP, verify via email+token directly.
+      // Otherwise, attempt token_hash first, then fall back to email+token.
+      if (looksLikeNumericOtp(p.token)) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          email: email.trim(),
+          token: p.token,
+        } as any);
 
-      if (error) {
-        setEstablishError(error.message);
-        setChecking(false);
-        return false;
+        if (error) {
+          setEstablishError(error.message);
+          setChecking(false);
+          return false;
+        }
+      } else {
+        const { error: asHashErr } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: p.token,
+        });
+
+        if (asHashErr) {
+          const { error: asTokenErr } = await supabase.auth.verifyOtp({
+            type: "recovery",
+            email: email.trim(),
+            token: p.token,
+          } as any);
+
+          if (asTokenErr) {
+            setEstablishError(asTokenErr.message);
+            setChecking(false);
+            return false;
+          }
+        }
       }
 
       // Poll for session to be safe across browsers

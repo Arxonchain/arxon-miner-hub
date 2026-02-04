@@ -15,7 +15,9 @@ export function getAuthRedirectUrl(path = "/"): string {
  * Returns the password reset redirect URL
  */
 export function getPasswordResetRedirectUrl(): string {
-  return getAuthRedirectUrl("/reset-password");
+  // Route through /auth/confirm so we can handle all callback formats (PKCE code, token_hash, hash access_token)
+  // and then forward into the reset-password page.
+  return getAuthRedirectUrl("/auth/confirm?type=recovery&next=/reset-password");
 }
 
 /**
