@@ -26,3 +26,11 @@ export function getPasswordResetRedirectUrl(): string {
 export function getEmailConfirmRedirectUrl(): string {
   return getAuthRedirectUrl("/auth/confirm?next=/");
 }
+
+/**
+ * Returns the magic-link redirect URL for password change flow
+ * The user clicks a magic link → lands on /auth/confirm → goes to /change-password
+ */
+export function getMagicLinkRedirectUrl(): string {
+  return getAuthRedirectUrl("/auth/confirm?next=/change-password");
+}
