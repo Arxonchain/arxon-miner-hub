@@ -1,37 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-type RecoveryUrlParams = {
-  type: string;
-  accessToken: string | null;
-  refreshToken: string | null;
-  code: string | null;
-  tokenHash: string | null;
-};
-
-function parseRecoveryUrl(): RecoveryUrlParams {
-  const rawHash = window.location.hash || "";
-  const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
-
-  const hashParams = new URLSearchParams(hash);
-  const searchParams = new URLSearchParams(window.location.search);
-
-  const type = (hashParams.get("type") || searchParams.get("type") || "").toLowerCase();
-
-  return {
-    type,
-    accessToken: hashParams.get("access_token") || searchParams.get("access_token"),
-    refreshToken: hashParams.get("refresh_token") || searchParams.get("refresh_token"),
-    code: searchParams.get("code") || hashParams.get("code"),
-    tokenHash: searchParams.get("token_hash") || hashParams.get("token_hash"),
-  };
-}
+import { clearSupabaseAuthStorage } from "@/lib/auth/clearSupabaseAuthStorage";
+import { looksLikeRecoveryLink, parseRecoveryUrl } from "@/lib/auth/recoveryUrl";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
   const [isValidSession, setIsValidSession] = useState(false);
+  const [establishError, setEstablishError] = useState<string | null>(null);
+
+  const params = useMemo(() => {
+    try {
+      return parseRecoveryUrl();
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,36 +32,54 @@ export function usePasswordRecoverySession() {
     });
 
     const run = async () => {
-      const params = parseRecoveryUrl();
-
-      const looksLikeRecovery =
-        params.type === "recovery" ||
-        Boolean(params.code) ||
-        Boolean(params.tokenHash) ||
-        Boolean(params.accessToken) ||
-        Boolean(params.refreshToken);
+      const p = params;
+      const looksLikeRecovery = p ? looksLikeRecoveryLink(p) : false;
 
       if (looksLikeRecovery) {
         try {
-          if (params.accessToken && params.refreshToken) {
+          // Clear any stale/partial auth state first (common cause of verifyOtp failures)
+          // Then ensure we are not currently authenticated with another session.
+          clearSupabaseAuthStorage();
+          await supabase.auth.signOut().catch(() => {});
+
+          if (p?.accessToken && p?.refreshToken) {
             const { error } = await supabase.auth.setSession({
-              access_token: params.accessToken,
-              refresh_token: params.refreshToken,
+              access_token: p.accessToken,
+              refresh_token: p.refreshToken,
             });
-            if (error) console.error("Failed to set session from tokens:", error);
-          } else if (params.code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(params.code);
-            if (error) console.error("Failed to exchange code for session:", error);
-          } else if (params.tokenHash) {
-            // THIS IS THE KEY FIX FOR ?token_hash LINKS
+            if (error) setEstablishError(error.message);
+          } else if (p?.code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(p.code);
+            if (error) setEstablishError(error.message);
+          } else if (p?.tokenHash) {
+            // Newer template format
             const { error } = await supabase.auth.verifyOtp({
               type: "recovery",
-              token_hash: params.tokenHash,
+              token_hash: p.tokenHash,
             });
-            if (error) console.error("Failed to verify OTP:", error);
+            if (error) setEstablishError(error.message);
+          } else if (p?.token) {
+            // Legacy templates sometimes use `token=`. Some projects still pass the hashed token in `token`.
+            // Try token_hash first; if email is present we can also attempt token+email.
+            const { error: tokenHashErr } = await supabase.auth.verifyOtp({
+              type: "recovery",
+              token_hash: p.token,
+            });
+
+            if (tokenHashErr && p.email) {
+              const { error: tokenErr } = await supabase.auth.verifyOtp({
+                type: "recovery",
+                email: p.email,
+                token: p.token,
+              } as any);
+              if (tokenErr) setEstablishError(tokenErr.message);
+            } else if (tokenHashErr) {
+              setEstablishError(tokenHashErr.message);
+            }
           }
         } catch (e) {
           console.error("Failed to establish recovery session from URL:", e);
+          setEstablishError(e instanceof Error ? e.message : "Failed to establish recovery session");
         }
       }
 
@@ -110,5 +113,5 @@ export function usePasswordRecoverySession() {
     };
   }, []);
 
-  return { checking, isValidSession };
+  return { checking, isValidSession, establishError, params };
 }

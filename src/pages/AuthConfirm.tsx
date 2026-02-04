@@ -27,10 +27,14 @@ const AuthConfirm = () => {
           }
           
           // Check if this is a recovery flow
-          if (type === "recovery") {
+           if (type === "recovery") {
             setStatus("success");
             setMessage("Link verified! Redirecting to password reset...");
-            setTimeout(() => navigate("/reset-password"), 1500);
+             setTimeout(() => {
+               const qs = window.location.search || "";
+               const hash = window.location.hash || "";
+               navigate(`/reset-password${qs}${hash}`);
+             }, 1500);
             return;
           }
           
@@ -65,10 +69,14 @@ const AuthConfirm = () => {
         }
         
         // If this is a recovery/password reset, redirect to reset page
-        if (type === "recovery") {
+         if (type === "recovery") {
           setStatus("success");
           setMessage("Link verified! Redirecting to password reset...");
-          setTimeout(() => navigate("/reset-password"), 1500);
+           setTimeout(() => {
+             const qs = window.location.search || "";
+             const hash = window.location.hash || "";
+             navigate(`/reset-password${qs}${hash}`);
+           }, 1500);
           return;
         }
         
@@ -95,7 +103,7 @@ const AuthConfirm = () => {
         )}
         {status === "success" && (
           <>
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
             <h1 className="text-xl font-semibold text-foreground">{message}</h1>
           </>
         )}
