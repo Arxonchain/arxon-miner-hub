@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getPasswordResetRedirectUrl } from "@/lib/auth/getRedirectUrl";
+import { getPasswordResetRedirectUrl, getMagicLinkRedirectUrl } from "@/lib/auth/getRedirectUrl";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 type Mode = "signin" | "signup" | "forgot";
@@ -38,8 +38,10 @@ export default function Auth() {
     }
   });
   const [loading, setLoading] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
@@ -58,7 +60,57 @@ export default function Auth() {
     setMode(next);
     setErrorText(null);
     setResetSent(false);
+    setMagicLinkSent(false);
     setSearchParams({ mode: next });
+  };
+
+  /**
+   * Send a magic link (passwordless sign-in) for password change flow.
+   * This is more reliable than the reset link on custom domains.
+   */
+  const handleMagicLink = async () => {
+    if (!email.trim()) {
+      setErrorText("Please enter your email first.");
+      return;
+    }
+
+    setErrorText(null);
+    setMagicLinkLoading(true);
+
+    try {
+      // Use edge function to send magic link for existing users only
+      const { data, error } = await supabase.functions.invoke("send-magic-link", {
+        body: {
+          email: email.trim(),
+          redirectTo: getMagicLinkRedirectUrl(),
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        // "Signups not allowed" means user doesn't exist
+        if (data.error.toLowerCase().includes("not allowed") || data.error.toLowerCase().includes("not found")) {
+          setErrorText("No account found with this email. Please check and try again.");
+        } else {
+          setErrorText(data.error);
+        }
+        return;
+      }
+
+      setMagicLinkSent(true);
+      toast({
+        title: "Magic link sent!",
+        description: "Check your email for a sign-in link. After signing in, you can set a new password.",
+      });
+    } catch (err: any) {
+      console.error("Magic link error:", err);
+      setErrorText(err.message || "Failed to send magic link. Please try the standard reset.");
+    } finally {
+      setMagicLinkLoading(false);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -201,15 +253,17 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent>
-            {mode === "forgot" && resetSent ? (
+            {mode === "forgot" && (resetSent || magicLinkSent) ? (
               <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-16 h-16 mx-auto rounded-full bg-accent/20 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <p className="text-muted-foreground">
-                  Check your email for a password reset link
+                  {magicLinkSent 
+                    ? "Check your email for a magic sign-in link. After signing in, you can set a new password."
+                    : "Check your email for a password reset link"}
                 </p>
                 <Button
                   type="button"
@@ -303,6 +357,39 @@ export default function Auth() {
                         ? "Sign in" 
                         : "Send reset link"}
                 </Button>
+
+                {mode === "forgot" && (
+                  <>
+                    <div className="relative my-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border/60" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">or</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={handleMagicLink}
+                      disabled={magicLinkLoading || loading}
+                    >
+                      {magicLinkLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending…
+                        </>
+                      ) : (
+                        "Send magic sign-in link instead"
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      If the reset link doesn't work, try the magic link. You'll sign in automatically and can then set a new password.
+                    </p>
+                  </>
+                )}
 
                 {mode === "forgot" ? (
                   <Button

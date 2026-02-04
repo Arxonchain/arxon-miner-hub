@@ -23,6 +23,7 @@ import Tasks from "./pages/Tasks";
 import WalletPage from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/ChangePassword";
 import Auth from "./pages/Auth";
 import AuthConfirm from "./pages/AuthConfirm";
 
@@ -91,6 +92,7 @@ const App = () => (
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/change-password" element={<ChangePassword />} />
 
                 {/* Admin routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
