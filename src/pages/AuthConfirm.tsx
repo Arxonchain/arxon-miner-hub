@@ -12,9 +12,49 @@ const AuthConfirm = () => {
   useEffect(() => {
     const confirmEmail = async () => {
       const token_hash = searchParams.get("token_hash");
+      const token = searchParams.get("token");
       const type = searchParams.get("type");
       const code = searchParams.get("code");
       const next = searchParams.get("next") || "/";
+
+      // Handle implicit hash-based callbacks (e.g. #access_token=...&refresh_token=...)
+      const rawHash = window.location.hash || "";
+      const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const hashType = (hashParams.get("type") || "").toLowerCase();
+
+      if (accessToken && refreshToken) {
+        try {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            setStatus("error");
+            setMessage(error.message || "Failed to confirm. Please try again.");
+            return;
+          }
+
+          // If this is a recovery/password reset, redirect to reset page.
+          if ((type || hashType) === "recovery") {
+            setStatus("success");
+            setMessage("Link verified! Redirecting to password reset...");
+            setTimeout(() => navigate("/reset-password"), 800);
+            return;
+          }
+
+          setStatus("success");
+          setMessage("Email confirmed successfully! Redirecting...");
+          setTimeout(() => navigate(next), 1200);
+          return;
+        } catch {
+          setStatus("error");
+          setMessage("An unexpected error occurred. Please try again.");
+          return;
+        }
+      }
 
       // Handle PKCE code exchange
       if (code) {
@@ -47,6 +87,18 @@ const AuthConfirm = () => {
           setMessage("An unexpected error occurred. Please try again.");
           return;
         }
+      }
+
+      // Some legacy recovery templates use ?token=...&type=recovery and require email verification on /reset-password.
+      if (!token_hash && !code && token && (type || "").toLowerCase() === "recovery") {
+        setStatus("success");
+        setMessage("Redirecting to password reset...");
+        setTimeout(() => {
+          const qs = window.location.search || "";
+          const h = window.location.hash || "";
+          navigate(`/reset-password${qs}${h}`);
+        }, 300);
+        return;
       }
 
       // Handle token_hash verification
