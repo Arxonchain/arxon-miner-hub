@@ -24,43 +24,45 @@ export default function ResetPassword() {
     const token = searchParams.get("token");
     const type = searchParams.get("type")?.toLowerCase();
 
-    console.log("ResetPassword page loaded with params:", { token, type });
+    console.log("ResetPassword loaded:", { token: token ? token.substring(0, 10) + '...' : null, type });
 
     if (!token || type !== "recovery") {
-      setErrorMessage("Invalid reset link. Please request a new one.");
+      setErrorMessage("Invalid reset link parameters.");
       setLoading(false);
       return;
     }
 
-    const verifyLink = async () => {
+    const verify = async () => {
       try {
-        console.log("Calling verifyOtp...");
-        const { error } = await supabase.auth.verifyOtp({
+        console.log("verifyOtp called with token:", token.substring(0, 10) + '...');
+        const { data, error } = await supabase.auth.verifyOtp({
           token_hash: token,
           type: "recovery",
         });
 
+        console.log("verifyOtp result:", { data, error: error ? error.message : null });
+
+        // Key fix: no error = success for recovery flow
         if (error) {
-          console.log("verifyOtp error:", error.message);
           setErrorMessage(error.message || "Invalid or expired link.");
           toast({
             title: "Verification Failed",
-            description: error.message || "Please request a new link.",
+            description: error.message || "Request a new link.",
             variant: "destructive",
           });
         } else {
-          console.log("verifyOtp success");
           setVerified(true);
+          setSuccessMessage("Link verified! Set your new password.");
         }
       } catch (e) {
         console.error("verifyOtp exception:", e);
-        setErrorMessage("Verification error. Try a new link.");
+        setErrorMessage("Verification error.");
       } finally {
         setLoading(false);
       }
     };
 
-    verifyLink();
+    verify();
   }, [searchParams, toast]);
 
   const handleReset = async (e) => {
@@ -72,27 +74,23 @@ export default function ResetPassword() {
     }
 
     if (password.length < 8) {
-      setErrorMessage("Password too short (min 8 characters)");
+      setErrorMessage("Password must be at least 8 characters");
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Calling updateUser...");
       const { error } = await supabase.auth.updateUser({ password });
-
       if (error) throw error;
 
-      console.log("Password reset success");
       toast({
         title: "Success",
-        description: "Password reset complete. Sign in now.",
+        description: "Password reset. Sign in now.",
       });
 
       navigate("/auth?mode=signin");
     } catch (err) {
-      console.error("updateUser error:", err);
       setErrorMessage("Failed to reset password.");
     } finally {
       setLoading(false);
@@ -102,8 +100,8 @@ export default function ResetPassword() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
-        <p className="ml-4 text-lg">Verifying your reset link...</p>
+        <Loader2 className="h-12 w-12 animate-spin" />
+        <p className="ml-4">Verifying...</p>
       </div>
     );
   }
@@ -113,11 +111,11 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-destructive">Link Error</CardTitle>
+            <CardTitle className="text-destructive">Error</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <p className="text-destructive">{errorMessage}</p>
-            <Button onClick={() => navigate("/auth?mode=forgot")} className="w-full">
+            <Button onClick={() => navigate("/auth?mode=forgot")} className="w-full mt-4">
               Request New Link
             </Button>
           </CardContent>
@@ -141,7 +139,7 @@ export default function ResetPassword() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="New password (min 8 chars)"
+                  placeholder="New password"
                 />
               </div>
               <div>
@@ -153,7 +151,6 @@ export default function ResetPassword() {
                   placeholder="Confirm"
                 />
               </div>
-              {errorMessage && <p className="text-destructive">{errorMessage}</p>}
               <Button type="submit" className="w-full">
                 Reset Password
               </Button>
