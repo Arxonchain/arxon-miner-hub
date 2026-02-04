@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { validatePassword } from "@/lib/passwordValidation";
-import PasswordStrengthMeter from "./PasswordStrengthMeter";
+import PasswordStrengthMeter from "@/components/auth/PasswordStrengthMeter";
 
 interface AuthDialogProps {
   open: boolean;
