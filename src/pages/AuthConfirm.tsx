@@ -25,7 +25,7 @@ const AuthConfirm = () => {
       const code = searchParams.get("code");
       const token = searchParams.get("token"); // legacy OTP-style links
       const email = searchParams.get("email");
-      const next = searchParams.get("next") || "/";
+      const explicitNext = searchParams.get("next");
 
       // Handle hash fragment tokens (implicit flow)
       const hash = window.location.hash.slice(1);
@@ -34,12 +34,23 @@ const AuthConfirm = () => {
       const refreshToken = hashParams.get("refresh_token");
       const hashType = hashParams.get("type");
 
-      console.log("AuthConfirm: Processing callback", { 
+      const flowType = (type || hashType || "").toLowerCase();
+      const next =
+        explicitNext ||
+        (flowType === "recovery"
+          ? "/reset-password"
+          : flowType === "magiclink"
+            ? "/change-password"
+            : "/");
+
+       console.log("AuthConfirm: Processing callback", { 
         hasTokenHash: !!token_hash, 
         type, 
         hasCode: !!code, 
         hasAccessToken: !!accessToken,
         hashType,
+         flowType,
+         next,
         hasToken: !!token,
         hasEmail: !!email,
       });
@@ -52,8 +63,8 @@ const AuthConfirm = () => {
 
       try {
         // 0. Handle legacy OTP links: ?token=...&type=recovery[&email=...]
-        if (token && (type || hashType || "recovery")) {
-          const t = (type || hashType || "recovery").toLowerCase();
+         if (token && (type || hashType || "recovery")) {
+           const t = (type || hashType || "recovery").toLowerCase();
 
           // If the template didn't include email, we must ask for it.
           if (!email) {
@@ -79,16 +90,23 @@ const AuthConfirm = () => {
             return;
           }
 
-          if (t === "recovery") {
+           if (t === "recovery") {
             setStatus("success");
             setMessage("Verified! Redirecting to password reset...");
             setTimeout(() => navigate("/reset-password"), 800);
             return;
           }
 
-          setStatus("success");
-          setMessage("Verified! Redirecting...");
-          setTimeout(() => navigate(next), 1000);
+           if (t === "magiclink") {
+             setStatus("success");
+             setMessage("Verified! Redirecting...");
+             setTimeout(() => navigate("/change-password"), 800);
+             return;
+           }
+
+           setStatus("success");
+           setMessage("Verified! Redirecting...");
+           setTimeout(() => navigate(next), 1000);
           return;
         }
 
@@ -108,17 +126,23 @@ const AuthConfirm = () => {
             return;
           }
 
-          // Check if this is a recovery flow
-          if ((type || hashType)?.toLowerCase() === "recovery") {
-            setStatus("success");
-            setMessage("Verified! Redirecting to password reset...");
-            setTimeout(() => navigate("/reset-password"), 800);
-            return;
-          }
+           if (flowType === "recovery") {
+             setStatus("success");
+             setMessage("Verified! Redirecting to password reset...");
+             setTimeout(() => navigate("/reset-password"), 800);
+             return;
+           }
 
-          setStatus("success");
-          setMessage("Verified! Redirecting...");
-          setTimeout(() => navigate(next), 1000);
+           if (flowType === "magiclink") {
+             setStatus("success");
+             setMessage("Verified! Redirecting...");
+             setTimeout(() => navigate("/change-password"), 800);
+             return;
+           }
+
+           setStatus("success");
+           setMessage("Verified! Redirecting...");
+           setTimeout(() => navigate(next), 1000);
           return;
         }
 
@@ -135,17 +159,23 @@ const AuthConfirm = () => {
             return;
           }
 
-          // Check if this is a recovery flow
-          if (type?.toLowerCase() === "recovery") {
-            setStatus("success");
-            setMessage("Verified! Redirecting to password reset...");
-            setTimeout(() => navigate("/reset-password"), 800);
-            return;
-          }
+           if (flowType === "recovery") {
+             setStatus("success");
+             setMessage("Verified! Redirecting to password reset...");
+             setTimeout(() => navigate("/reset-password"), 800);
+             return;
+           }
 
-          setStatus("success");
-          setMessage("Verified! Redirecting...");
-          setTimeout(() => navigate(next), 1000);
+           if (flowType === "magiclink") {
+             setStatus("success");
+             setMessage("Verified! Redirecting...");
+             setTimeout(() => navigate("/change-password"), 800);
+             return;
+           }
+
+           setStatus("success");
+           setMessage("Verified! Redirecting...");
+           setTimeout(() => navigate(next), 1000);
           return;
         }
 
@@ -165,17 +195,23 @@ const AuthConfirm = () => {
             return;
           }
 
-          // Check if this is a recovery flow
-          if (type.toLowerCase() === "recovery") {
-            setStatus("success");
-            setMessage("Verified! Redirecting to password reset...");
-            setTimeout(() => navigate("/reset-password"), 800);
-            return;
-          }
+           if (flowType === "recovery") {
+             setStatus("success");
+             setMessage("Verified! Redirecting to password reset...");
+             setTimeout(() => navigate("/reset-password"), 800);
+             return;
+           }
 
-          setStatus("success");
-          setMessage("Email confirmed! Redirecting...");
-          setTimeout(() => navigate(next), 1500);
+           if (flowType === "magiclink") {
+             setStatus("success");
+             setMessage("Verified! Redirecting...");
+             setTimeout(() => navigate("/change-password"), 800);
+             return;
+           }
+
+           setStatus("success");
+           setMessage("Email confirmed! Redirecting...");
+           setTimeout(() => navigate(next), 1500);
           return;
         }
 
@@ -184,20 +220,26 @@ const AuthConfirm = () => {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session) {
-          // Already have a session, just redirect
-          if (type?.toLowerCase() === "recovery") {
-            setStatus("success");
-            setMessage("Session found! Redirecting to password reset...");
-            setTimeout(() => navigate("/reset-password"), 500);
-            return;
-          }
+         if (session) {
+           if (flowType === "recovery") {
+             setStatus("success");
+             setMessage("Session found! Redirecting to password reset...");
+             setTimeout(() => navigate("/reset-password"), 500);
+             return;
+           }
 
-          setStatus("success");
-          setMessage("Already signed in! Redirecting...");
-          setTimeout(() => navigate(next), 500);
-          return;
-        }
+           if (flowType === "magiclink") {
+             setStatus("success");
+             setMessage("Session found! Redirecting...");
+             setTimeout(() => navigate("/change-password"), 500);
+             return;
+           }
+
+           setStatus("success");
+           setMessage("Already signed in! Redirecting...");
+           setTimeout(() => navigate(next), 500);
+           return;
+         }
 
         // No valid parameters and no session
         setStatus("error");
@@ -234,6 +276,13 @@ const AuthConfirm = () => {
       setStatus("success");
       setMessage("Verified! Redirecting to password reset...");
       setTimeout(() => navigate("/reset-password"), 800);
+      return;
+    }
+
+    if (otpType === "magiclink") {
+      setStatus("success");
+      setMessage("Verified! Redirecting...");
+      setTimeout(() => navigate("/change-password"), 800);
       return;
     }
 
