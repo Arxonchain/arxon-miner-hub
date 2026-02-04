@@ -29,15 +29,6 @@ function parseRecoveryUrl(): RecoveryUrlParams {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Establishes a password recovery session from whatever URL format the auth email uses.
- * Supports:
- * - #access_token=...&refresh_token=...&type=recovery
- * - ?access_token=...&refresh_token=...&type=recovery
- * - ?code=... (PKCE/code exchange)
- * - ?token_hash=...&type=recovery (OTP verification)
- * - PASSWORD_RECOVERY auth event from Supabase
- */
 export function usePasswordRecoverySession() {
   const [checking, setChecking] = useState(true);
   const [isValidSession, setIsValidSession] = useState(false);
@@ -45,14 +36,12 @@ export function usePasswordRecoverySession() {
   useEffect(() => {
     let cancelled = false;
 
-    // Listen for PASSWORD_RECOVERY event from Supabase auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       
       if (event === 'PASSWORD_RECOVERY' && session) {
         setIsValidSession(true);
         setChecking(false);
-        // Clean URL after recovery session is established
         window.history.replaceState(null, "", "/reset-password");
       }
     });
@@ -60,40 +49,37 @@ export function usePasswordRecoverySession() {
     const run = async () => {
       const params = parseRecoveryUrl();
 
-      // Try to establish a session if this looks like a recovery flow.
-      // IMPORTANT: never force-fail here — some clients establish the session automatically.
-      if (params.type === "recovery") {
+      const looksLikeRecovery =
+        params.type === "recovery" ||
+        Boolean(params.code) ||
+        Boolean(params.tokenHash) ||
+        Boolean(params.accessToken) ||
+        Boolean(params.refreshToken);
+
+      if (looksLikeRecovery) {
         try {
           if (params.accessToken && params.refreshToken) {
             const { error } = await supabase.auth.setSession({
               access_token: params.accessToken,
               refresh_token: params.refreshToken,
             });
-            if (error) {
-              console.error("Failed to set session from tokens:", error);
-            }
+            if (error) console.error("Failed to set session from tokens:", error);
           } else if (params.code) {
             const { error } = await supabase.auth.exchangeCodeForSession(params.code);
-            if (error) {
-              console.error("Failed to exchange code for session:", error);
-            }
+            if (error) console.error("Failed to exchange code for session:", error);
           } else if (params.tokenHash) {
+            // THIS IS THE KEY FIX FOR ?token_hash LINKS
             const { error } = await supabase.auth.verifyOtp({
               type: "recovery",
               token_hash: params.tokenHash,
             });
-            if (error) {
-              console.error("Failed to verify OTP:", error);
-            }
+            if (error) console.error("Failed to verify OTP:", error);
           }
         } catch (e) {
-          // Do not toast here—fallback to checking whether a session exists anyway.
           console.error("Failed to establish recovery session from URL:", e);
         }
       }
 
-      // Wait for the auth library to settle and persist the session.
-      // Extended timeout (8s) for slow devices / networks.
       const deadline = Date.now() + 8000;
       let sessionFound = false;
 
@@ -111,8 +97,7 @@ export function usePasswordRecoverySession() {
       setIsValidSession(sessionFound);
       setChecking(false);
 
-      // Clean sensitive params after a session is confirmed.
-      if (sessionFound && params.type === "recovery") {
+      if (sessionFound && looksLikeRecovery) {
         window.history.replaceState(null, "", "/reset-password");
       }
     };
