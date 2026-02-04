@@ -44,29 +44,26 @@ export default function AuthConfirm() {
     let cancelled = false;
 
     const run = async () => {
-      // Log EVERYTHING we see in the URL
-      console.log("[DEBUG] AuthConfirm mounted");
-      console.log("[DEBUG] Full URL:", window.location.href);
-      console.log("[DEBUG] Search params object:", Object.fromEntries(searchParams));
+      console.log("[AUTH CONFIRM] Page loaded");
+      console.log("[AUTH CONFIRM] Full URL:", window.location.href);
+      console.log("[AUTH CONFIRM] All search params:", Object.fromEntries(searchParams.entries()));
 
       const token_hash = searchParams.get("token_hash");
       const token = searchParams.get("token");
       const type = searchParams.get("type") as EmailOtpType | null;
 
-      console.log("[DEBUG] Extracted params:", { token_hash, token, type });
+      console.log("[AUTH CONFIRM] Parsed params:", { token_hash, token, type });
 
-      const effectiveToken = token || token_hash; // Prefer 'token' since your links use it
+      const effectiveToken = token || token_hash; // Your links use 'token'
 
       if (!effectiveToken || !type) {
-        console.log("[DEBUG] Missing token or type → error mode");
+        console.log("[AUTH CONFIRM] Missing token or type → error");
         setErrorMessage("Missing recovery token or type. Please request a new reset link.");
         setLoading(false);
         return;
       }
 
-      console.log(`[DEBUG] Starting verifyOtp with token=${effectiveToken.substring(0, 10)}..., type=${type}`);
-
-      setLoading(true);
+      console.log(`[AUTH CONFIRM] Starting verifyOtp - using token: ${effectiveToken.substring(0, 10)}..., type: ${type}`);
 
       try {
         const { data, error } = await supabase.auth.verifyOtp({
@@ -74,11 +71,10 @@ export default function AuthConfirm() {
           type,
         });
 
-        console.log("[DEBUG] verifyOtp response:", { data, error: error?.message });
+        console.log("[AUTH CONFIRM] verifyOtp full response:", JSON.stringify({ data, error }, null, 2));
 
         if (error) {
-          console.log("[DEBUG] verifyOtp failed:", error.message);
-          if (cancelled) return;
+          console.log("[AUTH CONFIRM] verifyOtp error:", error.message);
           setErrorMessage(error.message || "Invalid or expired link. Please request a new one.");
           toast({
             title: "Verification Failed",
@@ -91,12 +87,12 @@ export default function AuthConfirm() {
 
         if (cancelled) return;
 
-        console.log("[DEBUG] Verification SUCCESS → showing password form");
+        console.log("[AUTH CONFIRM] Verification SUCCESS → showing password reset form");
         setVerified(true);
-        setSuccessMessage("Link verified successfully! Please enter your new password.");
+        setSuccessMessage("Link verified! Enter your new password below.");
         setLoading(false);
       } catch (e: any) {
-        console.error("[DEBUG] verifyOtp threw exception:", e);
+        console.error("[AUTH CONFIRM] verifyOtp threw exception:", e);
         setErrorMessage("Unexpected error during verification. Please request a new link.");
         setLoading(false);
       }
@@ -126,14 +122,14 @@ export default function AuthConfirm() {
     setLoading(true);
 
     try {
-      console.log("[DEBUG] Calling updateUser with new password");
+      console.log("[AUTH CONFIRM] Updating password");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
-      console.log("[DEBUG] updateUser succeeded");
+      console.log("[AUTH CONFIRM] Password updated successfully");
       toast({
         title: "Password Updated",
         description: "Your password has been reset successfully. Please sign in.",
@@ -144,7 +140,7 @@ export default function AuthConfirm() {
         navigate("/auth?mode=signin", { replace: true });
       }, 2000);
     } catch (err: any) {
-      console.error("[DEBUG] updateUser failed:", err.message);
+      console.error("[AUTH CONFIRM] updateUser error:", err.message);
       setErrorMessage(err.message || "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
