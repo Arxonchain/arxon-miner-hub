@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Lock, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -18,11 +17,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  const token = searchParams.get("token");
-  const type = searchParams.get("type")?.toLowerCase();
-
-  console.log("ResetPassword loaded:", { token: token ? token.substring(0, 10) + '...' : null, type });
 
   const handleReset = async (e) => {
     e.preventDefault();
@@ -41,14 +35,12 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      console.log("Calling updateUser...");
       const { error } = await supabase.auth.updateUser({
         password: password.trim(),
       });
 
       if (error) throw error;
 
-      console.log("Password reset success");
       toast({
         title: "Success",
         description: "Password reset complete. Please sign in.",
@@ -56,8 +48,7 @@ export default function ResetPassword() {
 
       navigate("/auth?mode=signin");
     } catch (err: any) {
-      console.error("updateUser error:", err.message);
-      setErrorMessage(err.message || "Failed to reset password. Link may be expired.");
+      setErrorMessage(err.message || "Failed to reset password. The link may be expired or invalid.");
     } finally {
       setLoading(false);
     }
@@ -76,8 +67,8 @@ export default function ResetPassword() {
           </div>
 
           <div className="flex items-center justify-center gap-2 mb-2">
-            <ShieldCheck className="h-6 w-6 text-accent" />
-            <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
+            <Lock className="h-6 w-6 text-accent" />
+            <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
           </div>
 
           <CardDescription>
