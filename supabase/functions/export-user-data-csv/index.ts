@@ -92,25 +92,53 @@
        ? allUsers.filter(u => u.email && filterEmails!.has(u.email.toLowerCase()))
        : allUsers;
  
-     console.log(`After filtering: ${filteredUsers.length} users match`);
+      console.log(`After filtering: ${filteredUsers.length} users match`);
  
-     // Get all user_points data
-     const { data: allPoints, error: pointsError } = await supabaseAdmin
-       .from('user_points')
-       .select('user_id, total_points, mining_points, task_points, social_points, referral_points, daily_streak, referral_bonus_percentage, x_post_boost_percentage');
+      // Get ALL user_points data using pagination (default limit is 1000)
+      console.log('Fetching all user_points...');
+      const allPoints: any[] = [];
+      let pointsOffset = 0;
+      const pointsPageSize = 1000;
+      
+      while (true) {
+        const { data: pointsBatch, error: pointsError } = await supabaseAdmin
+          .from('user_points')
+          .select('user_id, total_points, mining_points, task_points, social_points, referral_points, daily_streak, referral_bonus_percentage, x_post_boost_percentage')
+          .range(pointsOffset, pointsOffset + pointsPageSize - 1);
  
-     if (pointsError) throw pointsError;
+        if (pointsError) throw pointsError;
+        if (!pointsBatch || pointsBatch.length === 0) break;
+        
+        allPoints.push(...pointsBatch);
+        if (pointsBatch.length < pointsPageSize) break;
+        pointsOffset += pointsPageSize;
+      }
+      console.log(`Found ${allPoints.length} user_points records`);
  
-     // Get all profiles data
-     const { data: allProfiles, error: profilesError } = await supabaseAdmin
-       .from('profiles')
-       .select('user_id, username, referral_code');
+      // Get ALL profiles data using pagination
+      console.log('Fetching all profiles...');
+      const allProfiles: any[] = [];
+      let profilesOffset = 0;
+      const profilesPageSize = 1000;
+      
+      while (true) {
+        const { data: profilesBatch, error: profilesError } = await supabaseAdmin
+          .from('profiles')
+          .select('user_id, username, referral_code')
+          .range(profilesOffset, profilesOffset + profilesPageSize - 1);
  
-     if (profilesError) throw profilesError;
+        if (profilesError) throw profilesError;
+        if (!profilesBatch || profilesBatch.length === 0) break;
+        
+        allProfiles.push(...profilesBatch);
+        if (profilesBatch.length < profilesPageSize) break;
+        profilesOffset += profilesPageSize;
+      }
+      console.log(`Found ${allProfiles.length} profile records`);
  
      // Create lookup maps with proper typing
-     const pointsMap = new Map<string, typeof allPoints[0]>(allPoints?.map(p => [p.user_id, p]) || []);
-     const profilesMap = new Map<string, typeof allProfiles[0]>(allProfiles?.map(p => [p.user_id, p]) || []);
+      const pointsMap = new Map<string, any>(allPoints.map(p => [p.user_id, p]));
+      const profilesMap = new Map<string, any>(allProfiles.map(p => [p.user_id, p]));
  
      // Generate CSV with full data - only for filtered users
      const csvHeader = 'email,total_points,mining_points,task_points,social_points,referral_points,daily_streak,referral_bonus_pct,x_post_boost_pct,username,referral_code,signup_date';
