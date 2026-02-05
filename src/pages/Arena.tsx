@@ -12,14 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import AnimatedBackground from '@/components/layout/AnimatedBackground';
 import ArenaOnboarding from '@/components/arena/ArenaOnboarding';
 import BattleHero from '@/components/arena/BattleHero';
-import RoundTabs from '@/components/arena/RoundTabs';
-import ArenaBottomNav, { type ArenaTab } from '@/components/arena/ArenaBottomNav';
+import ArenaTournamentNav, { type ArenaTournamentTab } from '@/components/arena/ArenaTournamentNav';
+import ArenaTournamentHeader from '@/components/arena/ArenaTournamentHeader';
+import ArenaTournamentExplorer from '@/components/arena/ArenaTournamentExplorer';
 import VotePanel from '@/components/arena/VotePanel';
-import ArenaMarketExplorer from '@/components/arena/ArenaMarketExplorer';
 import ArenaTeamLeaderboard from '@/components/arena/ArenaTeamLeaderboard';
 import ArenaMyVotes from '@/components/arena/ArenaMyVotes';
 import ArenaMarketDetail from '@/components/arena/ArenaMarketDetail';
-import ArenaHeroHeader from '@/components/arena/ArenaHeroHeader';
 import AuthDialog from '@/components/auth/AuthDialog';
 import type { ArenaMarket } from '@/hooks/useArenaMarkets';
 
@@ -57,10 +56,9 @@ const Arena = () => {
   } = useArenaMarkets();
 
   const [showAuth, setShowAuth] = useState(false);
-  const [activeTab, setActiveTab] = useState<ArenaTab>('markets');
+  const [activeTab, setActiveTab] = useState<ArenaTournamentTab>('challenges');
   const [selectedMarket, setSelectedMarket] = useState<ArenaMarket | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showHeroHeader, setShowHeroHeader] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleRefresh = async () => {
@@ -68,9 +66,16 @@ const Arena = () => {
     window.location.reload();
   };
 
-  const scrollToContent = () => {
-    setShowHeroHeader(false);
-    contentRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Calculate team stats
+  const teamStats = {
+    alphaStaked: earningsLeaderboard
+      .filter(e => e.club === 'alpha')
+      .reduce((sum, e) => sum + (e.total_staked || 0), 0),
+    omegaStaked: earningsLeaderboard
+      .filter(e => e.club === 'omega')
+      .reduce((sum, e) => sum + (e.total_staked || 0), 0),
+    alphaMembers: earningsLeaderboard.filter(e => e.club === 'alpha').length,
+    omegaMembers: earningsLeaderboard.filter(e => e.club === 'omega').length,
   };
 
   // Trigger AI prediction fetch for live markets periodically
@@ -96,13 +101,20 @@ const Arena = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
-        <AnimatedBackground />
-        <div className="relative z-10 text-center p-8 glass-card border border-primary/20 max-w-md mx-4">
+      <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden px-4">
+        {/* Background glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }} />
+        </div>
+        
+        <div className="relative z-10 text-center p-8 rounded-2xl bg-card/50 backdrop-blur-xl border border-primary/30 max-w-md">
           <Trophy className="w-16 h-16 mx-auto mb-4 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">Join the Arena</h1>
-          <p className="text-muted-foreground mb-6">Sign in to enter the battleground</p>
-          <button onClick={() => setShowAuth(true)} className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold">
+          <h1 className="text-2xl font-black text-foreground mb-2">Prediction Arena</h1>
+          <p className="text-muted-foreground mb-6">Stake • Predict • Win big rewards</p>
+          <button 
+            onClick={() => setShowAuth(true)} 
+            className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors"
+          >
             Sign In to Enter
           </button>
         </div>
@@ -113,7 +125,10 @@ const Arena = () => {
 
   if (membershipLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center relative">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }} />
+        </div>
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
           <Trophy className="w-12 h-12 text-primary" />
         </motion.div>
@@ -124,7 +139,10 @@ const Arena = () => {
   if (!membership) {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
-        <AnimatedBackground />
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }} />
+        </div>
         <ArenaOnboarding onComplete={registerMembership} isLoading={registering} />
       </div>
     );
@@ -155,32 +173,47 @@ const Arena = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
-      <AnimatedBackground />
+      {/* Background glow effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 60%)' }}
+          animate={{ opacity: [0.05, 0.15, 0.05] }}
+          transition={{ duration: 5, repeat: Infinity }}
+        />
+      </div>
 
-      {/* Hero Header - shown on markets tab */}
-      {showHeroHeader && activeTab === 'markets' && (
-        <ArenaHeroHeader onScrollToContent={scrollToContent} />
-      )}
-
-      <header className="relative z-20 flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      {/* Header */}
+      <header className="relative z-20 flex items-center justify-between px-4 py-3 border-b border-primary/20 bg-background/90 backdrop-blur-xl">
         <button onClick={() => navigate('/')} className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="font-bold text-foreground">Arena</h1>
+        <h1 className="font-black text-foreground">ARENA</h1>
         <button onClick={handleRefresh} disabled={isRefreshing} className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors">
           <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </header>
 
+      {/* Tournament Header - Team VS */}
+      {activeTab === 'challenges' && (
+        <ArenaTournamentHeader
+          alphaStaked={teamStats.alphaStaked}
+          omegaStaked={teamStats.omegaStaked}
+          alphaMembers={teamStats.alphaMembers}
+          omegaMembers={teamStats.omegaMembers}
+        />
+      )}
+
       <main ref={contentRef} className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'markets' && (
-          <ArenaMarketExplorer
+        {activeTab === 'challenges' && (
+          <ArenaTournamentExplorer
             liveMarkets={liveMarkets}
             upcomingMarkets={upcomingMarkets}
             endedMarkets={endedMarkets}
             userPositions={userPositions}
             onSelectMarket={setSelectedMarket}
             loading={marketsLoading}
+            teamStats={teamStats}
           />
         )}
 
@@ -192,7 +225,7 @@ const Arena = () => {
           />
         )}
 
-        {activeTab === 'votes' && (
+        {activeTab === 'my-stakes' && (
           <ArenaMyVotes
             liveMarkets={liveMarkets}
             endedMarkets={endedMarkets}
@@ -202,7 +235,7 @@ const Arena = () => {
           />
         )}
 
-        {activeTab === 'vote' && (
+        {activeTab === 'battle' && (
           <>
             <BattleHero
               battle={activeBattle}
@@ -224,7 +257,7 @@ const Arena = () => {
           </>
         )}
 
-        {(loading || marketsLoading) && activeTab === 'vote' && (
+        {(loading || marketsLoading) && activeTab === 'battle' && (
           <div className="flex items-center justify-center py-20">
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
               <Trophy className="w-8 h-8 text-primary" />
@@ -234,7 +267,7 @@ const Arena = () => {
       </main>
 
       <div className="relative z-20">
-        <ArenaBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <ArenaTournamentNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     </div>
   );
