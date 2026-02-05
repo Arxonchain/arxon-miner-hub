@@ -1,5 +1,5 @@
  import { memo } from "react";
- import { Zap, Trophy, TrendingUp, ArrowLeft, Medal, Crown, Award } from "lucide-react";
+import { Zap, Trophy, ArrowLeft, Medal, Crown, Award } from "lucide-react";
  import { useNavigate } from "react-router-dom";
  import { motion } from "framer-motion";
  import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,16 +33,16 @@
        initial={{ opacity: 0, x: -20 }}
        animate={{ opacity: 1, x: 0 }}
        transition={{ delay: index * 0.03 }}
-       className={`p-4 rounded-xl border transition-all ${
+      className={`p-2.5 sm:p-3 rounded-lg border transition-all ${
          isTop3 
            ? 'bg-gradient-to-r from-primary/10 to-accent/5 border-primary/30' 
            : 'bg-card/40 border-border/30 hover:border-primary/30'
        }`}
      >
-       <div className="flex items-center justify-between gap-4">
-         <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
            {/* Rank */}
-           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
              index === 0 ? 'bg-amber-500/20' :
              index === 1 ? 'bg-slate-400/20' :
              index === 2 ? 'bg-amber-700/20' :
@@ -52,38 +52,37 @@
            </div>
            
            {/* Avatar & Name */}
-           <div className="flex items-center gap-3">
-             <Avatar className={`w-10 h-10 border-2 ${
+          <div className="flex items-center gap-2">
+            <Avatar className={`w-7 h-7 sm:w-8 sm:h-8 border-2 flex-shrink-0 ${
                index === 0 ? 'border-amber-400' :
                index === 1 ? 'border-slate-300' :
                index === 2 ? 'border-amber-600' :
                'border-border/50'
              }`}>
                <AvatarImage src={user.avatar_url} />
-               <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white font-bold">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white font-bold text-xs">
                  {user.username?.charAt(0)?.toUpperCase() || "M"}
                </AvatarFallback>
              </Avatar>
-             <div>
-               <p className={`font-semibold ${isTop3 ? 'text-foreground' : 'text-foreground/90'}`}>
-                 {user.username || `Miner ${user.user_id?.slice(0, 6)}`}
+            <div className="min-w-0">
+              <p className={`font-medium text-sm truncate ${isTop3 ? 'text-foreground' : 'text-foreground/90'}`}>
+                {user.username || `Miner`}
                </p>
                {isTop3 && (
-                 <p className="text-xs text-accent">Top Miner</p>
+                <p className="text-[10px] text-primary">Top Miner</p>
                )}
              </div>
            </div>
          </div>
          
          {/* Points */}
-         <div className="text-right">
+        <div className="text-right flex-shrink-0">
            <div className="flex items-center gap-1.5">
-             <Zap className={`w-4 h-4 ${isTop3 ? 'text-accent' : 'text-muted-foreground'}`} />
-             <span className={`font-bold ${isTop3 ? 'text-lg text-foreground' : 'text-foreground/90'}`}>
+            <Zap className={`w-3.5 h-3.5 ${isTop3 ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className={`font-bold text-sm ${isTop3 ? 'text-foreground' : 'text-foreground/90'}`}>
                {formatPoints(user.total_points)}
              </span>
            </div>
-           <p className="text-xs text-muted-foreground">ARX-P</p>
          </div>
        </div>
      </motion.div>
@@ -120,81 +119,53 @@
          {/* Your Rank Card */}
          {user && points && (
            <ScrollReveal>
-             <GlowCard glowColor="accent" className="p-5">
-               <div className="flex items-center justify-between flex-wrap gap-4">
-                 <div className="flex items-center gap-4">
-                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent/30 to-primary/20 flex items-center justify-center">
-                     <Trophy className="h-7 w-7 text-accent" />
+            <GlowCard glowColor="accent" className="p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                    <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                    </div>
                    <div>
-                     <p className="text-sm text-muted-foreground">Your Global Rank</p>
-                     <p className="text-3xl font-bold text-foreground">
+                    <p className="text-xs text-muted-foreground">Your Rank</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">
                        #{rank || '—'}
                      </p>
                    </div>
                  </div>
                  <div className="text-right">
-                   <p className="text-sm text-muted-foreground">Your Points</p>
-                   <p className="text-2xl font-bold text-accent flex items-center gap-1 justify-end">
-                     <Zap className="h-5 w-5" />
+                  <p className="text-xs text-muted-foreground">Points</p>
+                  <p className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 justify-end">
+                    <Zap className="h-4 w-4" />
                      {formatPoints(points.total_points)}
                    </p>
                  </div>
                </div>
-               
-               {!userInTop100 && rank && rank > 100 && (
-                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-center gap-2 text-muted-foreground">
-                   <TrendingUp className="h-4 w-4 text-green-400" />
-                   <span className="text-sm">
-                     <span className="text-green-400 font-bold">{rank - 100}</span> positions to reach Top 100
-                   </span>
-                 </div>
-               )}
              </GlowCard>
            </ScrollReveal>
          )}
  
-         {/* Stats */}
-         <ScrollReveal delay={0.1}>
-           <div className="grid grid-cols-3 gap-3">
-             <div className="glass-card p-4 text-center">
-               <p className="text-2xl font-bold text-foreground">{minerEntries.length}</p>
-               <p className="text-xs text-muted-foreground">Total Miners</p>
-             </div>
-             <div className="glass-card p-4 text-center">
-               <p className="text-2xl font-bold text-accent">10</p>
-               <p className="text-xs text-muted-foreground">ARX-P/hr</p>
-             </div>
-             <div className="glass-card p-4 text-center">
-               <p className="text-2xl font-bold text-foreground">∞</p>
-               <p className="text-xs text-muted-foreground">Potential</p>
-             </div>
-           </div>
-         </ScrollReveal>
- 
          {/* Leaderboard List */}
-         <ScrollReveal delay={0.15}>
-           <div className="glass-card p-4 md:p-6">
-             <div className="flex items-center gap-2 mb-5">
+        <ScrollReveal delay={0.1}>
+          <div className="glass-card p-3 sm:p-4">
+            <div className="flex items-center gap-2 mb-3">
                <Crown className="h-5 w-5 text-amber-400" />
-               <h2 className="text-lg font-bold text-foreground">Top 100 Miners</h2>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Top 100 Miners</h2>
              </div>
  
-             <div className="space-y-2">
+            <div className="space-y-1.5">
                {loading ? (
-                 <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-8">
                    <motion.div
                      animate={{ rotate: 360 }}
                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                    >
-                     <Zap className="h-8 w-8 text-accent" />
+                    <Zap className="h-6 w-6 text-primary" />
                    </motion.div>
                  </div>
                ) : minerEntries.length === 0 ? (
-                 <div className="text-center py-12 text-muted-foreground">
-                   <Trophy className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                   <p className="text-lg font-medium mb-1">No miners yet</p>
-                   <p className="text-sm">Start mining to claim the #1 spot!</p>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Trophy className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-medium">No miners yet</p>
                  </div>
                ) : (
                  minerEntries.map((miner, index) => (

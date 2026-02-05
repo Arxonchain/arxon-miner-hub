@@ -11,9 +11,9 @@
  } from 'lucide-react';
  import XIcon from '@/components/icons/XIcon';
 import { Users } from 'lucide-react';
- import arxonLogo from '@/assets/arxon-logo.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
  
  export default function Dashboard() {
    const { user, signOut } = useAuth();
@@ -26,6 +26,7 @@ import { useState, useEffect } from 'react';
   const [weeklyEarnings, setWeeklyEarnings] = useState({ current: 0, previous: 0 });
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [activeSessions, setActiveSessions] = useState(0);
+  const [activityData, setActivityData] = useState<{day: string; points: number}[]>([]);
  
   useEffect(() => {
     if (!user) return;
@@ -36,8 +37,8 @@ import { useState, useEffect } from 'react';
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       
-      // Fetch mining sessions for analytics
-      const [currentWeek, previousWeek, todaySessions, activeCount] = await Promise.all([
+      // Fetch mining sessions for analytics + daily breakdown
+      const [currentWeek, previousWeek, todaySessions, activeCount, dailyData] = await Promise.all([
         supabase
           .from('mining_sessions')
           .select('arx_mined')
@@ -58,7 +59,13 @@ import { useState, useEffect } from 'react';
           .from('mining_sessions')
           .select('id')
           .eq('user_id', user.id)
-          .eq('is_active', true)
+          .eq('is_active', true),
+        supabase
+          .from('mining_sessions')
+          .select('arx_mined, started_at')
+          .eq('user_id', user.id)
+          .gte('started_at', weekAgo)
+          .order('started_at', { ascending: true })
       ]);
       
       const currentTotal = currentWeek.data?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
@@ -68,6 +75,33 @@ import { useState, useEffect } from 'react';
       setWeeklyEarnings({ current: currentTotal, previous: previousTotal });
       setTodayEarnings(todayTotal);
       setActiveSessions(activeCount.data?.length || 0);
+      
+      // Process daily data for chart
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dailyTotals: Record<string, number> = {};
+      
+      // Initialize last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().split('T')[0];
+        dailyTotals[key] = 0;
+      }
+      
+      // Sum up points per day
+      dailyData.data?.forEach(session => {
+        const dayKey = session.started_at.split('T')[0];
+        if (dailyTotals[dayKey] !== undefined) {
+          dailyTotals[dayKey] += Number(session.arx_mined || 0);
+        }
+      });
+      
+      // Convert to chart format
+      const chartData = Object.entries(dailyTotals).map(([date, points]) => ({
+        day: dayNames[new Date(date).getDay()],
+        points: Math.floor(points)
+      }));
+      
+      setActivityData(chartData);
     };
     
     fetchPersonalAnalytics();
@@ -135,21 +169,12 @@ import { useState, useEffect } from 'react';
        
        {/* Header */}
       <header className="border-b border-primary/10 bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-             <motion.img 
-               src={arxonLogo} 
-               alt="Arxon" 
-              className="h-8 w-8 rounded-lg"
-               whileHover={{ scale: 1.05 }}
-             />
-            <span className="text-lg font-bold tracking-tight hidden sm:block">ARXON</span>
-           </div>
+        <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-end">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
             <span className="text-xs text-muted-foreground">Online</span>
-          </div>
          </div>
+        </div>
        </header>
        
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-2xl relative z-10">
@@ -270,10 +295,53 @@ import { useState, useEffect } from 'react';
               <p className="text-[10px] text-muted-foreground">Active Sessions</p>
             </div>
           </div>
+
+        {/* Activity Chart */}
+        <div className="h-28 -mx-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={activityData} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorPoints" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4}/>
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis 
+                dataKey="day" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'hsl(var(--card))', 
+                  border: '1px solid hsl(var(--primary) / 0.2)',
+                  borderRadius: '8px',
+                  fontSize: '12px'
+                }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value: number) => [`${value} ARX-P`, 'Earned']}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="points" 
+                stroke="hsl(var(--primary))" 
+                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorPoints)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
         </div>
  
-         {/* Start Mining CTA - Only show if not mining */}
-         {!isMining && (
+        {/* Start Mining CTA - Only show if not mining */}
+        {!isMining && (
           <motion.button
             onClick={() => navigate('/mining')}
             className="w-full mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-between group"
