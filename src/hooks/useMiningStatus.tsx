@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet } from '@/lib/localCache';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 const MAX_MINING_HOURS = 8;
 const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;

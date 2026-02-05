@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cacheGet, cacheSet } from '@/lib/localCache';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { ensureProfileFields } from '@/lib/profile/ensureProfileFields';
 import { withTimeout } from '@/lib/utils';
 
