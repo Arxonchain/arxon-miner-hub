@@ -7,7 +7,7 @@
  import { Button } from '@/components/ui/button';
  import { 
    LogOut, Zap, TrendingUp, Trophy, Send, Users, Target, Swords, 
-   Pickaxe, ChevronRight, Sparkles, BarChart3, Coins, Shield
+  Pickaxe, ChevronRight, Sparkles, BarChart3, Coins, Shield, Settings
  } from 'lucide-react';
  import XIcon from '@/components/icons/XIcon';
  import arxonLogo from '@/assets/arxon-logo.jpg';
@@ -28,12 +28,10 @@
    };
  
    const quickLinks = [
-     { name: 'Mining', icon: Pickaxe, path: '/mining', color: 'green', desc: 'Earn ARX-P' },
-     { name: 'Tasks', icon: Target, path: '/tasks', color: 'primary', desc: 'Complete & earn' },
-     { name: 'Arena', icon: Swords, path: '/arena', color: 'accent', desc: 'Predict & win' },
-     { name: 'Leaderboard', icon: Trophy, path: '/leaderboard', color: 'amber', desc: 'Top miners' },
-     { name: 'Referrals', icon: Users, path: '/referrals', color: 'primary', desc: 'Invite friends' },
-     { name: 'Nexus', icon: Shield, path: '/nexus', color: 'accent', desc: 'Send ARX-P' },
+    { name: 'Leaderboard', icon: Trophy, path: '/leaderboard', color: 'amber', desc: 'Top miners' },
+    { name: 'Arena', icon: Swords, path: '/arena', color: 'purple', desc: 'Predict & win' },
+    { name: 'Nexus', icon: Send, path: '/nexus', color: 'cyan', desc: 'Send ARX-P' },
+    { name: 'Tasks', icon: Target, path: '/tasks', color: 'green', desc: 'Complete & earn' },
    ];
  
    if (pointsLoading) {
@@ -100,9 +98,9 @@
          {isMining && (
            <ScrollReveal delay={0.1}>
              <motion.div 
-               className="mb-6 p-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-between"
+              className="mb-6 p-4 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between"
                animate={{ 
-                 boxShadow: ['0 0 20px rgba(34, 197, 94, 0.1)', '0 0 40px rgba(34, 197, 94, 0.2)', '0 0 20px rgba(34, 197, 94, 0.1)']
+                boxShadow: ['0 0 20px hsl(var(--primary) / 0.1)', '0 0 40px hsl(var(--primary) / 0.2)', '0 0 20px hsl(var(--primary) / 0.1)']
                }}
                transition={{ duration: 2, repeat: Infinity }}
              >
@@ -111,17 +109,17 @@
                    animate={{ rotate: 360 }}
                    transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
                  >
-                   <Pickaxe className="w-6 h-6 text-green-400" />
+                  <Pickaxe className="w-6 h-6 text-primary" />
                  </motion.div>
                  <div>
-                   <p className="font-bold text-green-400">Mining Active</p>
-                   <p className="text-xs text-green-400/70">Earning ARX-P in the background</p>
+                  <p className="font-bold text-primary">Mining Active</p>
+                  <p className="text-xs text-primary/70">Earning ARX-P in the background</p>
                  </div>
                </div>
                <Button 
                  size="sm" 
                  onClick={() => navigate('/mining')}
-                 className="bg-green-600 hover:bg-green-500 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                >
                  View Session
                </Button>
@@ -154,15 +152,15 @@
                <p className="text-xs text-primary mt-1">Leaderboard</p>
              </GlowCard>
              
-             <GlowCard glowColor="green" className="p-5">
+              <GlowCard glowColor="primary" className="p-5">
                <div className="flex items-center gap-2 mb-2">
-                 <Pickaxe className="h-4 w-4 text-green-400" />
+                  <Pickaxe className="h-4 w-4 text-primary" />
                  <span className="text-xs text-muted-foreground">Mining Points</span>
                </div>
                <p className="text-2xl md:text-3xl font-bold text-foreground">
                  {Math.floor(points?.mining_points || 0).toLocaleString()}
                </p>
-               <p className="text-xs text-green-400 mt-1">Mined</p>
+                <p className="text-xs text-primary mt-1">Mined</p>
              </GlowCard>
              
              <GlowCard glowColor="amber" className="p-5">
@@ -188,29 +186,41 @@
                </h2>
              </div>
              
-             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                {quickLinks.map((link, index) => (
                  <motion.button
                    key={link.path}
                    onClick={() => navigate(link.path)}
-                   className="relative p-4 md:p-5 rounded-2xl bg-card/50 backdrop-blur-xl border border-border/40 text-left group overflow-hidden"
+                    className={`relative p-4 md:p-5 rounded-2xl backdrop-blur-xl border text-left group overflow-hidden ${
+                      link.color === 'amber' ? 'bg-amber-500/10 border-amber-500/30' :
+                      link.color === 'purple' ? 'bg-purple-500/10 border-purple-500/30' :
+                      link.color === 'cyan' ? 'bg-cyan-500/10 border-cyan-500/30' :
+                      link.color === 'green' ? 'bg-green-500/10 border-green-500/30' :
+                      'bg-card/50 border-border/40'
+                    }`}
                    initial={{ opacity: 0, y: 20 }}
                    animate={{ opacity: 1, y: 0 }}
                    transition={{ delay: 0.1 * index }}
                    whileHover={{ 
                      scale: 1.02,
-                     borderColor: `hsl(var(--${link.color === 'green' ? 'accent' : link.color === 'amber' ? 'accent' : link.color}))`,
                    }}
                  >
                    {/* Hover glow */}
-                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-br from-primary/10 to-accent/5" />
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none ${
+                      link.color === 'amber' ? 'bg-gradient-to-br from-amber-500/20 to-transparent' :
+                      link.color === 'purple' ? 'bg-gradient-to-br from-purple-500/20 to-transparent' :
+                      link.color === 'cyan' ? 'bg-gradient-to-br from-cyan-500/20 to-transparent' :
+                      link.color === 'green' ? 'bg-gradient-to-br from-green-500/20 to-transparent' :
+                      'bg-gradient-to-br from-primary/10 to-accent/5'
+                    }`} />
                    
                    <div className="relative z-10">
                      <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center ${
-                       link.color === 'green' ? 'bg-green-500/20 text-green-400' :
                        link.color === 'amber' ? 'bg-amber-500/20 text-amber-400' :
-                       link.color === 'accent' ? 'bg-accent/20 text-accent' :
-                       'bg-primary/20 text-primary'
+                        link.color === 'purple' ? 'bg-purple-500/20 text-purple-400' :
+                        link.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400' :
+                        link.color === 'green' ? 'bg-green-500/20 text-green-400' :
+                        'bg-primary/20 text-primary'
                      }`}>
                        <link.icon className="w-5 h-5" />
                      </div>
@@ -229,7 +239,7 @@
          {!isMining && (
            <ScrollReveal delay={0.25}>
              <motion.div
-               className="mb-8 p-6 md:p-8 rounded-3xl relative overflow-hidden"
+                className="mb-6 p-6 md:p-8 rounded-3xl relative overflow-hidden"
                style={{
                  background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--accent) / 0.1))',
                  border: '1px solid hsl(var(--primary) / 0.3)',
@@ -260,7 +270,7 @@
                  <Button
                    size="lg"
                    onClick={() => navigate('/mining')}
-                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-8 py-6 text-lg font-bold"
+                    className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground px-8 py-6 text-lg font-bold"
                  >
                    <Pickaxe className="w-5 h-5 mr-2" />
                    Start Mining
@@ -269,9 +279,39 @@
              </motion.div>
            </ScrollReveal>
          )}
+
+          {/* Additional Quick Links Row */}
+          <ScrollReveal delay={0.3}>
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <motion.button
+                onClick={() => navigate('/mining')}
+                className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-center group"
+                whileHover={{ scale: 1.02 }}
+              >
+                <Pickaxe className="w-6 h-6 mx-auto mb-2 text-primary" />
+                <p className="text-sm font-medium text-foreground">Mining</p>
+              </motion.button>
+              <motion.button
+                onClick={() => navigate('/referrals')}
+                className="p-4 rounded-xl bg-accent/10 border border-accent/30 text-center group"
+                whileHover={{ scale: 1.02 }}
+              >
+                <Users className="w-6 h-6 mx-auto mb-2 text-accent" />
+                <p className="text-sm font-medium text-foreground">Referrals</p>
+              </motion.button>
+              <motion.button
+                onClick={() => navigate('/profile')}
+                className="p-4 rounded-xl bg-muted/50 border border-border/30 text-center group"
+                whileHover={{ scale: 1.02 }}
+              >
+                <Settings className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Profile</p>
+              </motion.button>
+            </div>
+          </ScrollReveal>
  
          {/* Community Section */}
-         <ScrollReveal delay={0.3}>
+          <ScrollReveal delay={0.35}>
            <div className="rounded-2xl bg-card/30 border border-border/30 backdrop-blur-sm p-6">
              <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center">Join our community</h3>
              <div className="flex items-center justify-center gap-4">
