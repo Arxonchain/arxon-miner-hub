@@ -439,10 +439,44 @@ const AdminUsers = () => {
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Users & Miners</h1>
           <p className="text-sm md:text-base text-muted-foreground">View all users, their stats, and mining activity</p>
         </div>
-        <Button variant="outline" size="sm" className="flex items-center gap-2 w-fit">
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Export Data</span>
-        </Button>
+       <Button 
+           variant="outline" 
+           size="sm" 
+           className="flex items-center gap-2 w-fit"
+           onClick={async () => {
+             try {
+               toast.loading('Exporting all user data...', { id: 'export' });
+               const { data: sessionData } = await supabase.auth.getSession();
+               const response = await fetch(
+                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-user-data-csv`,
+                 {
+                   headers: {
+                     Authorization: `Bearer ${sessionData.session?.access_token}`,
+                   },
+                 }
+               );
+               if (!response.ok) {
+                 const errorData = await response.json();
+                 throw new Error(errorData.error || 'Export failed');
+               }
+               const blob = await response.blob();
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url;
+               a.download = `full_user_export_${new Date().toISOString().split('T')[0]}.csv`;
+               document.body.appendChild(a);
+               a.click();
+               window.URL.revokeObjectURL(url);
+               document.body.removeChild(a);
+               toast.success('Export complete!', { id: 'export' });
+             } catch (err: any) {
+               toast.error(err.message || 'Export failed', { id: 'export' });
+             }
+           }}
+         >
+           <Download className="h-4 w-4" />
+           <span className="hidden sm:inline">Export Full Data (CSV)</span>
+         </Button>
       </div>
 
       {/* Stats */}
