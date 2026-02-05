@@ -8,8 +8,6 @@
  import { useProfile } from "@/hooks/useProfile";
  import { Button } from "@/components/ui/button";
  import AuthDialog from "@/components/auth/AuthDialog";
- import RollingDice from "@/components/effects/RollingDice";
- import ResendBackground from "@/components/effects/ResendBackground";
  import { useState, useMemo } from "react";
  
  const Mining = () => {
@@ -86,13 +84,96 @@
    }, [earnedPoints]);
  
    return (
-     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center px-4">
-       <ResendBackground variant={isMining ? 'intense' : 'default'} />
- 
-       {/* Rolling Dice Background - only visible when mining */}
-       <div className="absolute inset-0 z-0 opacity-20">
-         <RollingDice isRolling={isMining} size={300} />
-       </div>
+      <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden flex flex-col items-center justify-center px-4">
+        {/* Sleek animated background */}
+        <div className="absolute inset-0 z-0">
+          {/* Subtle grid pattern */}
+          <div 
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: `
+                linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
+                linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)
+              `,
+              backgroundSize: '60px 60px',
+            }}
+          />
+          
+          {/* Primary glow - only intense when mining */}
+          <motion.div
+            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: '500px',
+              height: '500px',
+              background: 'radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%)',
+              filter: 'blur(80px)',
+            }}
+            animate={isMining ? {
+              scale: [1, 1.3, 1],
+              opacity: [0.3, 0.5, 0.3],
+            } : {
+              scale: 1,
+              opacity: 0.2,
+            }}
+            transition={{
+              duration: 4,
+              repeat: isMining ? Infinity : 0,
+              ease: 'easeInOut',
+            }}
+          />
+          
+          {/* Accent glow orb - animated when mining */}
+          <motion.div
+            className="absolute bottom-1/4 right-1/4"
+            style={{
+              width: '300px',
+              height: '300px',
+              background: 'radial-gradient(circle, hsl(var(--accent) / 0.1) 0%, transparent 70%)',
+              filter: 'blur(60px)',
+            }}
+            animate={isMining ? {
+              x: [0, 50, 0],
+              y: [0, -30, 0],
+              opacity: [0.2, 0.4, 0.2],
+            } : {
+              x: 0,
+              y: 0,
+              opacity: 0.1,
+            }}
+            transition={{
+              duration: 6,
+              repeat: isMining ? Infinity : 0,
+              ease: 'easeInOut',
+            }}
+          />
+          
+          {/* Particle effect when mining */}
+          {isMining && (
+            <>
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-1 h-1 rounded-full bg-primary/50"
+                  style={{
+                    left: `${20 + i * 12}%`,
+                    top: '50%',
+                  }}
+                  animate={{
+                    y: [0, -100, -200],
+                    opacity: [0, 1, 0],
+                    scale: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    delay: i * 0.5,
+                    ease: 'easeOut',
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </div>
  
        {/* Back Button */}
        <motion.button 
