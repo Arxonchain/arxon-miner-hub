@@ -439,7 +439,46 @@ const AdminUsers = () => {
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Users & Miners</h1>
           <p className="text-sm md:text-base text-muted-foreground">View all users, their stats, and mining activity</p>
         </div>
-       <Button 
+       <div className="flex gap-2">
+         <Button 
+           variant="outline" 
+           size="sm" 
+           className="flex items-center gap-2 w-fit"
+           onClick={async () => {
+             try {
+               toast.loading('Exporting auth emails...', { id: 'export-emails' });
+               const { data: sessionData } = await supabase.auth.getSession();
+               const response = await fetch(
+                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-users-csv`,
+                 {
+                   headers: {
+                     Authorization: `Bearer ${sessionData.session?.access_token}`,
+                   },
+                 }
+               );
+               if (!response.ok) {
+                 const errorData = await response.json();
+                 throw new Error(errorData.error || 'Export failed');
+               }
+               const blob = await response.blob();
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url;
+               a.download = `auth_users_${new Date().toISOString().split('T')[0]}.csv`;
+               document.body.appendChild(a);
+               a.click();
+               window.URL.revokeObjectURL(url);
+               document.body.removeChild(a);
+               toast.success('Auth emails exported!', { id: 'export-emails' });
+             } catch (err: any) {
+               toast.error(err.message || 'Export failed', { id: 'export-emails' });
+             }
+           }}
+         >
+           <Download className="h-4 w-4" />
+           <span className="hidden sm:inline">Export Auth Emails</span>
+         </Button>
+         <Button 
            variant="outline" 
            size="sm" 
            className="flex items-center gap-2 w-fit"
@@ -477,6 +516,7 @@ const AdminUsers = () => {
            <Download className="h-4 w-4" />
            <span className="hidden sm:inline">Export Full Data (CSV)</span>
          </Button>
+       </div>
       </div>
 
       {/* Stats */}
