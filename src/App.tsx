@@ -5,11 +5,12 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Pages
-import LandingPage from "@/pages/LandingPage";
+import Landing from "@/pages/Landing";
 import AuthPage from "@/pages/AuthPage";
 import AuthCallback from "@/pages/AuthCallback";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Dashboard from "@/pages/Dashboard";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,7 +75,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Landing or Dashboard based on auth state */}
-      <Route path="/" element={user ? <Dashboard /> : <LandingPage />} />
+      <Route path="/" element={user ? <DashboardLayout><Dashboard /></DashboardLayout> : <Landing />} />
       
       {/* Auth routes */}
       <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
