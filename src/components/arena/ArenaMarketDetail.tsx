@@ -10,7 +10,7 @@ import FingerprintScanner from './FingerprintScanner';
 import LivePoolTracker from './LivePoolTracker';
 import LiveActivityFeed from './LiveActivityFeed';
 import BattleVoteExplorer from './BattleVoteExplorer';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ArenaMarketDetailProps {
   market: ArenaMarket;
