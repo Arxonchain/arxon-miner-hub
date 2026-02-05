@@ -12,6 +12,14 @@ import AuthCallback from "@/pages/AuthCallback";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Dashboard from "@/pages/Dashboard";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import Mining from "@/pages/Mining";
+import Tasks from "@/pages/Tasks";
+import Leaderboard from "@/pages/Leaderboard";
+import Arena from "@/pages/Arena";
+import Referrals from "@/pages/Referrals";
+import Nexus from "@/pages/Nexus";
+import Profile from "@/pages/Profile";
+import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +85,16 @@ function AppRoutes() {
     <Routes>
       {/* Landing or Dashboard based on auth state */}
       <Route path="/" element={user ? <DashboardLayout><Dashboard /></DashboardLayout> : <Landing />} />
+      
+      {/* App pages - each with unique content */}
+      <Route path="/mining" element={<Mining />} />
+      <Route path="/tasks" element={<Tasks />} />
+      <Route path="/leaderboard" element={<Leaderboard />} />
+      <Route path="/arena" element={<Arena />} />
+      <Route path="/referrals" element={<Referrals />} />
+      <Route path="/nexus" element={<Nexus />} />
+      <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
       
       {/* Auth routes */}
       <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
