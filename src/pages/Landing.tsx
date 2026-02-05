@@ -78,8 +78,12 @@ export default function Landing() {
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How it works</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" className="text-muted-foreground hover:text-foreground hidden sm:inline-flex" onClick={() => navigate("/auth?mode=signin")}>Log in</Button>
-            <Button className="bg-foreground text-background hover:bg-foreground/90 rounded-lg px-5 font-medium" onClick={() => navigate("/auth?mode=signup")}>Get Started</Button>
+            <Button variant="ghost" className="text-muted-foreground hover:text-foreground hidden sm:inline-flex" onClick={() => navigate("/auth?mode=signin")}>
+              Log in
+            </Button>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-5 font-medium" onClick={() => navigate("/auth?mode=signup")}>
+              Get Started
+            </Button>
           </div>
         </div>
       </header>
@@ -108,7 +112,7 @@ export default function Landing() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="group bg-foreground text-background hover:bg-foreground/90 text-base px-8 py-6 rounded-lg font-medium" onClick={() => navigate("/auth?mode=signup")}>
+              <Button size="lg" className="group bg-primary text-primary-foreground hover:bg-primary/90 text-base px-8 py-6 rounded-lg font-medium" onClick={() => navigate("/auth?mode=signup")}>
                 Get Started <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button size="lg" variant="outline" className="text-base px-8 py-6 rounded-lg border-border/40 hover:bg-card/50" onClick={() => navigate("/auth?mode=signin")}>Sign in</Button>
@@ -189,12 +193,12 @@ export default function Landing() {
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 blur-2xl" />
             <div className="relative rounded-3xl border border-border/30 bg-card/40 backdrop-blur-xl p-10 md:p-16 text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-foreground/10 border border-foreground/20 mb-6">
-                <Shield className="h-4 w-4 text-foreground" />
-                <span className="text-sm text-foreground font-medium">Secure & Private</span>
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="text-sm text-primary font-medium">Secure & Private</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">Ready to Start Mining?</h2>
               <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">Join thousands of miners earning ARX-P every day.</p>
-              <Button size="lg" className="group bg-foreground text-background hover:bg-foreground/90 text-base px-10 py-6 rounded-lg font-medium" onClick={() => navigate("/auth?mode=signup")}>
+              <Button size="lg" className="group bg-primary text-primary-foreground hover:bg-primary/90 text-base px-10 py-6 rounded-lg font-medium" onClick={() => navigate("/auth?mode=signup")}>
                 Get Started Free <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>
@@ -211,9 +215,9 @@ export default function Landing() {
               <span className="text-sm text-muted-foreground">© 2025 Arxon. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6">
-              <a href="https://t.me/arxonchain" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors"><Send className="h-5 w-5" /></a>
+              <a href="https://t.me/Arxonofficial" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors"><Send className="h-5 w-5" /></a>
               <a href="https://x.com/arxonarx" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors"><XIcon className="h-5 w-5" /></a>
-              <a href="https://discord.gg/arxon" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors"><Users className="h-5 w-5" /></a>
+              <a href="https://discord.gg/7FXxFDTqwj" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors"><Users className="h-5 w-5" /></a>
             </div>
             <div className="flex items-center gap-6 text-sm">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
