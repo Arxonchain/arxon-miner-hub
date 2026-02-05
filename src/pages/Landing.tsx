@@ -16,7 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
-import arxonLogo from "@/assets/arxon-logo.jpg";
+ import arxonLogo from "@/assets/arxon-logo-new.jpg";
 import { useState, useEffect, memo, useRef } from "react";
 
 // Animated counter
@@ -110,8 +110,7 @@ export default function Landing() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b border-border/20 animate-fade-in">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={arxonLogo} alt="Arxon" className="h-9 w-9 rounded-lg" />
-            <span className="text-lg font-bold tracking-tight text-foreground">ARXON</span>
+             <img src={arxonLogo} alt="Arxon" className="h-10 w-auto rounded-lg object-contain" />
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
@@ -142,16 +141,19 @@ export default function Landing() {
               </div>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
-              Mine <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">ARX-P</span>
+             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight leading-[1.1] mb-8">
+               <span className="text-foreground font-semibold">Mine</span>{" "}
+               <span className="text-primary font-black">ARX-P</span>
               <br />
-              <span className="text-foreground">& Earn</span>{" "}
-              <span className="bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent font-black">$ARX</span>
-              <br />
-              <span className="text-muted-foreground text-4xl sm:text-5xl md:text-6xl font-medium">as Real Rewards</span>
+               <span className="text-foreground font-semibold">& Earn</span>{" "}
+               <span className="text-primary font-black">$ARX</span>
             </h1>
+             
+             <p className="text-3xl sm:text-4xl md:text-5xl text-muted-foreground/70 font-light tracking-wide mb-10">
+               as Real Rewards
+             </p>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
               The <span className="text-foreground font-semibold">easiest</span> privacy-focused Web3 mining. <span className="text-foreground font-semibold">No hardware</span> needed — start from your browser and convert points to <span className="text-primary font-semibold">real $ARX tokens</span>.
             </p>
 
@@ -232,7 +234,7 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-8 md:gap-12">
             {[{ step: "01", title: "Create account", desc: "Sign up with email in seconds" }, { step: "02", title: "Start mining", desc: "One click to activate mining" }, { step: "03", title: "Earn rewards", desc: "Collect ARX-P automatically" }].map((item, i) => (
               <div key={i} className="text-center group">
-                <div className="text-7xl md:text-8xl font-black bg-gradient-to-b from-primary/50 to-primary/10 bg-clip-text text-transparent mb-4 group-hover:from-primary group-hover:to-primary/30 transition-all duration-500">{item.step}</div>
+                 <div className="text-8xl md:text-9xl font-black text-primary/20 mb-4 group-hover:text-primary/40 transition-all duration-500" style={{ fontFamily: 'inherit' }}>{item.step}</div>
                 <h3 className="text-xl font-bold mb-2 text-foreground">{item.title}</h3>
                 <p className="text-muted-foreground">{item.desc}</p>
               </div>
@@ -270,7 +272,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <img src={arxonLogo} alt="Arxon" className="h-8 w-8 rounded-lg" />
+               <img src={arxonLogo} alt="Arxon" className="h-8 w-auto rounded-lg object-contain" />
               <span className="text-sm text-muted-foreground">© 2025 Arxon. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6">
