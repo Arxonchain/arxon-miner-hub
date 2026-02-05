@@ -45,6 +45,56 @@ const AnimatedCounter = memo(({ end, suffix = "" }: { end: number; suffix?: stri
 });
 AnimatedCounter.displayName = "AnimatedCounter";
 
+// Scroll-triggered animated stat for active miners
+const ScrollAnimatedStat = memo(() => {
+  const { ref, isVisible } = useScrollAnimation();
+  const [count, setCount] = useState(0);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    if (isVisible && !hasAnimated.current) {
+      hasAnimated.current = true;
+      const duration = 2500;
+      const end = 10000;
+      let startTime: number;
+      let animationFrame: number;
+
+      const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const progress = Math.min((timestamp - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCount(Math.floor(eased * end));
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(animate);
+        }
+      };
+
+      animationFrame = requestAnimationFrame(animate);
+      return () => cancelAnimationFrame(animationFrame);
+    }
+  }, [isVisible]);
+
+  return (
+    <div ref={ref} className="text-center">
+      <div className="inline-flex items-center gap-4 px-8 py-6 rounded-2xl bg-card/40 border border-border/30 backdrop-blur-sm">
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-accent" />
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-4xl md:text-5xl lg:text-6xl font-black text-primary">
+            {count.toLocaleString()}+
+          </span>
+          <span className="text-lg md:text-xl text-muted-foreground font-medium">
+            Active Miners
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});
+ScrollAnimatedStat.displayName = "ScrollAnimatedStat";
+
 // Scroll animation hook
 const useScrollAnimation = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -132,28 +182,21 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 w-full">
           <div className="max-w-4xl mx-auto text-center animate-fade-in">
             <div className="mb-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/50 border border-border/30 backdrop-blur-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-                </span>
-                <span className="text-sm text-muted-foreground">10,000+ active miners</span>
-              </div>
             </div>
 
-             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight leading-[1.1] mb-8">
+             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight leading-[1.1]">
                <span className="text-foreground font-semibold">Mine</span>{" "}
                <span className="text-primary font-black">ARX-P</span>
               <br />
                <span className="text-foreground font-semibold">& Earn</span>{" "}
                <span className="text-primary font-black">$ARX</span>
+              <br />
+               <span className="text-3xl sm:text-4xl md:text-5xl text-muted-foreground/70 font-light tracking-wide">
+                 as Real Rewards
+               </span>
             </h1>
-             
-             <p className="text-3xl sm:text-4xl md:text-5xl text-muted-foreground/70 font-light tracking-wide mb-10">
-               as Real Rewards
-             </p>
 
-             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
+             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 mt-10 leading-relaxed">
               The <span className="text-foreground font-semibold">easiest</span> privacy-focused Web3 mining. <span className="text-foreground font-semibold">No hardware</span> needed — start from your browser and convert points to <span className="text-primary font-semibold">real $ARX tokens</span>.
             </p>
 
@@ -167,7 +210,11 @@ export default function Landing() {
 
           {/* Stats */}
           <div className="mt-20 max-w-4xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-[1px] bg-border/20 rounded-2xl overflow-hidden">
+            {/* Big Active Miners Stat */}
+            <ScrollAnimatedStat />
+            
+            {/* Other Stats */}
+            <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-[1px] bg-border/20 rounded-2xl overflow-hidden">
               {[{ value: 10, suffix: "", label: "ARX-P / Hour", icon: Zap }, { value: 100, suffix: "", label: "Per Referral", icon: Gift }, { value: 8, suffix: "hr", label: "Max Session", icon: Clock }, { value: 5, suffix: "%", label: "Lifetime Boost", icon: Percent }].map((stat, i) => (
                 <div key={i} className="bg-card/30 backdrop-blur-sm p-6 md:p-8 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
