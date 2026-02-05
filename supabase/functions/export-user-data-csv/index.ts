@@ -1,0 +1,140 @@
+ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+ 
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+ };
+ 
+ Deno.serve(async (req) => {
+   if (req.method === 'OPTIONS') {
+     return new Response(null, { headers: corsHeaders });
+   }
+ 
+   try {
+     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+     
+     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+       auth: { autoRefreshToken: false, persistSession: false },
+     });
+ 
+     // Verify the caller is an admin
+     const authHeader = req.headers.get('Authorization');
+     if (!authHeader) {
+       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+         status: 401,
+         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+       });
+     }
+ 
+     const token = authHeader.replace('Bearer ', '');
+     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+     
+     if (authError || !user) {
+       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+         status: 401,
+         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+       });
+     }
+ 
+     // Check if user is admin
+     const { data: roleData } = await supabaseAdmin
+       .from('user_roles')
+       .select('role')
+       .eq('user_id', user.id)
+       .eq('role', 'admin')
+       .single();
+ 
+     if (!roleData) {
+       return new Response(JSON.stringify({ error: 'Admin access required' }), {
+         status: 403,
+         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+       });
+     }
+ 
+     console.log('Fetching all auth users...');
+ 
+     // Fetch ALL auth users using pagination
+     const allUsers: any[] = [];
+     let page = 1;
+     const perPage = 1000;
+     
+     while (true) {
+       const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
+         page,
+         perPage,
+       });
+ 
+       if (error) throw error;
+       if (!users || users.length === 0) break;
+ 
+       allUsers.push(...users);
+       if (users.length < perPage) break;
+       page++;
+     }
+ 
+     console.log(`Found ${allUsers.length} auth users`);
+ 
+     // Get all user_points data
+     const { data: allPoints, error: pointsError } = await supabaseAdmin
+       .from('user_points')
+       .select('user_id, total_points, mining_points, task_points, social_points, referral_points, daily_streak, referral_bonus_percentage, x_post_boost_percentage');
+ 
+     if (pointsError) throw pointsError;
+ 
+     // Get all profiles data
+     const { data: allProfiles, error: profilesError } = await supabaseAdmin
+       .from('profiles')
+       .select('user_id, username, referral_code');
+ 
+     if (profilesError) throw profilesError;
+ 
+     // Create lookup maps with proper typing
+     const pointsMap = new Map<string, typeof allPoints[0]>(allPoints?.map(p => [p.user_id, p]) || []);
+     const profilesMap = new Map<string, typeof allProfiles[0]>(allProfiles?.map(p => [p.user_id, p]) || []);
+ 
+     // Generate CSV with full data
+     const csvHeader = 'email,total_points,mining_points,task_points,social_points,referral_points,daily_streak,referral_bonus_pct,x_post_boost_pct,username,referral_code,signup_date';
+     
+     const csvRows = allUsers.map(user => {
+       const points = pointsMap.get(user.id);
+       const profile = profilesMap.get(user.id);
+       
+       const email = (user.email || '').replace(/,/g, ';');
+       const total_points = Math.floor(Number(points?.total_points || 0));
+       const mining_points = Math.floor(Number(points?.mining_points || 0));
+       const task_points = Math.floor(Number(points?.task_points || 0));
+       const social_points = Math.floor(Number(points?.social_points || 0));
+       const referral_points = Math.floor(Number(points?.referral_points || 0));
+       const daily_streak = points?.daily_streak || 0;
+       const referral_bonus_pct = points?.referral_bonus_percentage || 0;
+       const x_post_boost_pct = points?.x_post_boost_percentage || 0;
+       const username = ((profile?.username || '') as string).replace(/,/g, ';');
+       const referral_code = profile?.referral_code || '';
+       const signup_date = user.created_at || '';
+       
+       return `${email},${total_points},${mining_points},${task_points},${social_points},${referral_points},${daily_streak},${referral_bonus_pct},${x_post_boost_pct},${username},${referral_code},${signup_date}`;
+     });
+ 
+     const csv = [csvHeader, ...csvRows].join('\n');
+     const timestamp = new Date().toISOString().split('T')[0];
+ 
+     console.log(`Generated CSV with ${csvRows.length} rows`);
+ 
+     return new Response(csv, {
+       headers: {
+         ...corsHeaders,
+         'Content-Type': 'text/csv',
+         'Content-Disposition': `attachment; filename="full_user_export_${timestamp}.csv"`,
+       },
+     });
+ 
+   } catch (error: unknown) {
+     console.error('Export error:', error);
+     const message = error instanceof Error ? error.message : 'Unknown error';
+     return new Response(JSON.stringify({ error: message }), {
+       status: 500,
+       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+     });
+   }
+ });
