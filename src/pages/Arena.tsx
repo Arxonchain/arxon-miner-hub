@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RefreshCw, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useArena } from '@/hooks/useArena';
 import { usePoints } from '@/hooks/usePoints';
 import { useAdmin } from '@/hooks/useAdmin';
