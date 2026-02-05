@@ -2,12 +2,12 @@
  
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
-   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
  };
  
  Deno.serve(async (req) => {
    if (req.method === 'OPTIONS') {
-     return new Response(null, { headers: corsHeaders });
+     return new Response('ok', { headers: corsHeaders });
    }
  
    try {
@@ -52,6 +52,18 @@
        });
      }
  
+     // Parse request body for email filter list
+     let filterEmails: Set<string> | null = null;
+     
+     if (req.method === 'POST') {
+       const body = await req.json();
+       if (body.emails && Array.isArray(body.emails)) {
+         // Normalize emails to lowercase for comparison
+         filterEmails = new Set(body.emails.map((e: string) => e.toLowerCase().trim()));
+         console.log(`Filtering to ${filterEmails.size} emails from input list`);
+       }
+     }
+ 
      console.log('Fetching all auth users...');
  
      // Fetch ALL auth users using pagination
@@ -73,7 +85,14 @@
        page++;
      }
  
-     console.log(`Found ${allUsers.length} auth users`);
+     console.log(`Found ${allUsers.length} total auth users`);
+ 
+     // Filter users by email list if provided
+     const filteredUsers = filterEmails 
+       ? allUsers.filter(u => u.email && filterEmails!.has(u.email.toLowerCase()))
+       : allUsers;
+ 
+     console.log(`After filtering: ${filteredUsers.length} users match`);
  
      // Get all user_points data
      const { data: allPoints, error: pointsError } = await supabaseAdmin
@@ -93,10 +112,10 @@
      const pointsMap = new Map<string, typeof allPoints[0]>(allPoints?.map(p => [p.user_id, p]) || []);
      const profilesMap = new Map<string, typeof allProfiles[0]>(allProfiles?.map(p => [p.user_id, p]) || []);
  
-     // Generate CSV with full data
+     // Generate CSV with full data - only for filtered users
      const csvHeader = 'email,total_points,mining_points,task_points,social_points,referral_points,daily_streak,referral_bonus_pct,x_post_boost_pct,username,referral_code,signup_date';
      
-     const csvRows = allUsers.map(user => {
+     const csvRows = filteredUsers.map(user => {
        const points = pointsMap.get(user.id);
        const profile = profilesMap.get(user.id);
        
@@ -118,6 +137,9 @@
  
      const csv = [csvHeader, ...csvRows].join('\n');
      const timestamp = new Date().toISOString().split('T')[0];
+     const filename = filterEmails 
+       ? `filtered_user_export_${filteredUsers.length}_users_${timestamp}.csv`
+       : `full_user_export_${timestamp}.csv`;
  
      console.log(`Generated CSV with ${csvRows.length} rows`);
  
@@ -125,7 +147,7 @@
        headers: {
          ...corsHeaders,
          'Content-Type': 'text/csv',
-         'Content-Disposition': `attachment; filename="full_user_export_${timestamp}.csv"`,
+         'Content-Disposition': `attachment; filename="${filename}"`,
        },
      });
  

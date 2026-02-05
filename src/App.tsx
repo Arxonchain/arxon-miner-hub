@@ -20,6 +20,17 @@ import Referrals from "@/pages/Referrals";
 import Nexus from "@/pages/Nexus";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
+ 
+ // Admin pages
+ import AdminLayout from "@/components/admin/AdminLayout";
+ import AdminDashboard from "@/pages/admin/AdminDashboard";
+ import AdminUsers from "@/pages/admin/AdminUsers";
+ import AdminSignups from "@/pages/admin/AdminSignups";
+ import AdminControls from "@/pages/admin/AdminControls";
+ import AdminArena from "@/pages/admin/AdminArena";
+ import AdminReconciliation from "@/pages/admin/AdminReconciliation";
+ import AdminLogin from "@/pages/admin/AdminLogin";
+ import AdminExportFilter from "@/pages/admin/AdminExportFilter";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +112,18 @@ function AppRoutes() {
       <Route path="/auth/confirm" element={<AuthCallback />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       
+       {/* Admin routes */}
+       <Route path="/admin/login" element={<AdminLogin />} />
+       <Route path="/admin" element={<AdminLayout />}>
+         <Route index element={<AdminDashboard />} />
+         <Route path="users" element={<AdminUsers />} />
+         <Route path="signups" element={<AdminSignups />} />
+         <Route path="controls" element={<AdminControls />} />
+         <Route path="arena" element={<AdminArena />} />
+         <Route path="reconciliation" element={<AdminReconciliation />} />
+         <Route path="export-filter" element={<AdminExportFilter />} />
+       </Route>
+       
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
