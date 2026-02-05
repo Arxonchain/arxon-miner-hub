@@ -2,7 +2,7 @@ import { Copy, ArrowLeft, Play, Square, Clock, Zap, RefreshCw } from "lucide-rea
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useMining } from "@/hooks/useMining";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";

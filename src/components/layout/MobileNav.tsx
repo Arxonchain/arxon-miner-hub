@@ -2,7 +2,7 @@ import { memo, useState, useCallback } from "react";
 import { LayoutDashboard, Trophy, Users, User, Settings, LogOut, Menu, Swords } from "lucide-react";
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },

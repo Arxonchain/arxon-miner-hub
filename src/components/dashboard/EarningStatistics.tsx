@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cacheGet, cacheSet } from "@/lib/localCache";
 

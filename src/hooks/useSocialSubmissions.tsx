@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { BackendUnavailableError } from '@/lib/backendHealth';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePoints } from './usePoints';
 import { toast } from '@/hooks/use-toast';
 

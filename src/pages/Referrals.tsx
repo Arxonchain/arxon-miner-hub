@@ -5,7 +5,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import { toast } from "@/hooks/use-toast";
 
 import { useReferrals } from "@/hooks/useReferrals";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMiningStatus } from "@/hooks/useMiningStatus";
 import { format } from "date-fns";
 import { useMemo } from "react";

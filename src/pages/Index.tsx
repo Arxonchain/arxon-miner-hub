@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "./Dashboard";
 import Landing from "./Landing";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const { user, loading } = useAuth();

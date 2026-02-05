@@ -6,7 +6,7 @@ import WelcomeCard from "@/components/dashboard/WelcomeCard";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useMiningStatus } from "@/hooks/useMiningStatus";
 import { usePoints } from "@/hooks/usePoints";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const getRankIcon = (index: number) => {
   if (index === 0) return "🥇";
