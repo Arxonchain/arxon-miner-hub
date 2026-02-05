@@ -12,7 +12,8 @@ import {
   CalendarDays,
   Scale,
   Trophy,
-   FileDown,
+  FileDown,
+  Upload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,8 @@ const navItems = [
   { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
   { icon: Trophy, label: "Arena Markets", path: "/admin/arena" },
   { icon: Scale, label: "Reconciliation", path: "/admin/reconciliation" },
-   { icon: FileDown, label: "Export Filter", path: "/admin/export-filter" },
+  { icon: FileDown, label: "Export Filter", path: "/admin/export-filter" },
+  { icon: Upload, label: "Import Users", path: "/admin/import-users" },
 ];
 
 const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {

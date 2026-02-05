@@ -30,6 +30,7 @@ import Settings from "@/pages/Settings";
  import AdminArena from "@/pages/admin/AdminArena";
  import AdminReconciliation from "@/pages/admin/AdminReconciliation";
  import AdminLogin from "@/pages/admin/AdminLogin";
+ import AdminImportUsers from "@/pages/admin/AdminImportUsers";
  import AdminExportFilter from "@/pages/admin/AdminExportFilter";
 
 const queryClient = new QueryClient({
@@ -122,6 +123,7 @@ function AppRoutes() {
          <Route path="arena" element={<AdminArena />} />
          <Route path="reconciliation" element={<AdminReconciliation />} />
          <Route path="export-filter" element={<AdminExportFilter />} />
+         <Route path="import-users" element={<AdminImportUsers />} />
        </Route>
        
       {/* Catch all */}
