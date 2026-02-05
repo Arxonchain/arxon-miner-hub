@@ -16,7 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import XIcon from "@/components/icons/XIcon";
- import arxonLogo from "@/assets/arxon-logo-new.jpg";
+ import arxonLogo from "@/assets/arxon-logo-full.jpg";
 import { useState, useEffect, memo, useRef } from "react";
 
 // Animated counter
@@ -110,7 +110,7 @@ export default function Landing() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b border-border/20 animate-fade-in">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-             <img src={arxonLogo} alt="Arxon" className="h-10 w-auto rounded-lg object-contain" />
+             <img src={arxonLogo} alt="Arxon" className="h-8 w-auto object-contain" />
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
@@ -272,7 +272,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-               <img src={arxonLogo} alt="Arxon" className="h-8 w-auto rounded-lg object-contain" />
+               <img src={arxonLogo} alt="Arxon" className="h-6 w-auto object-contain" />
               <span className="text-sm text-muted-foreground">© 2025 Arxon. All rights reserved.</span>
             </div>
             <div className="flex items-center gap-6">
