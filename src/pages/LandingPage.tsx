@@ -22,7 +22,7 @@ export default function LandingPage() {
           <Button variant="ghost" onClick={() => navigate('/auth?mode=signin')}>
             Sign In
           </Button>
-          <Button className="btn-mining" onClick={() => navigate('/auth?mode=signup')}>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => navigate('/auth?mode=signup')}>
             Get Started
           </Button>
         </div>
