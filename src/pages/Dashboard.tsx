@@ -4,14 +4,16 @@
  import { usePoints } from '@/hooks/usePoints';
  import { useProfile } from '@/hooks/useProfile';
  import { useMiningStatus } from '@/hooks/useMiningStatus';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
  import { Button } from '@/components/ui/button';
  import { 
-  LogOut, Zap, TrendingUp, Trophy, Send, Swords, 
-  Pickaxe, Sparkles, Coins, Activity, Users
+  Zap, TrendingUp, Trophy, Send, Swords, 
+  Pickaxe, Sparkles, Coins, Activity, TrendingDown
  } from 'lucide-react';
  import XIcon from '@/components/icons/XIcon';
+import { Users } from 'lucide-react';
  import arxonLogo from '@/assets/arxon-logo.jpg';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
  
  export default function Dashboard() {
    const { user, signOut } = useAuth();
@@ -19,12 +21,62 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
    const { points, rank, loading: pointsLoading } = usePoints();
    const { profile } = useProfile();
    const { isMining } = useMiningStatus();
-  const { leaderboard } = useLeaderboard();
+  
+  // Personal analytics state
+  const [weeklyEarnings, setWeeklyEarnings] = useState({ current: 0, previous: 0 });
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [activeSessions, setActiveSessions] = useState(0);
  
-   const handleSignOut = async () => {
-     await signOut();
-     navigate('/auth');
-   };
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchPersonalAnalytics = async () => {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      // Fetch mining sessions for analytics
+      const [currentWeek, previousWeek, todaySessions, activeCount] = await Promise.all([
+        supabase
+          .from('mining_sessions')
+          .select('arx_mined')
+          .eq('user_id', user.id)
+          .gte('started_at', weekAgo),
+        supabase
+          .from('mining_sessions')
+          .select('arx_mined')
+          .eq('user_id', user.id)
+          .gte('started_at', twoWeeksAgo)
+          .lt('started_at', weekAgo),
+        supabase
+          .from('mining_sessions')
+          .select('arx_mined')
+          .eq('user_id', user.id)
+          .gte('started_at', today),
+        supabase
+          .from('mining_sessions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+      ]);
+      
+      const currentTotal = currentWeek.data?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+      const previousTotal = previousWeek.data?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+      const todayTotal = todaySessions.data?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+      
+      setWeeklyEarnings({ current: currentTotal, previous: previousTotal });
+      setTodayEarnings(todayTotal);
+      setActiveSessions(activeCount.data?.length || 0);
+    };
+    
+    fetchPersonalAnalytics();
+  }, [user]);
+  
+  const earningsTrend = weeklyEarnings.previous > 0 
+    ? ((weeklyEarnings.current - weeklyEarnings.previous) / weeklyEarnings.previous * 100).toFixed(1)
+    : weeklyEarnings.current > 0 ? 100 : 0;
+  const isPositiveTrend = Number(earningsTrend) >= 0;
  
   const quickLinks = [
     { name: 'Leaderboard', icon: Trophy, path: '/leaderboard', color: 'amber' },
@@ -33,10 +85,6 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
     { name: 'Mining', icon: Pickaxe, path: '/mining', color: 'primary' },
   ];
 
-  // Calculate real-time stats
-  const totalMiners = leaderboard?.length || 0;
-  const totalMined = leaderboard?.reduce((sum, u) => sum + (u.total_points || 0), 0) || 0;
- 
    if (pointsLoading) {
      return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -52,8 +100,27 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
  
    return (
     <div className="min-h-screen bg-[#0a0a0a] overflow-x-hidden">
-      {/* Subtle background effects */}
+      {/* Enhanced background with brand blue glow */}
       <div className="fixed inset-0 pointer-events-none">
+        {/* Deep brand blue ambient glow */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse 80% 50% at 50% 0%, hsl(217 91% 60% / 0.12) 0%, transparent 60%)',
+          }}
+        />
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse 60% 40% at 20% 80%, hsl(217 91% 60% / 0.06) 0%, transparent 50%)',
+          }}
+        />
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse 50% 30% at 80% 60%, hsl(217 91% 60% / 0.05) 0%, transparent 40%)',
+          }}
+        />
         <div 
           className="absolute inset-0 opacity-[0.015]"
           style={{
@@ -64,19 +131,10 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
             backgroundSize: '50px 50px',
           }}
         />
-        <motion.div
-          className="absolute top-0 left-1/2 -translate-x-1/2"
-          style={{
-            width: '800px',
-            height: '400px',
-            background: 'radial-gradient(ellipse, hsl(var(--primary) / 0.08) 0%, transparent 70%)',
-            filter: 'blur(60px)',
-          }}
-        />
       </div>
        
        {/* Header */}
-      <header className="border-b border-border/10 bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="border-b border-primary/10 bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
              <motion.img 
@@ -87,15 +145,10 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
              />
             <span className="text-lg font-bold tracking-tight hidden sm:block">ARXON</span>
            </div>
-           <Button 
-            variant="ghost" 
-             size="sm" 
-            className="text-muted-foreground hover:text-foreground h-8 px-3 text-xs" 
-             onClick={handleSignOut}
-           >
-            <LogOut className="h-3.5 w-3.5 mr-1.5" />
-             Sign Out
-           </Button>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs text-muted-foreground">Online</span>
+          </div>
          </div>
        </header>
        
@@ -120,7 +173,7 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mb-4 p-3 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between"
+            className="mb-4 p-3 rounded-xl bg-gradient-to-r from-primary/15 to-primary/5 border border-primary/30 flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
               <motion.div
@@ -145,10 +198,10 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
          )}
          
         {/* Balance Card */}
-        <div className="mb-4 p-4 rounded-xl bg-card/30 border border-border/20 backdrop-blur-sm">
+        <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-primary/10 via-card/30 to-card/20 border border-primary/20 backdrop-blur-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Coins className="h-4 w-4 text-accent" />
+              <Coins className="h-4 w-4 text-primary" />
               <span className="text-xs text-muted-foreground">Total Balance</span>
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -158,7 +211,7 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
            </div>
           <p className="text-3xl sm:text-4xl font-bold text-foreground mb-1">
             {Math.floor(points?.total_points || 0).toLocaleString()}
-            <span className="text-lg sm:text-xl text-accent ml-1">ARX-P</span>
+            <span className="text-lg sm:text-xl text-primary ml-1">ARX-P</span>
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Mined: {Math.floor(points?.mining_points || 0).toLocaleString()}</span>
@@ -193,29 +246,28 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
           ))}
         </div>
 
-        {/* Real-time Analytics */}
-        <div className="mb-4 p-4 rounded-xl bg-card/30 border border-border/20 backdrop-blur-sm">
+        {/* Personal Analytics */}
+        <div className="mb-4 p-4 rounded-xl bg-card/20 border border-primary/10 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-3">
             <Activity className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Live Analytics</span>
-            <motion.div
-              animate={{ opacity: [1, 0.5, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="w-1.5 h-1.5 rounded-full bg-green-500 ml-auto"
-            />
+            <span className="text-sm font-medium text-foreground">Your Analytics</span>
+            <div className={`ml-auto flex items-center gap-1 text-xs ${isPositiveTrend ? 'text-green-400' : 'text-red-400'}`}>
+              {isPositiveTrend ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span>{isPositiveTrend ? '+' : ''}{earningsTrend}%</span>
+            </div>
            </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center">
-              <p className="text-lg sm:text-xl font-bold text-foreground">{totalMiners}</p>
-              <p className="text-[10px] text-muted-foreground">Active Miners</p>
+              <p className="text-lg sm:text-xl font-bold text-foreground">{Math.floor(todayEarnings)}</p>
+              <p className="text-[10px] text-muted-foreground">Today's ARX-P</p>
             </div>
             <div className="text-center">
-              <p className="text-lg sm:text-xl font-bold text-foreground">{(totalMined / 1000).toFixed(1)}K</p>
-              <p className="text-[10px] text-muted-foreground">Total Mined</p>
+              <p className="text-lg sm:text-xl font-bold text-foreground">{Math.floor(weeklyEarnings.current)}</p>
+              <p className="text-[10px] text-muted-foreground">This Week</p>
             </div>
             <div className="text-center">
-              <p className="text-lg sm:text-xl font-bold text-foreground">10/hr</p>
-              <p className="text-[10px] text-muted-foreground">ARX-P Rate</p>
+              <p className="text-lg sm:text-xl font-bold text-foreground">{activeSessions}</p>
+              <p className="text-[10px] text-muted-foreground">Active Sessions</p>
             </div>
           </div>
         </div>
@@ -224,7 +276,7 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
          {!isMining && (
           <motion.button
             onClick={() => navigate('/mining')}
-            className="w-full mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/20 to-accent/10 border border-primary/30 flex items-center justify-between group"
+            className="w-full mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-between group"
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
           >
@@ -240,7 +292,7 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
          )}
 
          {/* Community Section */}
-        <div className="rounded-xl bg-card/20 border border-border/10 p-4">
+        <div className="rounded-xl bg-card/10 border border-primary/10 p-4">
           <p className="text-xs text-muted-foreground text-center mb-3">Join our community</p>
           <div className="flex items-center justify-center gap-3">
             {[
@@ -253,7 +305,7 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-lg bg-card/30 border border-border/20 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+                className="w-10 h-10 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/10 transition-all"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
