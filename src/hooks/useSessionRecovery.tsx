@@ -11,10 +11,13 @@ const maxTimeSeconds = MAX_MINING_HOURS * 60 * 60;
 /**
  * Hook that runs once on app load to recover and credit any expired mining sessions.
  * This ensures users who had active sessions but left the app get their points.
+ * 
+ * CRITICAL FIX: Uses backend edge function for reliable crediting to prevent
+ * the issue where sessions end but points never get credited due to network failures.
  */
 export const useSessionRecovery = () => {
   const { user } = useAuth();
-  const { addPoints, points } = usePoints();
+  const { addPoints, points, refreshPoints } = usePoints();
   const hasRunRef = useRef(false);
 
   useEffect(() => {
@@ -23,10 +26,10 @@ export const useSessionRecovery = () => {
 
     const recoverExpiredSessions = async () => {
       try {
-        // Find all active sessions for this user
+        // Find all active sessions for this user that are expired (8+ hours old)
         const { data: sessions, error } = await supabase
           .from('mining_sessions')
-          .select('id, started_at, arx_mined, is_active')
+          .select('id, started_at, arx_mined, is_active, credited_at')
           .eq('user_id', user.id)
           .eq('is_active', true)
           .order('started_at', { ascending: false });
@@ -58,9 +61,24 @@ export const useSessionRecovery = () => {
           arenaBoost = arenaBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
         }
 
+        // Fetch active nexus boosts
+        let nexusBoost = 0;
+        const { data: nexusBoosts } = await supabase
+          .from('nexus_boosts')
+          .select('boost_percentage')
+          .eq('user_id', user.id)
+          .eq('claimed', true)
+          .gte('expires_at', new Date().toISOString());
+        if (nexusBoosts) {
+          nexusBoost = nexusBoosts.reduce((sum, b) => sum + b.boost_percentage, 0);
+        }
+
         // Calculate total boost (capped at 500%)
-        const totalBoost = Math.min(referralBonus + xProfileBoost + xPostBoost + arenaBoost + streakBoost, 500);
+        const totalBoost = Math.min(referralBonus + xProfileBoost + xPostBoost + arenaBoost + nexusBoost + streakBoost, 500);
         const pointsPerHour = Math.min(BASE_POINTS_PER_HOUR * (1 + totalBoost / 100), 60);
+
+        let totalRecovered = 0;
+        let sessionsRecovered = 0;
 
         // Process each session
         for (const session of sessions) {
@@ -69,11 +87,12 @@ export const useSessionRecovery = () => {
 
           // Only auto-finalize sessions that are expired (8+ hours)
           if (elapsed >= maxTimeSeconds) {
-            const calculatedPoints = Math.min(480, Math.floor((maxTimeSeconds / 3600) * pointsPerHour));
-            const dbPoints = Math.max(0, Math.floor(Number(session.arx_mined ?? 0)));
+            // ALWAYS round UP to whole number
+            const calculatedPoints = Math.min(480, Math.ceil((maxTimeSeconds / 3600) * pointsPerHour));
+            const dbPoints = Math.max(0, Math.ceil(Number(session.arx_mined ?? 0)));
             const finalPoints = Math.max(calculatedPoints, dbPoints);
 
-            // End the session and credit points
+            // End the session first
             const { data: updated, error: updateError } = await supabase
               .from('mining_sessions')
               .update({
@@ -87,15 +106,29 @@ export const useSessionRecovery = () => {
               .maybeSingle();
 
             if (!updateError && updated && finalPoints > 0) {
-              // Pass session ID for secure backend validation
-              await addPoints(finalPoints, 'mining', session.id);
+              // Use addPoints which calls the secure backend - pass session_id for validation
+              const result = await addPoints(finalPoints, 'mining', session.id);
               
-              toast({
-                title: 'Mining Session Recovered! 🎉',
-                description: `You earned ${finalPoints} ARX-P from your previous session`,
-              });
+              if (result.success) {
+                totalRecovered += result.points || finalPoints;
+                sessionsRecovered++;
+              } else {
+                // Points failed but session ended - will be picked up by backfill
+                console.warn(`Session ${session.id} recovery failed: ${result.error}`);
+              }
             }
           }
+        }
+
+        // Show toast if any sessions were recovered
+        if (sessionsRecovered > 0) {
+          // Refresh points to show updated balance
+          await refreshPoints();
+          
+          toast({
+            title: 'Mining Sessions Recovered! 🎉',
+            description: `You earned ${Math.ceil(totalRecovered)} ARX-P from ${sessionsRecovered} previous session${sessionsRecovered > 1 ? 's' : ''}`,
+          });
         }
       } catch (error) {
         console.error('Session recovery error:', error);
@@ -105,5 +138,5 @@ export const useSessionRecovery = () => {
     // Run with a small delay to let auth settle
     const timeout = setTimeout(recoverExpiredSessions, 1000);
     return () => clearTimeout(timeout);
-  }, [user, addPoints, points]);
+  }, [user, addPoints, points, refreshPoints]);
 };

@@ -255,26 +255,35 @@ export const useMining = (options?: UseMiningOptions) => {
           clearActiveSessionCache(user.id);
         }
 
-        // Try to credit points if any
+        // Try to credit points if any - with retry logic for resilience
         let credited = false;
         let creditedPoints = 0;
         
         if (pointsToCredit > 0) {
-          // Pass session ID for secure backend validation
-          const result = await addPoints(pointsToCredit, 'mining', id);
-          credited = result.success;
-          creditedPoints = result.points || pointsToCredit;
+          // Retry up to 3 times for crediting (the addPoints function has its own retries too)
+          const MAX_CREDIT_ATTEMPTS = 3;
+          for (let attempt = 0; attempt < MAX_CREDIT_ATTEMPTS && !credited; attempt++) {
+            // Pass session ID for secure backend validation
+            const result = await addPoints(pointsToCredit, 'mining', id);
+            credited = result.success;
+            creditedPoints = result.points || pointsToCredit;
+            
+            if (!credited && attempt < MAX_CREDIT_ATTEMPTS - 1) {
+              // Wait before retry with exponential backoff
+              await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
+            }
+          }
 
           // INSTANT UI UPDATE: Refresh points immediately after successful credit
           if (credited) {
             // Immediate refresh - don't wait
             await refreshPoints();
           } else {
-            console.error('Failed to credit points for session:', id, result.error);
-            // Session ended but points not credited - backend will pick this up in backfill
+            console.error('Failed to credit points for session after retries:', id);
+            // Session ended but points not credited - backend backfill will fix this
             toast({
               title: 'Session Ended',
-              description: `Mining stopped. Points pending - they will be credited shortly.`,
+              description: `Mining stopped. Points will be credited shortly.`,
               variant: 'default',
             });
             // Still try to refresh to show any partial updates
@@ -632,7 +641,8 @@ export const useMining = (options?: UseMiningOptions) => {
       return;
     }
 
-    const pointsToClaim = Math.floor(earnedPoints);
+    // ALWAYS round UP to whole number
+    const pointsToClaim = Math.ceil(earnedPoints);
     if (pointsToClaim <= 0) {
       toast({
         title: 'Nothing to Claim',
@@ -664,12 +674,24 @@ export const useMining = (options?: UseMiningOptions) => {
         return;
       }
 
-      // Pass session ID for secure backend validation
-      const result = await addPoints(pointsToClaim, 'mining', sessionId);
+      // Pass session ID for secure backend validation - with retry logic
+      let credited = false;
+      let creditedPoints = 0;
+      const MAX_CREDIT_ATTEMPTS = 3;
       
-      if (!result.success) {
+      for (let attempt = 0; attempt < MAX_CREDIT_ATTEMPTS && !credited; attempt++) {
+        const result = await addPoints(pointsToClaim, 'mining', sessionId);
+        credited = result.success;
+        creditedPoints = result.points || pointsToClaim;
+        
+        if (!credited && attempt < MAX_CREDIT_ATTEMPTS - 1) {
+          await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
+        }
+      }
+      
+      if (!credited) {
         // Points failed, but session is already ended - backfill will fix it
-        console.error('Points award failed but session ended:', result.error);
+        console.error('Points award failed but session ended after retries');
         toast({
           title: 'Session Complete',
           description: 'Points are being processed and will appear shortly.',
@@ -678,7 +700,7 @@ export const useMining = (options?: UseMiningOptions) => {
       } else {
         toast({
           title: 'Points Claimed! 🎉',
-          description: `+${result.points || pointsToClaim} ARX-P added to your balance`,
+          description: `+${Math.ceil(creditedPoints)} ARX-P added to your balance`,
         });
         triggerConfetti();
       }
