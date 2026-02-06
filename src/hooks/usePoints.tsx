@@ -157,96 +157,102 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
   }, [user, calculateRank]);
 
   const addPoints = useCallback(
-    async (amount: number, type: 'mining' | 'task' | 'social' | 'referral', sessionId?: string): Promise<{ success: boolean; points?: number; error?: string }> => {
+    async (
+      amount: number,
+      type: 'mining' | 'task' | 'social' | 'referral',
+      sessionId?: string
+    ): Promise<{ success: boolean; points?: number; error?: string }> => {
       if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Always round up to whole number
-    const safeAmount = Math.min(Math.max(Math.ceil(amount), 0), 500);
-    if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
+      // Always round up to whole number
+      const safeAmount = Math.min(Math.max(Math.ceil(amount), 0), 500);
+      if (safeAmount <= 0) return { success: false, error: 'Invalid amount' };
 
-      // Retry logic for network failures (up to 3 attempts with exponential backoff)
-      const MAX_RETRIES = 3;
-      let lastError: any = null;
+      const applyUserPoints = (userPoints: any) => {
+        const next = sanitizeUserPoints(userPoints) as UserPoints;
+        setPoints(next);
+        cacheSet(pointsCacheKey(user.id), next);
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        // Rank is derived from total_points; refresh immediately after a claim.
+        lastRankAtRef.current = 0;
+        void calculateRank();
+      };
+
+      const rpcFallback = async (reason?: string) => {
         try {
-          // Use the secure backend endpoint instead of direct RPC
-          const { data, error } = await supabase.functions.invoke('award-points', {
-            body: {
-              type,
-              amount: safeAmount,
-              session_id: sessionId,
-            },
+          // For mining, mark the session as credited before incrementing (idempotency guard)
+          if (type === 'mining' && sessionId) {
+            await supabase
+              .from('mining_sessions')
+              .update({ credited_at: new Date().toISOString() })
+              .eq('id', sessionId)
+              .is('credited_at', null);
+          }
+
+          const { data, error } = await supabase.rpc('increment_user_points', {
+            p_user_id: user.id,
+            p_amount: safeAmount,
+            p_type: type,
           });
 
-          if (error) {
-            // If it's a network/fetch error, retry
-            if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-              lastError = error;
-              console.warn(`Award-points attempt ${attempt + 1} failed, retrying...`, error.message);
-              await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
-              continue;
-            }
-            console.error('Error adding points via backend:', error);
-            return { success: false, error: error.message || 'Backend error' };
-          }
+          if (error) return { success: false, error: error.message || reason || 'Fallback failed' };
+          if (data) applyUserPoints(data);
 
-          if (!data?.success) {
-            console.error('Backend returned failure:', data?.error);
-            return { success: false, error: data?.error || 'Unknown error' };
-          }
-
-          // INSTANT UI UPDATE: Sanitize and apply points immediately
-          if (data?.userPoints) {
-            const next = sanitizeUserPoints(data.userPoints) as UserPoints;
-            setPoints(next);
-            cacheSet(pointsCacheKey(user.id), next);
-
-            // Rank is derived from total_points; refresh immediately after a claim.
-            lastRankAtRef.current = 0;
-            void calculateRank();
-          } else {
-            // Fetch latest points from DB to sync UI IMMEDIATELY
-            try {
-              const { data: latest } = await supabase
-                .from('user_points')
-                .select('*')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-              if (latest) {
-                const next = sanitizeUserPoints(latest) as UserPoints;
-                setPoints(next);
-                cacheSet(pointsCacheKey(user.id), next);
-
-                lastRankAtRef.current = 0;
-                void calculateRank();
-              }
-            } catch {
-              // ignore: keep existing cached/previous points
-            }
-          }
-
-          const awardedPoints = data?.points ?? safeAmount;
-          if (awardedPoints >= 10) triggerConfetti();
-          
-          return { success: true, points: awardedPoints };
+          if (safeAmount >= 10) triggerConfetti();
+          return { success: true, points: safeAmount };
         } catch (err: any) {
-          lastError = err;
-          // Retry on network errors
-          if (err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError') || err?.name === 'TypeError') {
-            console.warn(`Award-points attempt ${attempt + 1} threw, retrying...`, err.message);
-            await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 5000)));
-            continue;
-          }
-          console.error('Error adding points:', err);
-          return { success: false, error: err?.message || 'Network error' };
+          return { success: false, error: err?.message || reason || 'Fallback failed' };
         }
-      }
+      };
 
-      // All retries exhausted
-      console.error('All award-points attempts failed:', lastError);
-      return { success: false, error: lastError?.message || 'Network error after retries' };
+      try {
+        // Primary path: secure backend function
+        const { data, error } = await supabase.functions.invoke('award-points', {
+          body: {
+            type,
+            amount: safeAmount,
+            session_id: sessionId,
+          },
+        });
+
+        if (error || !data?.success) {
+          // Instant fallback: direct RPC (keeps UI responsive if function is down)
+          const fallback = await rpcFallback(error?.message || data?.error);
+          if (fallback.success) return fallback;
+
+          return {
+            success: false,
+            error: fallback.error || error?.message || data?.error || 'Backend error',
+          };
+        }
+
+        // INSTANT UI UPDATE: apply returned points immediately
+        if (data?.userPoints) {
+          applyUserPoints(data.userPoints);
+        } else {
+          // Best-effort sync if the function didn't return the row
+          const { data: latest } = await supabase
+            .from('user_points')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (latest) applyUserPoints(latest);
+        }
+
+        const awardedPoints = Math.ceil(Number(data?.points ?? safeAmount));
+        if (awardedPoints >= 10) triggerConfetti();
+
+        return { success: true, points: awardedPoints };
+      } catch (err: any) {
+        const fallback = await rpcFallback(err?.message);
+        if (fallback.success) return fallback;
+
+        return {
+          success: false,
+          error: fallback.error || err?.message || 'Network error',
+        };
+      }
     },
     [calculateRank, triggerConfetti, user]
   );
