@@ -30,95 +30,99 @@
    completed_at: string | null;
  }
  
- const Tasks = () => {
-   const navigate = useNavigate();
-   const { user } = useAuth();
-   const { refreshPoints, triggerConfetti } = usePoints();
-   const [showAuth, setShowAuth] = useState(false);
-   const [tasks, setTasks] = useState<Task[]>([]);
-   const [userTasks, setUserTasks] = useState<Map<string, UserTask>>(new Map());
-   const [loading, setLoading] = useState(true);
-   const [completing, setCompleting] = useState<string | null>(null);
- 
-   useEffect(() => {
-     const fetchTasks = async () => {
-       try {
-         const { data, error } = await supabase
-           .from('tasks')
-           .select('*')
-           .eq('is_active', true)
-           .order('points_reward', { ascending: false });
- 
-         if (!error && data) {
-           setTasks(data);
-         }
-       } catch (err) {
-         console.error('Error fetching tasks:', err);
-       } finally {
-         setLoading(false);
-       }
-     };
- 
-     fetchTasks();
-   }, []);
- 
-   useEffect(() => {
-     if (!user) return;
- 
-     const fetchUserTasks = async () => {
-       try {
-         const { data, error } = await supabase
-           .from('user_tasks')
-           .select('*')
-           .eq('user_id', user.id);
- 
-         if (!error && data) {
-           const map = new Map<string, UserTask>();
-           data.forEach((ut) => map.set(ut.task_id, ut));
-           setUserTasks(map);
-         }
-       } catch (err) {
-         console.error('Error fetching user tasks:', err);
-       }
-     };
- 
-     fetchUserTasks();
-   }, [user]);
- 
-   const completeTask = async (task: Task) => {
-     if (!user) {
-       setShowAuth(true);
-       return;
-     }
- 
-     const existing = userTasks.get(task.id);
-     if (existing?.status === 'completed') {
-       toast({ title: 'Already Completed', description: 'You\'ve already completed this task', variant: 'destructive' });
-       return;
-     }
- 
-     if (task.external_url) {
-       window.open(task.external_url, '_blank');
-     }
- 
-     setCompleting(task.id);
-     try {
-       const { error } = await supabase
-         .from('user_tasks')
-         .upsert({
-           user_id: user.id,
-           task_id: task.id,
-           status: 'completed',
-           points_awarded: task.points_reward,
-           completed_at: new Date().toISOString(),
-         }, { onConflict: 'user_id,task_id' });
- 
-       if (error) throw error;
- 
-       await supabase.functions.invoke('award-points', {
-         body: { type: 'task', amount: task.points_reward },
-       });
- 
+const Tasks = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { refreshPoints, triggerConfetti, addPoints } = usePoints();
+  const [showAuth, setShowAuth] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [userTasks, setUserTasks] = useState<Map<string, UserTask>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('is_active', true)
+          .order('points_reward', { ascending: false });
+
+        if (!error && data) {
+          setTasks(data);
+        }
+      } catch (err) {
+        console.error('Error fetching tasks:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUserTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_tasks')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (!error && data) {
+          const map = new Map<string, UserTask>();
+          data.forEach((ut) => map.set(ut.task_id, ut));
+          setUserTasks(map);
+        }
+      } catch (err) {
+        console.error('Error fetching user tasks:', err);
+      }
+    };
+
+    fetchUserTasks();
+  }, [user]);
+
+  const completeTask = async (task: Task) => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+
+    const existing = userTasks.get(task.id);
+    if (existing?.status === 'completed') {
+      toast({ title: 'Already Completed', description: "You've already completed this task", variant: 'destructive' });
+      return;
+    }
+
+    if (task.external_url) {
+      window.open(task.external_url, '_blank');
+    }
+
+    setCompleting(task.id);
+    try {
+      const { error } = await supabase
+        .from('user_tasks')
+        .upsert(
+          {
+            user_id: user.id,
+            task_id: task.id,
+            status: 'completed',
+            points_awarded: task.points_reward,
+            completed_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,task_id' }
+        );
+
+      if (error) throw error;
+
+      const credited = await addPoints(task.points_reward, 'task');
+      if (!credited.success) {
+        throw new Error(credited.error || 'Failed to credit points');
+      }
+
        setUserTasks((prev) => {
          const next = new Map(prev);
          next.set(task.id, {
