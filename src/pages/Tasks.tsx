@@ -103,18 +103,44 @@ const Tasks = () => {
 
     setCompleting(task.id);
     try {
-      const { error } = await supabase
+      // First check if task already completed (safer than upsert onConflict issues)
+      const { data: existingTask } = await supabase
         .from('user_tasks')
-        .upsert(
-          {
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('task_id', task.id)
+        .maybeSingle();
+
+      if (existingTask?.status === 'completed') {
+        toast({ title: 'Already Completed', description: "You've already completed this task", variant: 'destructive' });
+        setCompleting(null);
+        return;
+      }
+
+      // Insert new task completion (or update if exists but not completed)
+      let error;
+      if (existingTask) {
+        const { error: updateError } = await supabase
+          .from('user_tasks')
+          .update({
+            status: 'completed',
+            points_awarded: task.points_reward,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', existingTask.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('user_tasks')
+          .insert({
             user_id: user.id,
             task_id: task.id,
             status: 'completed',
             points_awarded: task.points_reward,
             completed_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,task_id' }
-        );
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 

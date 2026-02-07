@@ -279,8 +279,8 @@ export const useMining = (options?: UseMiningOptions) => {
                 .eq('id', id)
                 .is('credited_at', null);
 
-              // Use RPC directly for instant credit
-              const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_user_points', {
+              // Use RPC directly for instant credit (type assertion for self-hosted compatibility)
+              const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_user_points' as any, {
                 p_user_id: user.id,
                 p_amount: pointsToCredit,
                 p_type: 'mining',
@@ -380,7 +380,7 @@ export const useMining = (options?: UseMiningOptions) => {
               .eq('id', session.id)
               .is('credited_at', null);
 
-            await supabase.rpc('increment_user_points', {
+            await supabase.rpc('increment_user_points' as any, {
               p_user_id: user.id,
               p_amount: finalPoints,
               p_type: 'mining',
@@ -742,8 +742,8 @@ export const useMining = (options?: UseMiningOptions) => {
             .eq('id', sessionId)
             .is('credited_at', null);
 
-          // Use RPC directly for instant credit
-          const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_user_points', {
+          // Use RPC directly for instant credit (type assertion for self-hosted compatibility)
+          const { data: rpcResult, error: rpcError } = await supabase.rpc('increment_user_points' as any, {
             p_user_id: user.id,
             p_amount: pointsToClaim,
             p_type: 'mining',

@@ -42,7 +42,7 @@ export async function ensureProfileFields(
   // Referral code: generate + set if missing.
   if (!profile?.referral_code) {
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { data: generated } = await supabase.rpc("generate_referral_code");
+      const { data: generated } = await supabase.rpc("generate_referral_code" as any);
       const code = String(generated || "").trim();
       if (!code) continue;
 
@@ -64,7 +64,7 @@ export async function ensureProfileFields(
   if (!profile?.nexus_address) {
     const username = profile?.username ?? opts?.usernameHint ?? "user";
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { data: generated } = await supabase.rpc("generate_nexus_address", {
+      const { data: generated } = await supabase.rpc("generate_nexus_address" as any, {
         p_username: username,
       });
       const address = String(generated || "").trim();
