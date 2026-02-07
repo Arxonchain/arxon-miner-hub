@@ -80,8 +80,9 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Use the database function that counts users with higher points
       // This bypasses Supabase's default 1000 row limit and works for any user count
+      // Use type assertion to avoid schema cache issues in self-hosted deployments
       const { data, error } = await supabase
-        .rpc('get_user_rank', { p_user_id: user.id });
+        .rpc('get_user_rank' as any, { p_user_id: user.id });
 
       if (error) {
         console.error('Error fetching rank from database function:', error);
@@ -189,7 +190,8 @@ export const PointsProvider = ({ children }: { children: ReactNode }) => {
               .is('credited_at', null);
           }
 
-          const { data, error } = await supabase.rpc('increment_user_points', {
+          // Use type assertion to avoid schema cache mismatch in self-hosted deployments
+          const { data, error } = await supabase.rpc('increment_user_points' as any, {
             p_user_id: user.id,
             p_amount: safeAmount,
             p_type: type,

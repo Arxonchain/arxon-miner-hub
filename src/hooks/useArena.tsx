@@ -145,7 +145,8 @@ export const useArena = () => {
 
   const fetchParticipants = useCallback(async (battleId: string) => {
     try {
-      const { data, error } = await supabase.rpc('get_arena_participation', { 
+      // Type assertion for self-hosted compatibility
+      const { data, error } = await supabase.rpc('get_arena_participation' as any, { 
         p_battle_id: battleId 
       });
 

@@ -113,14 +113,15 @@
        return;
      }
  
-     setSending(true);
-     try {
-       const { data, error } = await supabase.rpc('send_nexus_transfer', {
-         p_sender_id: user.id,
-         p_receiver_address: receiverAddress.trim(),
-         p_amount: numAmount,
-       });
-       if (error) throw error;
+      setSending(true);
+      try {
+        // Call RPC with explicit type casting to avoid schema cache issues
+        const { data, error } = await supabase.rpc('send_nexus_transfer' as any, {
+          p_sender_id: user.id,
+          p_receiver_address: receiverAddress.trim(),
+          p_amount: numAmount,
+        });
+        if (error) throw error;
        const result = data as any;
        if (!result?.success) {
          toast({ title: 'Transfer Failed', description: result?.error || 'Unknown error', variant: 'destructive' });

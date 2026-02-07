@@ -31,9 +31,9 @@ const BattleVoteExplorer = ({ market, currentUserId }: BattleVoteExplorerProps) 
     const fetchVotes = async () => {
       setLoading(true);
       try {
-        // Use the RPC function that returns votes with profile info
+        // Use the RPC function that returns votes with profile info (type assertion for self-hosted)
         const { data, error } = await supabase
-          .rpc('get_arena_participation', { p_battle_id: market.id });
+          .rpc('get_arena_participation' as any, { p_battle_id: market.id });
 
         if (error) throw error;
 

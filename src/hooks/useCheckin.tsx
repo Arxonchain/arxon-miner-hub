@@ -55,9 +55,9 @@ export const useCheckin = () => {
     if (!user || !canCheckin) return;
 
     try {
-      // Use atomic server-side function
+      // Use atomic server-side function with type assertion to avoid schema cache issues
       const { data, error } = await supabase
-        .rpc('perform_daily_checkin', { p_user_id: user.id });
+        .rpc('perform_daily_checkin' as any, { p_user_id: user.id });
 
       if (error) throw error;
 
