@@ -110,20 +110,29 @@ export const useArenaMarkets = () => {
       const upcoming: ArenaMarket[] = [];
       const ended: ArenaMarket[] = [];
 
-      markets.forEach(market => {
+      markets.forEach((market) => {
         const startsAt = new Date(market.starts_at);
         const endsAt = new Date(market.ends_at);
         const nowDate = new Date();
 
-        if (!market.is_active && market.winner_side) {
+        // IMPORTANT: A resolved market should always show in history,
+        // even if is_active/ends_at were not updated correctly in production.
+        if (market.winner_side) {
           ended.push(market);
-        } else if (startsAt > nowDate) {
-          upcoming.push(market);
-        } else if (endsAt > nowDate && market.is_active) {
-          live.push(market);
-        } else {
-          ended.push(market);
+          return;
         }
+
+        if (startsAt > nowDate) {
+          upcoming.push(market);
+          return;
+        }
+
+        if (endsAt > nowDate && market.is_active) {
+          live.push(market);
+          return;
+        }
+
+        ended.push(market);
       });
 
       // Sort: live by ending soonest, upcoming by starting soonest, ended by most recent
@@ -133,7 +142,7 @@ export const useArenaMarkets = () => {
 
       setLiveMarkets(live);
       setUpcomingMarkets(upcoming);
-      setEndedMarkets(ended.slice(0, 20)); // Last 20 ended
+      setEndedMarkets(ended); // show full history (UI/search already filters)
 
       return { live, upcoming, ended };
     } catch (error) {
