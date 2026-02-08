@@ -67,15 +67,24 @@ const Arena = () => {
   };
 
   // Calculate team stats
+  // Primary source: leaderboard view (counts real users)
+  const alphaStakedFromLeaderboard = earningsLeaderboard
+    .filter((e) => e.club === 'alpha')
+    .reduce((sum, e) => sum + Number(e.total_staked || 0), 0);
+  const omegaStakedFromLeaderboard = earningsLeaderboard
+    .filter((e) => e.club === 'omega')
+    .reduce((sum, e) => sum + Number(e.total_staked || 0), 0);
+
+  // Fallback source: market pools (works even if leaderboard views are empty/missing in a fresh production DB)
+  const marketsForStats = [...liveMarkets, ...endedMarkets];
+  const alphaStakedFromPools = marketsForStats.reduce((sum, m) => sum + Number((m as any).side_a_power || 0), 0);
+  const omegaStakedFromPools = marketsForStats.reduce((sum, m) => sum + Number((m as any).side_b_power || 0), 0);
+
   const teamStats = {
-    alphaStaked: earningsLeaderboard
-      .filter(e => e.club === 'alpha')
-      .reduce((sum, e) => sum + (e.total_staked || 0), 0),
-    omegaStaked: earningsLeaderboard
-      .filter(e => e.club === 'omega')
-      .reduce((sum, e) => sum + (e.total_staked || 0), 0),
-    alphaMembers: earningsLeaderboard.filter(e => e.club === 'alpha').length,
-    omegaMembers: earningsLeaderboard.filter(e => e.club === 'omega').length,
+    alphaStaked: alphaStakedFromLeaderboard || alphaStakedFromPools,
+    omegaStaked: omegaStakedFromLeaderboard || omegaStakedFromPools,
+    alphaMembers: earningsLeaderboard.filter((e) => e.club === 'alpha').length,
+    omegaMembers: earningsLeaderboard.filter((e) => e.club === 'omega').length,
   };
 
   // Trigger AI prediction fetch for live markets periodically

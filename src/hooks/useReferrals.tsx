@@ -128,21 +128,38 @@ export const useReferrals = (user: User | null) => {
       const totalEarnings = rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0);
 
       // Fetch usernames + active mining sessions for each referral
-      // Use a fresh query without caching issues
+      // NOTE: In production, referrers typically cannot SELECT other users' mining_sessions due to RLS.
+      // We prefer an RPC (get_active_referral_sessions) that safely returns active referred user_ids.
       const [profilesRes, activeSessionsRes] = await Promise.all([
         withTimeout(
           supabase.from('profiles').select('user_id, username').in('user_id', referredIds),
           12_000
         ).catch(() => ({ data: [] as any[] } as any)),
-        withTimeout(
-          supabase
-            .from('mining_sessions')
-            .select('user_id, is_active, started_at')
-            .in('user_id', referredIds)
-            .eq('is_active', true)
-            .order('started_at', { ascending: false }),
-          12_000
-        ).catch(() => ({ data: [] } as any)),
+        (async () => {
+          // Try RPC first
+          try {
+            const rpcRes = await withTimeout(supabase.rpc('get_active_referral_sessions' as any), 12_000).catch(
+              () => null
+            );
+            const rpcData = (rpcRes as any)?.data;
+            if (Array.isArray(rpcData)) {
+              return { data: rpcData } as any;
+            }
+          } catch {
+            // ignore
+          }
+
+          // Fallback (will likely return empty under strict RLS)
+          return withTimeout(
+            supabase
+              .from('mining_sessions')
+              .select('user_id, is_active, started_at')
+              .in('user_id', referredIds)
+              .eq('is_active', true)
+              .order('started_at', { ascending: false }),
+            12_000
+          ).catch(() => ({ data: [] } as any));
+        })(),
       ]);
 
       const profiles = (profilesRes as any)?.data as any[] | undefined;
@@ -305,7 +322,17 @@ export const useReferrals = (user: User | null) => {
 
   const getReferralLink = () => {
     if (!referralCode) return '';
-    return `${window.location.origin}/?ref=${referralCode}`;
+
+    // Prefer a canonical public URL (set this in Vercel as VITE_PUBLIC_SITE_URL=https://arxonchain.xyz)
+    const configured = (import.meta.env as any).VITE_PUBLIC_SITE_URL as string | undefined;
+    const normalizedConfigured = configured?.replace(/\/+$/, '');
+
+    // Fallback: if someone is on a vercel.app preview URL, still generate the arxonchain.xyz link
+    const origin =
+      normalizedConfigured ||
+      (window.location.hostname.endsWith('vercel.app') ? 'https://arxonchain.xyz' : window.location.origin);
+
+    return `${origin}/?ref=${referralCode}`;
   };
 
   return {
