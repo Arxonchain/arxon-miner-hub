@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getPasswordResetRedirectUrl, getMagicLinkRedirectUrl } from "@/lib/auth/getRedirectUrl";
+import { applyPendingReferralCode } from "@/lib/referral/applyPendingReferral";
 import arxonLogo from "@/assets/arxon-logo.jpg";
 
 type Mode = "signin" | "signup" | "forgot";
@@ -186,7 +187,7 @@ export default function Auth() {
         return;
       }
 
-      // Keep referral code for later processing (non-blocking)
+      // Apply referral code immediately after signup (non-blocking)
       const ref = referralCode.trim().toUpperCase();
       if (ref) {
         try {
@@ -194,6 +195,8 @@ export default function Auth() {
         } catch {
           // ignore
         }
+        // Fire and forget — applyPendingReferralCode will retry on next login if it fails
+        applyPendingReferralCode().catch(() => {});
       }
 
       navigate("/");
