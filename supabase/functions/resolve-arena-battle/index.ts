@@ -32,11 +32,12 @@ serve(async (req) => {
     let battlesToResolve;
 
     if (battleId && manualWinner) {
+      // Manual resolution: allow resolving any active battle (not just ended ones)
       const { data, error } = await supabase
         .from("arena_battles")
         .select("*")
         .eq("id", battleId)
-        .eq("is_active", true)
+        .is("winner_side", null)
         .single();
 
       if (error || !data) {
