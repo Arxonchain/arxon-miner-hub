@@ -13,6 +13,7 @@
 import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
+import ArenaBattleBanner from '@/components/arena/ArenaBattleBanner';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
  
  export default function Dashboard() {
@@ -134,7 +135,8 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
  
    return (
     <div className="min-h-screen bg-[#0a0a0a] overflow-x-hidden">
-      {/* Enhanced background with brand blue glow */}
+      {/* Arena Battle Banner */}
+      <ArenaBattleBanner />
       <div className="fixed inset-0 pointer-events-none">
         {/* Deep brand blue ambient glow */}
         <div 

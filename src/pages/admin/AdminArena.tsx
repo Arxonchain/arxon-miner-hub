@@ -794,26 +794,32 @@ const AdminArena = () => {
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Manual resolution buttons (only for pending) */}
-                      {!battle.winner_side && new Date(battle.ends_at) < new Date() && (
+                      {/* Manual resolution buttons (for live or pending battles - not yet resolved) */}
+                      {!battle.winner_side && (
                         <>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleManualResolve(battle.id, 'a')}
+                            onClick={() => {
+                              if (!confirm(`Are you sure you want to resolve this battle? Winner: ${battle.side_a_name} (Side A)\n\nThis will distribute rewards immediately.`)) return;
+                              handleManualResolve(battle.id, 'a');
+                            }}
                             className="text-xs"
                             style={{ borderColor: battle.side_a_color, color: battle.side_a_color }}
                           >
-                            A Wins
+                            {battle.side_a_name} Wins
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleManualResolve(battle.id, 'b')}
+                            onClick={() => {
+                              if (!confirm(`Are you sure you want to resolve this battle? Winner: ${battle.side_b_name} (Side B)\n\nThis will distribute rewards immediately.`)) return;
+                              handleManualResolve(battle.id, 'b');
+                            }}
                             className="text-xs"
                             style={{ borderColor: battle.side_b_color, color: battle.side_b_color }}
                           >
-                            B Wins
+                            {battle.side_b_name} Wins
                           </Button>
                         </>
                       )}
