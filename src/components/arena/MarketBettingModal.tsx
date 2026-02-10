@@ -111,11 +111,17 @@ const MarketBettingModal = ({
   };
 
   const handleFingerprintVerified = async () => {
-    if (selectedSide) {
+    if (!selectedSide) return;
+    try {
       const success = await onPlaceBet(market.id, selectedSide, stakeAmount);
       if (success) {
         onClose();
+      } else {
+        setShowFingerprint(false);
       }
+    } catch (err) {
+      console.error('Vote failed:', err);
+      setShowFingerprint(false);
     }
   };
 

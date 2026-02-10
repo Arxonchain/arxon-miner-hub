@@ -117,11 +117,16 @@ const ArenaMarketDetail = ({
 
   const handleFingerprintVerified = async () => {
     if (!selectedSide) return;
-    const success = await onPlaceBet(market.id, selectedSide, stakeAmount);
-    if (success) {
+    try {
+      const success = await onPlaceBet(market.id, selectedSide, stakeAmount);
+      if (success) {
+        setStakeAmount(0);
+        setSelectedSide(null);
+      }
+    } catch (err) {
+      console.error('Vote failed:', err);
+    } finally {
       setShowFingerprint(false);
-      setStakeAmount(0);
-      setSelectedSide(null);
     }
   };
 
