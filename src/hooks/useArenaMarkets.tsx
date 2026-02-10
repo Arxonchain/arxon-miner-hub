@@ -273,24 +273,28 @@ export const useArenaMarkets = () => {
       return false;
     }
 
-    // Find the market to check if it's live
-    const market = liveMarkets.find(m => m.id === marketId);
+    // Look in all market arrays - client state can be stale
+    const market = liveMarkets.find(m => m.id === marketId)
+      || upcomingMarkets.find(m => m.id === marketId)
+      || endedMarkets.find(m => m.id === marketId);
+
     if (!market) {
-      // Check if it's upcoming
-      const upcomingMarket = upcomingMarkets.find(m => m.id === marketId);
-      if (upcomingMarket) {
-        toast.error('Voting has not started yet. Please wait until the market goes live.');
-        return false;
-      }
       toast.error('This market is not available for voting');
       return false;
     }
 
-    // Double-check the market is actually live (not upcoming)
+    // Check timing based on real clock, not stale categorization
     const now = new Date();
     const startsAt = new Date(market.starts_at);
+    const endsAt = new Date(market.ends_at);
+
     if (startsAt > now) {
       toast.error('Voting has not started yet. Please wait until the market goes live.');
+      return false;
+    }
+
+    if (endsAt < now || market.winner_side) {
+      toast.error('This market has ended. Voting is closed.');
       return false;
     }
 
