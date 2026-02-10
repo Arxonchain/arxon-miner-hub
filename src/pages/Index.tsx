@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "./Dashboard";
 import Landing from "./Landing";
 import { useAuth } from "@/contexts/AuthContext";
+import { applyPendingReferralCode } from "@/lib/referral/applyPendingReferral";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -17,6 +18,13 @@ const Index = () => {
       sessionStorage.setItem('arxon_referral_code', ref.toUpperCase());
     }
   }, [searchParams]);
+
+  // Auto-apply pending referral code when user is authenticated
+  useEffect(() => {
+    if (user) {
+      applyPendingReferralCode().catch(() => {});
+    }
+  }, [user]);
 
   // Never hard-block the app on an auth/session fetch that can hang on bad networks.
   useEffect(() => {
