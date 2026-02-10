@@ -110,78 +110,77 @@ export const useReferrals = (user: User | null) => {
         return;
       }
 
-      const referredIds = rows.map((r) => r.referred_id).filter(Boolean);
-      if (referredIds.length === 0) {
-        setReferrals(rows);
-        const nextStats = {
-          totalReferrals: rows.length,
-          activeMiners: 0,
-          inactiveMiners: 0,
-          totalEarnings: rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0),
-        };
-        setStats(nextStats);
-        cacheSet(referralsCacheKey(user.id), rows);
-        cacheSet(referralStatsCacheKey(user.id), nextStats);
-        return;
-      }
-
       const totalEarnings = rows.reduce((sum, r) => sum + Number(r.points_awarded || 0), 0);
+      const referredIds = rows.map((r) => r.referred_id).filter(Boolean);
 
-      // Fetch usernames + active mining sessions for each referral
-      // NOTE: In production, referrers typically cannot SELECT other users' mining_sessions due to RLS.
-      // We prefer an RPC (get_active_referral_sessions) that safely returns active referred user_ids.
-      const [profilesRes, activeSessionsRes] = await Promise.all([
-        withTimeout(
-          supabase.from('profiles').select('user_id, username').in('user_id', referredIds),
-          12_000
-        ).catch(() => ({ data: [] as any[] } as any)),
-        (async () => {
-          // Try RPC first
-          try {
-            const rpcRes = await withTimeout(supabase.rpc('get_active_referral_sessions' as any), 12_000).catch(
-              () => null
-            );
-            const rpcData = (rpcRes as any)?.data;
-            if (Array.isArray(rpcData)) {
-              return { data: rpcData } as any;
-            }
-          } catch {
-            // ignore
+      // Fetch usernames for referred users (profiles table is publicly readable)
+      let profiles: any[] = [];
+      if (referredIds.length > 0) {
+        try {
+          // Batch in chunks of 50 to avoid URL length limits
+          const chunks: string[][] = [];
+          for (let i = 0; i < referredIds.length; i += 50) {
+            chunks.push(referredIds.slice(i, i + 50));
           }
-
-          // Fallback (will likely return empty under strict RLS)
-          return withTimeout(
-            supabase
-              .from('mining_sessions')
-              .select('user_id, is_active, started_at')
-              .in('user_id', referredIds)
-              .eq('is_active', true)
-              .order('started_at', { ascending: false }),
-            12_000
-          ).catch(() => ({ data: [] } as any));
-        })(),
-      ]);
-
-      const profiles = (profilesRes as any)?.data as any[] | undefined;
-      const activeSessions = (activeSessionsRes as any)?.data as any[] | undefined;
-      
-      // Build a set of user IDs who have CURRENTLY active sessions
-      const activeUserIds = new Set<string>();
-      if (activeSessions && activeSessions.length > 0) {
-        for (const session of activeSessions) {
-          if (session.is_active === true && session.user_id) {
-            activeUserIds.add(session.user_id);
-          }
+          const chunkResults = await Promise.all(
+            chunks.map((chunk) =>
+              withTimeout(
+                supabase.from('profiles').select('user_id, username').in('user_id', chunk),
+                12_000
+              ).catch(() => ({ data: [] } as any))
+            )
+          );
+          profiles = chunkResults.flatMap((r) => (r as any)?.data || []);
+        } catch {
+          // profiles stay empty - referrals still show
         }
       }
-      const activeCount = activeUserIds.size;
+
+      // Try to get active mining sessions via RPC, then fallback
+      let activeUserIds = new Set<string>();
+      if (referredIds.length > 0) {
+        try {
+          // Try the security-definer RPC first
+          const rpcRes = await withTimeout(
+            supabase.rpc('get_active_referral_sessions' as any),
+            10_000
+          ).catch(() => null);
+          const rpcData = (rpcRes as any)?.data;
+          if (Array.isArray(rpcData) && rpcData.length > 0) {
+            for (const session of rpcData) {
+              if (session.user_id && referredIds.includes(session.user_id)) {
+                activeUserIds.add(session.user_id);
+              }
+            }
+          } else {
+            // RPC missing or empty — try direct query (works if RLS allows it)
+            const directRes = await withTimeout(
+              supabase
+                .from('mining_sessions')
+                .select('user_id')
+                .in('user_id', referredIds.slice(0, 50))
+                .eq('is_active', true),
+              10_000
+            ).catch(() => null);
+            const directData = (directRes as any)?.data;
+            if (Array.isArray(directData)) {
+              for (const s of directData) {
+                if (s.user_id) activeUserIds.add(s.user_id);
+              }
+            }
+          }
+        } catch {
+          // active status unknown — all show as inactive, referrals still display
+        }
+      }
 
       const referralsWithUsernames: ReferralData[] = rows.map((r) => ({
         ...r,
-        referred_username: profiles?.find((p) => p.user_id === r.referred_id)?.username || 'Anonymous',
+        referred_username: profiles.find((p) => p.user_id === r.referred_id)?.username || 'Miner',
         is_active: activeUserIds.has(r.referred_id),
       }));
 
+      const activeCount = activeUserIds.size;
       const nextStats: ReferralStats = {
         totalReferrals: rows.length,
         activeMiners: activeCount,
