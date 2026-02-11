@@ -116,15 +116,23 @@ const ArenaMarketDetail = ({
   };
 
   const handleFingerprintVerified = async () => {
-    if (!selectedSide) return;
+    console.log('[ArenaMarketDetail] handleFingerprintVerified called', { selectedSide, stakeAmount, marketId: market.id });
+    if (!selectedSide) {
+      console.error('[ArenaMarketDetail] selectedSide is null - aborting vote');
+      toast.error('Please select a side first');
+      setShowFingerprint(false);
+      return;
+    }
     try {
       const success = await onPlaceBet(market.id, selectedSide, stakeAmount);
+      console.log('[ArenaMarketDetail] onPlaceBet returned:', success);
       if (success) {
         setStakeAmount(0);
         setSelectedSide(null);
       }
     } catch (err) {
-      console.error('Vote failed:', err);
+      console.error('[ArenaMarketDetail] Vote failed:', err);
+      toast.error('Vote failed - please try again');
     } finally {
       setShowFingerprint(false);
     }

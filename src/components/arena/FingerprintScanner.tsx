@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, type MutableRefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Fingerprint, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,13 @@ const FingerprintScanner = ({
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // CRITICAL: Use a ref to always call the LATEST onVerified callback,
+  // preventing stale closure issues when the parent re-renders during the hold timer.
+  const onVerifiedRef = useRef(onVerified);
+  useEffect(() => {
+    onVerifiedRef.current = onVerified;
+  }, [onVerified]);
+
   const HOLD_DURATION = 2000; // 2 seconds to complete
   const UPDATE_INTERVAL = 50;
 
@@ -147,15 +154,15 @@ const FingerprintScanner = ({
       const currentHash = await generateStableFingerprintHash();
       
       // ALWAYS accept the fingerprint - no rejection, no mismatch errors
-      // The fingerprint is just for identity confirmation UX, not strict verification
-      // This prevents all "fingerprint mismatch" errors for users
       setIsComplete(true);
       setIsHolding(false);
       setTimeout(() => {
-        onVerified(currentHash);
+        // Use the ref to always call the LATEST callback, not a stale closure
+        console.log('[Fingerprint] Calling onVerified callback');
+        onVerifiedRef.current(currentHash);
       }, 500);
     }, HOLD_DURATION);
-  }, [isComplete, isVerifying, onVerified]);
+  }, [isComplete, isVerifying]);
 
   const endHold = useCallback(() => {
     if (isComplete) return;

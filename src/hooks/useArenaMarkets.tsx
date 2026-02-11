@@ -268,7 +268,10 @@ export const useArenaMarkets = () => {
 
   // Place a vote on a market
   const placeVote = async (marketId: string, side: 'a' | 'b' | 'c', amount: number): Promise<boolean> => {
+    console.log('[Arena placeVote] START', { marketId, side, amount, userId: user?.id });
+    
     if (!user) {
+      console.log('[Arena placeVote] FAIL: no user');
       toast.error('Please sign in to cast your vote');
       return false;
     }
@@ -279,6 +282,9 @@ export const useArenaMarkets = () => {
       || endedMarkets.find(m => m.id === marketId);
 
     if (!market) {
+      console.log('[Arena placeVote] FAIL: market not found in any array', { 
+        liveCount: liveMarkets.length, upcomingCount: upcomingMarkets.length, endedCount: endedMarkets.length 
+      });
       toast.error('This market is not available for voting');
       return false;
     }
@@ -289,17 +295,20 @@ export const useArenaMarkets = () => {
     const endsAt = new Date(market.ends_at);
 
     if (startsAt > now) {
+      console.log('[Arena placeVote] FAIL: not started yet', { startsAt: startsAt.toISOString(), now: now.toISOString() });
       toast.error('Voting has not started yet. Please wait until the market goes live.');
       return false;
     }
 
     if (endsAt < now || market.winner_side) {
+      console.log('[Arena placeVote] FAIL: market ended', { endsAt: endsAt.toISOString(), winner: market.winner_side });
       toast.error('This market has ended. Voting is closed.');
       return false;
     }
 
     if (!points || points.total_points < amount) {
-      toast.error('Insufficient ARX-P points');
+      console.log('[Arena placeVote] FAIL: insufficient points', { available: points?.total_points, needed: amount });
+      toast.error(`Insufficient ARX-P points (have ${points?.total_points || 0}, need ${amount})`);
       return false;
     }
 
@@ -315,6 +324,7 @@ export const useArenaMarkets = () => {
 
     // Check if user already has a position in this market
     if (userPositions.has(marketId)) {
+      console.log('[Arena placeVote] FAIL: already voted on this market');
       toast.error('You already voted on this prediction');
       return false;
     }
