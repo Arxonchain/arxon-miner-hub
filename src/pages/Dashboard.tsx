@@ -195,8 +195,74 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
           </h1>
         </div>
  
-        {/* Mining Status */}
-         {isMining && (
+        {/* Start Mining CTA - Hero placement at the top */}
+        {!isMining ? (
+          <motion.button
+            onClick={() => navigate('/mining')}
+            className="relative w-full mb-4 p-5 rounded-2xl overflow-hidden border border-primary/40 group cursor-pointer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* Animated glow background layers */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/25 via-primary/10 to-primary/25 animate-pulse" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-cyan-500/10" />
+            <motion.div
+              className="absolute -inset-1 rounded-2xl opacity-60 blur-xl"
+              style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.4), hsl(190 90% 50% / 0.2), hsl(217 91% 60% / 0.4))' }}
+              animate={{ 
+                opacity: [0.4, 0.7, 0.4],
+                scale: [1, 1.05, 1],
+              }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            {/* Shimmer sweep effect */}
+            <motion.div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(105deg, transparent 40%, hsl(217 91% 60% / 0.15) 45%, hsl(217 91% 60% / 0.25) 50%, hsl(217 91% 60% / 0.15) 55%, transparent 60%)',
+              }}
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
+            />
+            {/* Content */}
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center"
+                  animate={{ 
+                    boxShadow: [
+                      '0 0 10px hsl(217 91% 60% / 0.3)',
+                      '0 0 25px hsl(217 91% 60% / 0.5)',
+                      '0 0 10px hsl(217 91% 60% / 0.3)',
+                    ]
+                  }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Pickaxe className="w-5 h-5 text-primary" />
+                </motion.div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-foreground">⛏️ Start Mining Now</p>
+                  <p className="text-xs text-primary/80">Tap to earn 10 ARX-P/hour • Free</p>
+                </div>
+              </div>
+              <motion.div
+                animate={{ x: [0, 6, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </motion.div>
+            </div>
+            {/* Pulsing border glow */}
+            <motion.div
+              className="absolute inset-0 rounded-2xl border-2 border-primary/50"
+              animate={{ opacity: [0.3, 0.8, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </motion.button>
+        ) : (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -211,7 +277,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
               </motion.div>
               <div>
                 <p className="text-sm font-medium text-primary">Mining Active</p>
-               </div>
+              </div>
             </div>
             <Button 
               size="sm" 
@@ -222,7 +288,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
               View
             </Button>
           </motion.div>
-         )}
+        )}
          
         {/* Balance Card */}
         <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-primary/10 via-card/30 to-card/20 border border-primary/20 backdrop-blur-sm">
@@ -342,24 +408,7 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
         </div>
         </div>
  
-        {/* Start Mining CTA - Only show if not mining */}
-        {!isMining && (
-          <motion.button
-            onClick={() => navigate('/mining')}
-            className="w-full mb-4 p-4 rounded-xl bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-between group"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-          >
-            <div className="flex items-center gap-3">
-              <Pickaxe className="w-5 h-5 text-primary" />
-              <div className="text-left">
-                <p className="text-sm font-medium text-foreground">Start Mining</p>
-                <p className="text-xs text-muted-foreground">Earn 10 ARX-P/hour</p>
-              </div>
-            </div>
-            <TrendingUp className="w-4 h-4 text-primary group-hover:translate-x-1 transition-transform" />
-          </motion.button>
-         )}
+        {/* Start Mining CTA moved to top of dashboard */}
 
          {/* Community Section */}
         <div className="rounded-xl bg-card/10 border border-primary/10 p-4">
