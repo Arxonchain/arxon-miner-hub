@@ -64,18 +64,24 @@
        className="w-full relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-card/80 via-background to-card/60 backdrop-blur-sm transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
      >
        {/* Top Prize Pool Banner */}
-       <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-primary/5">
-         <div className="flex items-center gap-2">
-           <Trophy className="w-4 h-4 text-primary" />
-           <span className="text-sm font-black text-primary">
-             {market.prize_pool >= 1000000 
-               ? `${(market.prize_pool / 1000000).toFixed(1)}M`
-               : market.prize_pool >= 1000 
-                 ? `${(market.prize_pool / 1000).toFixed(0)}K`
-                 : market.prize_pool.toLocaleString()}
-           </span>
-           <span className="text-[10px] text-muted-foreground">ARX-P Prize</span>
-         </div>
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-primary/5">
+          <div className="flex items-center gap-1.5">
+            {isLive && (
+              <span className="flex items-center gap-0.5 px-1.5 py-px rounded-full bg-primary/15 text-primary text-[8px] font-bold uppercase tracking-wide">
+                <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                Live
+              </span>
+            )}
+            <Trophy className="w-3.5 h-3.5 text-primary" />
+            <span className="text-sm font-black text-primary">
+              {market.prize_pool >= 1000000 
+                ? `${(market.prize_pool / 1000000).toFixed(1)}M`
+                : market.prize_pool >= 1000 
+                  ? `${(market.prize_pool / 1000).toFixed(0)}K`
+                  : market.prize_pool.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-muted-foreground">ARX-P</span>
+          </div>
          
          {/* Countdown Timer */}
          <div className="flex items-center gap-1">
@@ -218,15 +224,6 @@
          </div>
        </div>
  
-        {/* Live indicator - using semantic colors */}
-        {isLive && (
-          <div className="absolute top-2.5 left-3 z-10">
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              Live
-            </span>
-          </div>
-        )}
      </motion.button>
    );
  };
