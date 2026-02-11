@@ -218,15 +218,15 @@
          </div>
        </div>
  
-       {/* Live indicator - using semantic colors */}
-       {isLive && (
-         <div className="absolute top-3 right-3">
-           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
-             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-             Live
-           </span>
-         </div>
-       )}
+        {/* Live indicator - using semantic colors */}
+        {isLive && (
+          <div className="absolute top-2.5 left-3 z-10">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              Live
+            </span>
+          </div>
+        )}
      </motion.button>
    );
  };
