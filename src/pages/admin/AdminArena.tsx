@@ -89,6 +89,10 @@ const AdminArena = () => {
     category: 'crypto',
     prize_pool: '0',
     bonus_percentage: '200',
+    ends_at_date: '',
+    ends_at_hour: '12',
+    ends_at_minute: '00',
+    ends_at_period: 'PM' as 'AM' | 'PM',
   });
 
   const fetchBattles = async () => {
@@ -278,6 +282,13 @@ const AdminArena = () => {
 
   const handleOpenEdit = (battle: ArenaBattle) => {
     setEditingBattle(battle);
+    const endsAt = new Date(battle.ends_at);
+    let h = endsAt.getUTCHours();
+    const m = endsAt.getUTCMinutes();
+    const period = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    const dateStr = `${endsAt.getUTCFullYear()}-${String(endsAt.getUTCMonth() + 1).padStart(2, '0')}-${String(endsAt.getUTCDate()).padStart(2, '0')}`;
     setEditFormData({
       title: battle.title,
       description: battle.description || '',
@@ -288,6 +299,10 @@ const AdminArena = () => {
       category: battle.category,
       prize_pool: String(battle.prize_pool || 0),
       bonus_percentage: String(battle.bonus_percentage || 200),
+      ends_at_date: dateStr,
+      ends_at_hour: String(h),
+      ends_at_minute: String(m).padStart(2, '0'),
+      ends_at_period: period as 'AM' | 'PM',
     });
     setShowEditDialog(true);
   };
@@ -302,6 +317,13 @@ const AdminArena = () => {
 
     setUpdating(true);
     try {
+      // Build updated ends_at from edit form
+      let hour24 = parseInt(editFormData.ends_at_hour);
+      if (editFormData.ends_at_period === 'PM' && hour24 !== 12) hour24 += 12;
+      else if (editFormData.ends_at_period === 'AM' && hour24 === 12) hour24 = 0;
+      const timeStr = `${hour24.toString().padStart(2, '0')}:${editFormData.ends_at_minute}:00`;
+      const newEndsAt = new Date(`${editFormData.ends_at_date}T${timeStr}Z`);
+
       const { error } = await supabase
         .from('arena_battles')
         .update({
@@ -314,6 +336,7 @@ const AdminArena = () => {
           category: editFormData.category,
           prize_pool: parseFloat(editFormData.prize_pool) || 0,
           bonus_percentage: parseFloat(editFormData.bonus_percentage) || 200,
+          ends_at: newEndsAt.toISOString(),
         })
         .eq('id', editingBattle.id);
 
@@ -983,11 +1006,54 @@ const AdminArena = () => {
               </div>
             </div>
 
-            {editingBattle && (
-              <div className="p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-                <p><strong>Note:</strong> Duration and timing cannot be changed to protect ongoing votes. Created votes and power values remain unaffected.</p>
+            {/* End Time Editor */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                End Time (UTC)
+              </Label>
+              <div className="grid grid-cols-4 gap-2">
+                <Input
+                  type="date"
+                  value={editFormData.ends_at_date}
+                  onChange={(e) => setEditFormData({ ...editFormData, ends_at_date: e.target.value })}
+                  className="col-span-2"
+                />
+                <Select
+                  value={editFormData.ends_at_hour}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, ends_at_hour: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                      <SelectItem key={h} value={String(h)}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={editFormData.ends_at_minute}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, ends_at_minute: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+              <Select
+                value={editFormData.ends_at_period}
+                onValueChange={(v) => setEditFormData({ ...editFormData, ends_at_period: v as 'AM' | 'PM' })}
+              >
+                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AM">AM</SelectItem>
+                  <SelectItem value="PM">PM</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">⚠️ Changing end time affects the countdown for all users immediately.</p>
+            </div>
           </div>
 
           <DialogFooter>
