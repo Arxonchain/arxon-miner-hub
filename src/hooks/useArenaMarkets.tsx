@@ -322,17 +322,25 @@ export const useArenaMarkets = () => {
     setVoting(true);
 
     try {
-      const { error: voteError } = await supabase
+      console.log('[Arena] Placing vote:', { marketId, side, amount, userId: user.id });
+      
+      const { data: voteData, error: voteError } = await supabase
         .from('arena_votes')
         .insert({
           battle_id: marketId,
           user_id: user.id,
           side,
           power_spent: amount,
-        });
+        })
+        .select()
+        .single();
 
-      if (voteError) throw voteError;
+      if (voteError) {
+        console.error('[Arena] Vote insert failed:', voteError);
+        throw voteError;
+      }
 
+      console.log('[Arena] Vote inserted successfully:', voteData);
       toast.success('Vote cast successfully! +25% mining boost activated 🚀');
       
       // Refresh data
@@ -343,8 +351,9 @@ export const useArenaMarkets = () => {
 
       return true;
     } catch (error: any) {
-      console.error('Error casting vote:', error);
-      toast.error(error.message || 'Failed to cast vote');
+      console.error('[Arena] Error casting vote:', error);
+      const msg = error?.message || error?.details || 'Failed to cast vote';
+      toast.error(msg);
       return false;
     } finally {
       setVoting(false);
