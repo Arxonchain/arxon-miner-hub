@@ -208,65 +208,25 @@ export const useArena = () => {
 
   const fetchLeaderboard = useCallback(async () => {
     try {
-      // Get all votes separately (no FK join)
-      const { data: votes, error: votesError } = await supabase
-        .from('arena_votes')
-        .select('user_id, power_spent, battle_id, side');
+      // Use the security-definer view which bypasses RLS and has all user data
+      const { data, error } = await supabase
+        .from('arena_team_leaderboard')
+        .select('*')
+        .order('total_earned', { ascending: false })
+        .limit(50);
 
-      if (votesError) throw votesError;
-      if (!votes || votes.length === 0) return [];
+      if (error) throw error;
 
-      // Get unique user IDs
-      const userIds = [...new Set(votes.map(v => v.user_id))];
+      const leaderboardData: LeaderboardEntry[] = (data || []).map((entry: any) => ({
+        user_id: entry.user_id,
+        username: entry.username,
+        avatar_url: entry.avatar_url,
+        total_power_staked: Number(entry.total_staked) || 0,
+        total_wins: Number(entry.total_wins) || 0,
+        total_battles: Number(entry.total_battles) || 0,
+        biggest_stake: Number(entry.total_staked) || 0,
+      }));
 
-      // Fetch profiles separately
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, username, avatar_url')
-        .in('user_id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      // Create a profile map
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-
-      // Get battle winners
-      const { data: battles } = await supabase
-        .from('arena_battles')
-        .select('id, winner_side')
-        .not('winner_side', 'is', null);
-
-      const winnerMap = new Map(battles?.map(b => [b.id, b.winner_side]) || []);
-
-      // Aggregate by user
-      const userMap = new Map<string, LeaderboardEntry>();
-
-      votes?.forEach((vote: any) => {
-        const profile = profileMap.get(vote.user_id);
-        const existing = userMap.get(vote.user_id) || {
-          user_id: vote.user_id,
-          username: profile?.username,
-          avatar_url: profile?.avatar_url,
-          total_power_staked: 0,
-          total_wins: 0,
-          total_battles: 0,
-          biggest_stake: 0,
-        };
-
-        existing.total_power_staked += vote.power_spent;
-        existing.total_battles += 1;
-        existing.biggest_stake = Math.max(existing.biggest_stake, vote.power_spent);
-
-        // Check if user won this battle
-        const winningSide = winnerMap.get(vote.battle_id);
-        if (winningSide && vote.side === winningSide) {
-          existing.total_wins += 1;
-        }
-        
-        userMap.set(vote.user_id, existing);
-      });
-
-      const leaderboardData = Array.from(userMap.values());
       setLeaderboard(leaderboardData);
       return leaderboardData;
     } catch (error) {
