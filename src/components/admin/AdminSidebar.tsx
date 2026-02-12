@@ -14,6 +14,7 @@ import {
   Trophy,
   FileDown,
   Upload,
+  History,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ const navItems = [
   { icon: CalendarDays, label: "Daily Signups", path: "/admin/signups" },
   { icon: Settings2, label: "Mining Controls", path: "/admin/controls" },
   { icon: Trophy, label: "Arena Markets", path: "/admin/arena" },
+  { icon: History, label: "Battle History", path: "/admin/battle-history" },
   { icon: Scale, label: "Reconciliation", path: "/admin/reconciliation" },
   { icon: FileDown, label: "Export Filter", path: "/admin/export-filter" },
   { icon: Upload, label: "Import Users", path: "/admin/import-users" },

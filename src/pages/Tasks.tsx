@@ -1,9 +1,10 @@
  import { useState, useEffect } from 'react';
- import { ArrowLeft, CheckCircle, Clock, ExternalLink, Gift, Target, Star, Zap, Sparkles } from 'lucide-react';
+ import { ArrowLeft, CheckCircle, Clock, ExternalLink, Gift, Target, Star, Zap, Sparkles, Flame } from 'lucide-react';
  import { useNavigate } from 'react-router-dom';
  import { motion, AnimatePresence } from 'framer-motion';
  import { useAuth } from '@/contexts/AuthContext';
  import { usePoints } from '@/hooks/usePoints';
+ import { useCheckin } from '@/hooks/useCheckin';
  import { supabase } from '@/integrations/supabase/client';
  import { toast } from '@/hooks/use-toast';
  import { Button } from '@/components/ui/button';
@@ -34,11 +35,13 @@ const Tasks = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { refreshPoints, triggerConfetti, addPoints } = usePoints();
+  const { canCheckin, loading: checkinLoading, performCheckin, currentStreak, streakBoost } = useCheckin();
   const [showAuth, setShowAuth] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userTasks, setUserTasks] = useState<Map<string, UserTask>>(new Map());
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -243,13 +246,67 @@ const Tasks = () => {
            </div>
          </ScrollReveal>
  
-         {/* Task List */}
-         <ScrollReveal delay={0.15}>
-           <div className="space-y-3">
-             <div className="flex items-center gap-2 mb-4">
-               <Target className="w-5 h-5 text-primary" />
-               <h2 className="text-lg font-bold text-foreground">Available Tasks</h2>
-             </div>
+          {/* Daily Check-in Card */}
+          {user && (
+            <ScrollReveal delay={0.12}>
+              <GlowCard glowColor="accent" className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Flame className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-foreground">Daily Check-in</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {currentStreak > 0 ? `🔥 ${currentStreak}-day streak • +${streakBoost}% mining boost` : 'Start your streak today!'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!canCheckin || checkingIn || checkinLoading}
+                    onClick={async () => {
+                      setCheckingIn(true);
+                      await performCheckin();
+                      setCheckingIn(false);
+                    }}
+                    className={canCheckin ? 'bg-primary text-primary-foreground' : 'bg-green-500/20 text-green-400'}
+                  >
+                    {checkingIn ? (
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                        <Clock className="w-4 h-4" />
+                      </motion.div>
+                    ) : canCheckin ? (
+                      'Check In'
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {/* Streak progress */}
+                <div className="flex gap-1">
+                  {Array.from({ length: 7 }, (_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1.5 flex-1 rounded-full ${
+                        i < (currentStreak % 7 || (currentStreak > 0 ? 7 : 0))
+                          ? 'bg-primary'
+                          : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </GlowCard>
+            </ScrollReveal>
+          )}
+
+          {/* Task List */}
+          <ScrollReveal delay={0.15}>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold text-foreground">Available Tasks</h2>
+              </div>
  
              {loading ? (
                <div className="space-y-3">
