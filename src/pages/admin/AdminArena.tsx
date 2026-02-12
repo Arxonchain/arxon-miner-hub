@@ -35,6 +35,7 @@ interface ArenaBattle {
   category: string;
   total_participants: number;
   duration_hours: number;
+  total_rewards_distributed: number;
 }
 
 const CATEGORIES = [
@@ -228,20 +229,44 @@ const AdminArena = () => {
     }
   };
 
-  const handleManualResolve = async (battleId: string, winnerSide: 'a' | 'b') => {
+  const [resolving, setResolving] = useState<string | null>(null);
+
+  const handleManualResolve = async (battleId: string, winnerSide: 'a' | 'b', force = false) => {
+    setResolving(battleId);
     try {
-      // Call the resolve edge function with manual override
       const { data, error } = await supabase.functions.invoke('resolve-arena-battle', {
-        body: { battle_id: battleId, winner_side: winnerSide }
+        body: { battle_id: battleId, winner_side: winnerSide, force }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to parse the error body for more detail
+        const errorBody = typeof error === 'object' && error.message ? error.message : String(error);
+        throw new Error(errorBody);
+      }
       
-      toast.success(`Market resolved! Winner: Side ${winnerSide.toUpperCase()}`);
+      // Check if the response contains an error
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      const result = data?.results?.[0];
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      const distributed = result?.totalDistributed || 0;
+      const winnersCount = result?.winnersCount || 0;
+      const losersCount = result?.losersCount || 0;
+      
+      toast.success(
+        `✅ Resolved! ${winnersCount} winners, ${losersCount} losers. ${Math.round(distributed).toLocaleString()} ARX-P distributed.`
+      );
       fetchBattles();
     } catch (error: any) {
       console.error('Error resolving battle:', error);
       toast.error(error.message || 'Failed to resolve market');
+    } finally {
+      setResolving(null);
     }
   };
 
@@ -817,34 +842,51 @@ const AdminArena = () => {
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Manual resolution buttons (for live or pending battles - not yet resolved) */}
+                      {/* Resolution buttons */}
                       {!battle.winner_side && (
                         <>
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={resolving === battle.id}
                             onClick={() => {
-                              if (!confirm(`Are you sure you want to resolve this battle? Winner: ${battle.side_a_name} (Side A)\n\nThis will distribute rewards immediately.`)) return;
+                              if (!confirm(`Resolve: Winner = ${battle.side_a_name} (Side A)?\n\nThis will distribute rewards immediately.`)) return;
                               handleManualResolve(battle.id, 'a');
                             }}
                             className="text-xs"
                             style={{ borderColor: battle.side_a_color, color: battle.side_a_color }}
                           >
-                            {battle.side_a_name} Wins
+                            {resolving === battle.id ? '⏳ Resolving...' : `${battle.side_a_name} Wins`}
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={resolving === battle.id}
                             onClick={() => {
-                              if (!confirm(`Are you sure you want to resolve this battle? Winner: ${battle.side_b_name} (Side B)\n\nThis will distribute rewards immediately.`)) return;
+                              if (!confirm(`Resolve: Winner = ${battle.side_b_name} (Side B)?\n\nThis will distribute rewards immediately.`)) return;
                               handleManualResolve(battle.id, 'b');
                             }}
                             className="text-xs"
                             style={{ borderColor: battle.side_b_color, color: battle.side_b_color }}
                           >
-                            {battle.side_b_name} Wins
+                            {resolving === battle.id ? '⏳ Resolving...' : `${battle.side_b_name} Wins`}
                           </Button>
                         </>
+                      )}
+                      {/* Force re-resolve for battles with winner but no rewards */}
+                      {battle.winner_side && (!battle.total_rewards_distributed || battle.total_rewards_distributed === 0) && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={resolving === battle.id}
+                          onClick={() => {
+                            if (!confirm(`Force re-resolve "${battle.title}"?\n\nThis battle was partially resolved (no rewards distributed). This will retry reward distribution.`)) return;
+                            handleManualResolve(battle.id, battle.winner_side as 'a' | 'b', true);
+                          }}
+                          className="text-xs"
+                        >
+                          {resolving === battle.id ? '⏳ Resolving...' : '🔄 Re-resolve'}
+                        </Button>
                       )}
 
                       {/* Edit */}
