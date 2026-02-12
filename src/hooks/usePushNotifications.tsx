@@ -71,7 +71,7 @@ export const usePushNotifications = () => {
         serviceWorkerRef.current = registration;
 
         // Check for existing subscription
-        const existingSub = await registration.pushManager.getSubscription();
+        const existingSub = await (registration as any).pushManager?.getSubscription();
         if (existingSub) {
           setSubscription(existingSub);
           console.log('Existing push subscription found');
@@ -142,7 +142,7 @@ export const usePushNotifications = () => {
 
       if (result === 'granted' && serviceWorkerRef.current) {
         // Subscribe to push notifications
-        const pushSubscription = await serviceWorkerRef.current.pushManager.subscribe({
+        const pushSubscription = await (serviceWorkerRef.current as any).pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
