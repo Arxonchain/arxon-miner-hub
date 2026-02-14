@@ -41,11 +41,13 @@ export const useAdminStats = () => {
         console.error("Failed to fetch total users:", usersError);
       }
 
-      // Active miners (currently mining sessions)
+      // Active miners (only sessions started within last 8 hours that are still active)
+      const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
       const { count: activeMiners } = await supabase
         .from("mining_sessions")
         .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .gte("started_at", eightHoursAgo);
 
       // Unique miners who have ever mined
       const { data: allSessions } = await supabase
