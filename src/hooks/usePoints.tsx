@@ -44,7 +44,7 @@ const rankCacheKey = (userId: string) => `arxon:rank:v1:${userId}`;
 
 // Rank computation is an expensive global aggregate.
 // Under high concurrency, we must NOT run it on every points update.
-const RANK_MIN_INTERVAL_MS = 10 * 60_000; // at most once per 10 minutes per user
+const RANK_MIN_INTERVAL_MS = 30 * 60_000; // at most once per 30 minutes per user (reduced to save egress)
 
 export const PointsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
