@@ -16,7 +16,7 @@ interface LeaderboardEntry {
 // Leaderboard feels "broken" without periodic refresh.
 // Keep a lightweight poll *only while tab is visible*.
 // NOTE: if 100k users sit on the leaderboard page simultaneously, any polling cadence will be expensive.
-const POLL_MS = 10_000;
+const POLL_MS = 60_000;
 const WAKE_THROTTLE_MS = 2000; // Prevent rapid fire on visibility + focus events
 
 export const useLeaderboard = (limit: number = 50) => {
