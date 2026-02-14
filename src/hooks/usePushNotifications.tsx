@@ -264,9 +264,9 @@ export const usePushNotifications = () => {
       }
     };
 
-    // Check every 30 seconds
+    // Check every 2 minutes (reduced from 30s to save egress)
     checkMiningSession();
-    miningSessionCheckRef.current = setInterval(checkMiningSession, 30000);
+    miningSessionCheckRef.current = setInterval(checkMiningSession, 120_000);
 
     return () => {
       if (miningSessionCheckRef.current) {
@@ -282,14 +282,11 @@ export const usePushNotifications = () => {
 
     const checkRank = async () => {
       try {
-        const { data: leaderboard } = await supabase
-          .from('leaderboard_view')
-          .select('user_id, total_points')
-          .order('total_points', { ascending: false });
+        // Use the efficient get_user_rank RPC instead of fetching entire leaderboard
+        const { data, error } = await supabase.rpc('get_user_rank' as any, { p_user_id: user.id });
+        if (error || !data) return;
 
-        if (!leaderboard) return;
-
-        const currentRank = leaderboard.findIndex(entry => entry.user_id === user.id) + 1;
+        const currentRank = data as number;
         
         if (previousRankRef.current !== null && currentRank !== previousRankRef.current) {
           const change = previousRankRef.current - currentRank;
@@ -314,9 +311,9 @@ export const usePushNotifications = () => {
       }
     };
 
-    // Check initially and then every 5 minutes
+    // Check initially and then every 15 minutes (reduced from 5min to save egress)
     checkRank();
-    const interval = setInterval(checkRank, 5 * 60 * 1000);
+    const interval = setInterval(checkRank, 15 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [user, preferences.leaderboardChanges, sendServerPush]);
