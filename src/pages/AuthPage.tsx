@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Users } from 'lucide-react';
 import arxonLogo from '@/assets/arxon-logo.jpg';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
@@ -18,8 +18,22 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Pre-fill referral code from URL or sessionStorage
+  useState(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferralCode(ref.toUpperCase());
+    } else {
+      try {
+        const stored = sessionStorage.getItem('arxon_referral_code');
+        if (stored) setReferralCode(stored.toUpperCase());
+      } catch {}
+    }
+  });
   
   const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
@@ -38,6 +52,12 @@ export default function AuthPage() {
         if (password.length < 8) {
           toast({ title: 'Error', description: 'Password must be at least 8 characters', variant: 'destructive' });
           return;
+        }
+        // Store referral code in sessionStorage BEFORE signup so applyPendingReferral picks it up
+        if (referralCode.trim()) {
+          try {
+            sessionStorage.setItem('arxon_referral_code', referralCode.trim().toUpperCase());
+          } catch {}
         }
         const { error } = await signUp(email, password);
         if (error) throw error;
@@ -143,6 +163,24 @@ export default function AuthPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="pl-10"
                     required
+                  />
+                </div>
+              </div>
+            )}
+            
+            {mode === 'signup' && (
+              <div className="space-y-2">
+                <Label htmlFor="referralCode">Referral Code (optional)</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="referralCode"
+                    type="text"
+                    placeholder="ARX-XXXXXX"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    className="pl-10 uppercase"
+                    maxLength={12}
                   />
                 </div>
               </div>
