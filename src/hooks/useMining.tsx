@@ -89,6 +89,7 @@ export const useMining = (options?: UseMiningOptions) => {
   const initialLoadRef = useRef(true);
   const sessionStartTimeRef = useRef<number | null>(null);
   const endingRef = useRef(false);
+  const claimInProgressRef = useRef(false);
 
   // Fetch X profile boost
   const fetchXProfileBoost = useCallback(async () => {
@@ -237,8 +238,8 @@ export const useMining = (options?: UseMiningOptions) => {
 
   const endSession = useCallback(
     async (id: string, finalPoints: number) => {
-      // ALWAYS round UP to whole number (no decimals)
-      const pointsToCredit = Math.max(0, Math.ceil(finalPoints));
+      // Round DOWN to prevent over-rewarding
+      const pointsToCredit = Math.max(0, Math.floor(finalPoints));
 
       try {
         // First, end the session in DB
@@ -341,9 +342,9 @@ export const useMining = (options?: UseMiningOptions) => {
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
       const effectiveSeconds = Math.min(elapsedSeconds, maxTimeSeconds);
 
-      // ALWAYS round UP to whole number
-      const calculatedPoints = Math.min(480, Math.ceil((effectiveSeconds / 3600) * cappedPointsPerHour));
-      const dbPoints = Math.max(0, Math.ceil(Number(session.arx_mined ?? 0)));
+      // Round DOWN to prevent over-rewarding
+      const calculatedPoints = Math.min(480, Math.floor((effectiveSeconds / 3600) * cappedPointsPerHour));
+      const dbPoints = Math.max(0, Math.floor(Number(session.arx_mined ?? 0)));
       const finalPoints = Math.max(calculatedPoints, dbPoints);
 
       const { data: updated, error: updateError } = await supabase
@@ -677,6 +678,16 @@ export const useMining = (options?: UseMiningOptions) => {
   const claimPoints = async () => {
     if (!sessionId || !user) return;
 
+    // Prevent double-click / rapid fire claims
+    if (claimInProgressRef.current) {
+      toast({
+        title: 'Claim in Progress',
+        description: 'Please wait for the current claim to finish.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (sessionId.startsWith('pending-')) {
       toast({
         title: 'Starting Mining…',
@@ -686,18 +697,45 @@ export const useMining = (options?: UseMiningOptions) => {
       return;
     }
 
-    // ALWAYS round UP to whole number
-    const pointsToClaim = Math.ceil(earnedPoints);
-    if (pointsToClaim <= 0) {
-      toast({
-        title: 'Nothing to Claim',
-        description: 'Keep mining to earn points',
-        variant: 'destructive',
-      });
-      return;
-    }
+    claimInProgressRef.current = true;
 
     try {
+      // Fetch the ACTUAL session from the database to prevent claiming more than mined
+      const { data: dbSession, error: fetchError } = await supabase
+        .from('mining_sessions')
+        .select('id, started_at, arx_mined, is_active')
+        .eq('id', sessionId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (fetchError || !dbSession) {
+        toast({
+          title: 'Claim Failed',
+          description: 'Session not found or already claimed.',
+          variant: 'destructive',
+        });
+        claimInProgressRef.current = false;
+        return;
+      }
+
+      // Calculate server-authoritative points based on actual elapsed time
+      const serverStart = new Date(dbSession.started_at).getTime();
+      const serverElapsed = Math.min(Math.max(0, Math.floor((Date.now() - serverStart) / 1000)), maxTimeSeconds);
+      const serverCalculatedPoints = Math.min(480, Math.floor((serverElapsed / 3600) * cappedPointsPerHour));
+
+      // Use the LESSER of client earnedPoints and server-calculated to prevent over-reward
+      const pointsToClaim = Math.max(0, Math.min(Math.floor(earnedPoints), serverCalculatedPoints));
+
+      if (pointsToClaim <= 0) {
+        toast({
+          title: 'Nothing to Claim',
+          description: 'Keep mining to earn points',
+          variant: 'destructive',
+        });
+        claimInProgressRef.current = false;
+        return;
+      }
+
       // First, end the current session in DB to lock it
       const { error: endError } = await supabase
         .from('mining_sessions')
@@ -768,7 +806,6 @@ export const useMining = (options?: UseMiningOptions) => {
         });
         triggerConfetti();
       } else {
-        // Even if RPC fails, session is ended - manual recovery needed
         console.error('All point crediting methods failed for session:', sessionId);
         toast({
           title: 'Claim Issue',
@@ -793,7 +830,6 @@ export const useMining = (options?: UseMiningOptions) => {
 
       if (newSessionError || !newSession) {
         console.error('Failed to create new session after claim:', newSessionError);
-        // Reset local state - user will need to start mining again
         setIsMining(false);
         setSessionId(null);
         setElapsedTime(0);
@@ -828,6 +864,8 @@ export const useMining = (options?: UseMiningOptions) => {
         description: error instanceof BackendUnavailableError ? error.message : 'Please try again',
         variant: 'destructive',
       });
+    } finally {
+      claimInProgressRef.current = false;
     }
   };
 
