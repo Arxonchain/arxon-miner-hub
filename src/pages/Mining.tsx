@@ -234,16 +234,16 @@
                {hasBoost && <span className="text-amber-400 ml-1">• {totalBoostPercentage}% boost</span>}
              </p>
              
-             {earnedPoints >= 0.01 && (
-               <Button
-                 onClick={claimPoints}
-                 className="mt-3 bg-green-600 hover:bg-green-500 text-white text-xs sm:text-sm"
-                 size="sm"
-               >
-                 <Zap className="h-3 w-3 mr-1" />
-                 Claim {Math.floor(earnedPoints)} ARX-P
-               </Button>
-             )}
+              {earnedPoints >= 10 && (
+                <Button
+                  onClick={claimPoints}
+                  className="mt-3 bg-green-600 hover:bg-green-500 text-white text-xs sm:text-sm"
+                  size="sm"
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Claim {Math.floor(earnedPoints)} ARX-P
+                </Button>
+              )}
            </motion.div>
          )}
  

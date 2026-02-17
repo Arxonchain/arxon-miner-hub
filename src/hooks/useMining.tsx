@@ -726,10 +726,11 @@ export const useMining = (options?: UseMiningOptions) => {
       // Use the LESSER of client earnedPoints and server-calculated to prevent over-reward
       const pointsToClaim = Math.max(0, Math.min(Math.floor(earnedPoints), serverCalculatedPoints));
 
-      if (pointsToClaim <= 0) {
+      // MINIMUM 10 ARX-P threshold before any claim is allowed
+      if (pointsToClaim < 10) {
         toast({
-          title: 'Nothing to Claim',
-          description: 'Keep mining to earn points',
+          title: 'Not Enough Mined',
+          description: `You need at least 10 ARX-P to claim. Currently mined: ~${pointsToClaim} ARX-P`,
           variant: 'destructive',
         });
         claimInProgressRef.current = false;
@@ -802,7 +803,7 @@ export const useMining = (options?: UseMiningOptions) => {
       if (credited) {
         toast({
           title: 'Points Claimed! 🎉',
-          description: `+${Math.ceil(creditedPoints)} ARX-P added to your balance`,
+          description: `+${Math.floor(creditedPoints)} ARX-P added to your balance`,
         });
         triggerConfetti();
       } else {
