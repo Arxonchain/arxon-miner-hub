@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Globe, TrendingUp, Users, Zap, Activity } from "lucide-react";
 import arxonLogo from "@/assets/arxon-logo-new.jpg";
-
+import GlobeMap from "@/components/admin/GlobeMap";
 const MINING_COUNTRIES = [
   { code: "NG", name: "Nigeria", flag: "🇳🇬", miners: 6325, color: "#22c55e" },
   { code: "GH", name: "Ghana", flag: "🇬🇭", miners: 1145, color: "#eab308" },
@@ -86,55 +86,25 @@ const AdminGlobalMap = () => {
           ))}
         </motion.div>
 
-        {/* Flag Grid — well-spaced horizontal rows */}
+        {/* 3D Globe with Country Markers */}
         <motion.section
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 md:p-8 mb-8"
+          className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 md:p-6 mb-8 flex items-center justify-center"
         >
-          <div className="flex items-center gap-2 mb-6">
-            <Globe className="w-4 h-4 text-[#4a9eff]" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-white/60">Mining Countries</h2>
-          </div>
-
-          {/* Top row */}
-          <div className="grid grid-cols-8 gap-4 mb-6">
-            {topRow.map((c, i) => (
-              <motion.div
-                key={c.code}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.04 }}
-                className="flex flex-col items-center text-center"
-              >
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-3xl md:text-4xl mb-2 hover:scale-105 transition-transform">
-                  {c.flag}
+          <Suspense
+            fallback={
+              <div className="w-full aspect-square max-h-[520px] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Globe className="w-8 h-8 text-[#4a9eff] animate-pulse" />
+                  <span className="text-xs text-white/30 uppercase tracking-widest">Loading globe…</span>
                 </div>
-                <span className="text-[11px] font-bold text-white/80 leading-tight">{c.code}</span>
-                <span className="text-[10px] text-white/30 mt-0.5">{((c.miners / TOTAL_MINERS) * 100).toFixed(1)}%</span>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Bottom row */}
-          <div className="grid grid-cols-8 gap-4">
-            {bottomRow.map((c, i) => (
-              <motion.div
-                key={c.code}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 + i * 0.04 }}
-                className="flex flex-col items-center text-center"
-              >
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-3xl md:text-4xl mb-2 hover:scale-105 transition-transform">
-                  {c.flag}
-                </div>
-                <span className="text-[11px] font-bold text-white/80 leading-tight">{c.code}</span>
-                <span className="text-[10px] text-white/30 mt-0.5">{((c.miners / TOTAL_MINERS) * 100).toFixed(1)}%</span>
-              </motion.div>
-            ))}
-          </div>
+              </div>
+            }
+          >
+            <GlobeMap />
+          </Suspense>
         </motion.section>
 
         {/* Chart: Top Mining Countries by % */}
