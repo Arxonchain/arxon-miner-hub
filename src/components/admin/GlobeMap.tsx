@@ -23,70 +23,80 @@ const COUNTRIES: CountryData[] = [
   { code: "CM", name: "Cameroon", flag: "🇨🇲", miners: 423, color: "#06b6d4", x: 44, y: 58 },
   { code: "EG", name: "Egypt", flag: "🇪🇬", miners: 112, color: "#0ea5e9", x: 54, y: 30 },
   { code: "KE", name: "Kenya", flag: "🇰🇪", miners: 923, color: "#14b8a6", x: 58, y: 48 },
-  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 331, color: "#ec4899", x: 54, y: 68 },
-  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 494, color: "#8b5cf6", x: 50, y: 82 },
+  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 331, color: "#ec4899", x: 54, y: 62 },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 494, color: "#8b5cf6", x: 49, y: 72 },
   { code: "AE", name: "UAE", flag: "🇦🇪", miners: 189, color: "#6366f1", x: 64, y: 36 },
   { code: "PK", name: "Pakistan", flag: "🇵🇰", miners: 100, color: "#84cc16", x: 70, y: 26 },
   { code: "IN", name: "India", flag: "🇮🇳", miners: 728, color: "#f97316", x: 74, y: 44 },
   { code: "PH", name: "Philippines", flag: "🇵🇭", miners: 290, color: "#f59e0b", x: 84, y: 38 },
 ];
 
-/* ── Dot-matrix world map (simplified SVG paths as dot grid) ── */
+/* ── World map continent polygons (simplified outlines as SVG-friendly point arrays) ── */
+const CONTINENT_POLYGONS: number[][][] = [
+  // North America
+  [[10,22],[12,18],[15,15],[18,12],[22,11],[26,12],[28,14],[27,18],[25,22],[23,26],[21,30],[20,34],[18,38],[16,40],[14,42],[13,40],[11,36],[10,30],[9,26]],
+  // Greenland
+  [[33,8],[36,6],[39,5],[41,6],[40,9],[37,12],[34,12]],
+  // Central America & Caribbean
+  [[16,42],[18,40],[20,42],[22,44],[24,46],[22,48],[20,46],[18,44]],
+  // South America
+  [[22,48],[24,46],[26,44],[28,44],[30,46],[32,48],[34,50],[35,54],[34,58],[33,62],[32,66],[30,70],[28,74],[26,76],[24,74],[23,70],[22,66],[21,62],[22,58],[23,54],[22,50]],
+  // Europe
+  [[38,16],[40,14],[42,13],[44,12],[46,13],[48,14],[50,15],[52,14],[54,16],[52,18],[50,20],[48,22],[46,24],[44,26],[42,28],[40,26],[38,24],[37,20]],
+  // Scandinavia
+  [[46,8],[48,6],[50,5],[52,7],[51,10],[49,12],[47,11]],
+  // Africa
+  [[38,30],[40,28],[42,28],[44,30],[46,32],[48,34],[50,36],[52,38],[54,40],[56,42],[58,44],[58,48],[57,52],[56,56],[55,60],[54,64],[52,68],[50,72],[48,74],[46,72],[44,68],[42,64],[40,60],[38,56],[36,52],[35,48],[36,44],[37,40],[38,36]],
+  // Middle East
+  [[56,28],[58,26],[60,28],[62,30],[64,32],[66,34],[64,36],[62,38],[60,36],[58,34],[56,32]],
+  // Russia / Central Asia
+  [[54,14],[56,12],[58,10],[62,8],[66,7],[70,8],[74,9],[78,10],[82,11],[86,12],[88,14],[86,16],[84,18],[80,20],[76,18],[72,16],[68,14],[64,13],[60,14],[56,15]],
+  // South Asia (India)
+  [[66,36],[68,34],[70,32],[72,34],[74,36],[76,38],[78,40],[76,44],[74,48],[72,50],[70,48],[68,44],[66,40]],
+  // East Asia
+  [[78,16],[80,14],[82,16],[84,18],[86,20],[88,22],[86,26],[84,30],[82,34],[80,36],[78,34],[76,30],[76,26],[77,22],[78,18]],
+  // Southeast Asia
+  [[80,38],[82,36],[84,38],[86,40],[84,44],[82,46],[80,44],[78,42]],
+  // Japan / Korea
+  [[86,24],[88,22],[89,26],[87,28],[85,26]],
+  // Indonesia
+  [[82,48],[84,46],[86,48],[88,50],[86,52],[84,52],[82,50]],
+  // Australia
+  [[82,58],[84,56],[86,56],[88,58],[90,60],[92,62],[92,66],[90,70],[88,72],[86,74],[84,72],[82,68],[80,64],[80,60]],
+  // New Zealand
+  [[92,72],[93,70],[94,72],[93,76],[92,74]],
+];
+
+function isPointInPolygon(px: number, py: number, polygon: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function DotMap() {
-  // Generate dots in a world-map-like pattern
   const dots: { cx: number; cy: number; opacity: number }[] = [];
+  const step = 1.6;
 
-  // Simplified continent outlines as rectangular regions with dot density
-  const continents = [
-    // North America
-    { xMin: 5, xMax: 28, yMin: 12, yMax: 48, density: 0.55 },
-    // Central America
-    { xMin: 15, xMax: 24, yMin: 42, yMax: 52, density: 0.4 },
-    // South America
-    { xMin: 20, xMax: 35, yMin: 50, yMax: 82, density: 0.55 },
-    // Europe
-    { xMin: 40, xMax: 55, yMin: 14, yMax: 36, density: 0.6 },
-    // Africa
-    { xMin: 40, xMax: 58, yMin: 34, yMax: 76, density: 0.6 },
-    // Middle East
-    { xMin: 55, xMax: 65, yMin: 30, yMax: 44, density: 0.45 },
-    // Russia/Central Asia
-    { xMin: 50, xMax: 90, yMin: 10, yMax: 30, density: 0.45 },
-    // South Asia
-    { xMin: 64, xMax: 76, yMin: 32, yMax: 50, density: 0.5 },
-    // East Asia
-    { xMin: 74, xMax: 88, yMin: 22, yMax: 48, density: 0.5 },
-    // Southeast Asia
-    { xMin: 76, xMax: 88, yMin: 44, yMax: 56, density: 0.4 },
-    // Australia
-    { xMin: 80, xMax: 92, yMin: 62, yMax: 78, density: 0.45 },
-    // Indonesia
-    { xMin: 78, xMax: 90, yMin: 54, yMax: 60, density: 0.35 },
-  ];
-
-  const step = 1.8;
   for (let x = 0; x <= 100; x += step) {
-    for (let y = 0; y <= 90; y += step) {
-      let inContinent = false;
-      for (const c of continents) {
-        if (x >= c.xMin && x <= c.xMax && y >= c.yMin && y <= c.yMax) {
-          // Add some randomness for organic shape
-          const noise = Math.sin(x * 0.8) * Math.cos(y * 0.6) * 0.3;
-          if (Math.random() < c.density + noise * 0.2) {
-            inContinent = true;
-            break;
-          }
+    for (let y = 0; y <= 85; y += step) {
+      for (const poly of CONTINENT_POLYGONS) {
+        if (isPointInPolygon(x, y, poly)) {
+          dots.push({ cx: x, cy: y, opacity: 0.2 + Math.random() * 0.15 });
+          break;
         }
-      }
-      if (inContinent) {
-        dots.push({ cx: x, cy: y, opacity: 0.25 + Math.random() * 0.2 });
       }
     }
   }
 
   return (
     <svg
-      viewBox="0 0 100 90"
+      viewBox="0 0 100 85"
       className="w-full h-full absolute inset-0"
       preserveAspectRatio="xMidYMid meet"
     >
@@ -95,7 +105,7 @@ function DotMap() {
           key={i}
           cx={d.cx}
           cy={d.cy}
-          r={0.35}
+          r={0.4}
           fill="#4a9eff"
           opacity={d.opacity}
         />
