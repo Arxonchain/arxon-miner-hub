@@ -1,4 +1,4 @@
-import { useMemo, Suspense } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Globe, TrendingUp, Users, Zap, Activity } from "lucide-react";
 import arxonLogo from "@/assets/arxon-logo-new.jpg";
@@ -93,18 +93,7 @@ const AdminGlobalMap = () => {
           transition={{ delay: 0.1 }}
           className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 md:p-6 mb-8 flex items-center justify-center"
         >
-          <Suspense
-            fallback={
-              <div className="w-full aspect-square max-h-[520px] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                  <Globe className="w-8 h-8 text-[#4a9eff] animate-pulse" />
-                  <span className="text-xs text-white/30 uppercase tracking-widest">Loading globe…</span>
-                </div>
-              </div>
-            }
-          >
-            <GlobeMap />
-          </Suspense>
+          <GlobeMap />
         </motion.section>
 
         {/* Chart: Top Mining Countries by % */}
