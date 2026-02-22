@@ -2,12 +2,15 @@ import { ReactNode, memo } from "react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import AnimatedBackground from "./AnimatedBackground";
+import { useCountryDetection } from "@/hooks/useCountryDetection";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
 const DashboardLayout = memo(({ children }: DashboardLayoutProps) => {
+  useCountryDetection();
+
   return (
     <div className="min-h-screen bg-background relative">
       {/* Animated Background */}
