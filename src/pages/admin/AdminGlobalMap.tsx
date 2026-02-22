@@ -139,18 +139,12 @@ const AdminGlobalMap = () => {
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ delay: 0.5 + i * 0.03, duration: 0.7, ease: "easeOut" }}
-                      className="h-full rounded-md flex items-center justify-end pr-2"
+                      className="h-full rounded-md"
                       style={{ background: `linear-gradient(90deg, ${c.color}22, ${c.color}aa)` }}
-                    >
-                      {pct > 5 && (
-                        <span className="text-[10px] font-bold text-white/90">{pct.toFixed(1)}%</span>
-                      )}
-                    </motion.div>
-                    {pct <= 5 && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/40">
-                        {pct.toFixed(1)}%
-                      </span>
-                    )}
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/80">
+                      {pct.toFixed(1)}%
+                    </span>
                   </div>
 
                 </motion.div>
