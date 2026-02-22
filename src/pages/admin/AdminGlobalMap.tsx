@@ -4,22 +4,22 @@ import { Globe, TrendingUp, Users, Zap, Activity } from "lucide-react";
 import arxonLogo from "@/assets/arxon-logo-new.jpg";
 
 const MINING_COUNTRIES = [
-  { code: "NG", name: "Nigeria", flag: "🇳🇬", miners: 2134, color: "#22c55e" },
-  { code: "GH", name: "Ghana", flag: "🇬🇭", miners: 387, color: "#eab308" },
-  { code: "KE", name: "Kenya", flag: "🇰🇪", miners: 312, color: "#14b8a6" },
-  { code: "US", name: "United States", flag: "🇺🇸", miners: 289, color: "#3b82f6" },
-  { code: "IN", name: "India", flag: "🇮🇳", miners: 246, color: "#f97316" },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", miners: 198, color: "#ef4444" },
-  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 167, color: "#8b5cf6" },
-  { code: "CM", name: "Cameroon", flag: "🇨🇲", miners: 143, color: "#06b6d4" },
-  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 112, color: "#ec4899" },
-  { code: "PH", name: "Philippines", flag: "🇵🇭", miners: 98, color: "#f59e0b" },
-  { code: "CA", name: "Canada", flag: "🇨🇦", miners: 76, color: "#10b981" },
-  { code: "AE", name: "UAE", flag: "🇦🇪", miners: 64, color: "#6366f1" },
-  { code: "DE", name: "Germany", flag: "🇩🇪", miners: 52, color: "#e11d48" },
-  { code: "BR", name: "Brazil", flag: "🇧🇷", miners: 41, color: "#d946ef" },
-  { code: "EG", name: "Egypt", flag: "🇪🇬", miners: 38, color: "#0ea5e9" },
-  { code: "PK", name: "Pakistan", flag: "🇵🇰", miners: 32, color: "#84cc16" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", miners: 6325, color: "#22c55e" },
+  { code: "GH", name: "Ghana", flag: "🇬🇭", miners: 1145, color: "#eab308" },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", miners: 923, color: "#14b8a6" },
+  { code: "US", name: "United States", flag: "🇺🇸", miners: 855, color: "#3b82f6" },
+  { code: "IN", name: "India", flag: "🇮🇳", miners: 728, color: "#f97316" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", miners: 586, color: "#ef4444" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 494, color: "#8b5cf6" },
+  { code: "CM", name: "Cameroon", flag: "🇨🇲", miners: 423, color: "#06b6d4" },
+  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 331, color: "#ec4899" },
+  { code: "PH", name: "Philippines", flag: "🇵🇭", miners: 290, color: "#f59e0b" },
+  { code: "CA", name: "Canada", flag: "🇨🇦", miners: 225, color: "#10b981" },
+  { code: "AE", name: "UAE", flag: "🇦🇪", miners: 189, color: "#6366f1" },
+  { code: "DE", name: "Germany", flag: "🇩🇪", miners: 154, color: "#e11d48" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", miners: 121, color: "#d946ef" },
+  { code: "EG", name: "Egypt", flag: "🇪🇬", miners: 112, color: "#0ea5e9" },
+  { code: "PK", name: "Pakistan", flag: "🇵🇰", miners: 100, color: "#84cc16" },
 ];
 
 const TOTAL_MINERS = MINING_COUNTRIES.reduce((sum, c) => sum + c.miners, 0);
@@ -73,8 +73,8 @@ const AdminGlobalMap = () => {
           {[
             { icon: Globe, label: "Countries", value: MINING_COUNTRIES.length.toString() },
             { icon: Users, label: "Total Miners", value: TOTAL_MINERS.toLocaleString() },
-            { icon: Zap, label: "ARX Mined", value: "1.2M" },
-            { icon: Activity, label: "Active Now", value: "4,389" },
+            { icon: Zap, label: "ARX Mined", value: "3.8M" },
+            { icon: Activity, label: "Active Now", value: "4,289" },
           ].map((s, i) => (
             <div key={s.label} className="bg-white/[0.025] border border-white/[0.06] rounded-xl px-4 py-3.5">
               <div className="flex items-center gap-1.5 mb-1">
