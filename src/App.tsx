@@ -33,6 +33,7 @@ import Settings from "@/pages/Settings";
  import AdminImportUsers from "@/pages/admin/AdminImportUsers";
  import AdminExportFilter from "@/pages/admin/AdminExportFilter";
  import AdminBattleHistory from "@/pages/admin/AdminBattleHistory";
+ import AdminGlobalMap from "@/pages/admin/AdminGlobalMap";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,8 +125,9 @@ function AppRoutes() {
           <Route path="arena" element={<AdminArena />} />
           <Route path="battle-history" element={<AdminBattleHistory />} />
           <Route path="reconciliation" element={<AdminReconciliation />} />
-          <Route path="export-filter" element={<AdminExportFilter />} />
+           <Route path="export-filter" element={<AdminExportFilter />} />
          <Route path="import-users" element={<AdminImportUsers />} />
+         <Route path="global-map" element={<AdminGlobalMap />} />
        </Route>
        
       {/* Catch all */}

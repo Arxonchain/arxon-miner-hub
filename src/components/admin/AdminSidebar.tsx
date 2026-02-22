@@ -15,6 +15,7 @@ import {
   FileDown,
   Upload,
   History,
+  Globe,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ const navItems = [
   { icon: Scale, label: "Reconciliation", path: "/admin/reconciliation" },
   { icon: FileDown, label: "Export Filter", path: "/admin/export-filter" },
   { icon: Upload, label: "Import Users", path: "/admin/import-users" },
+  { icon: Globe, label: "Global Map", path: "/admin/global-map" },
 ];
 
 const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {
