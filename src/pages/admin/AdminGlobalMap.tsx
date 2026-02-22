@@ -153,10 +153,6 @@ const AdminGlobalMap = () => {
                     )}
                   </div>
 
-                  {/* Count */}
-                  <span className="w-14 text-right text-xs font-bold text-white/40 tabular-nums">
-                    {c.miners.toLocaleString()}
-                  </span>
                 </motion.div>
               );
             })}
