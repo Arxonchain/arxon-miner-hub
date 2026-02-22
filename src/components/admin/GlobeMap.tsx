@@ -152,7 +152,7 @@ function CountryMarker({ country, index, activeIndex }: {
 /* ── Rotating Earth ── */
 function Earth() {
   const meshRef = useRef<THREE.Mesh>(null);
-  const texture = useLoader(THREE.TextureLoader, "/images/earth-night.jpg");
+  const texture = useLoader(THREE.TextureLoader, "/images/earth-dark.png");
 
   useFrame(() => {
     if (meshRef.current) {
@@ -165,9 +165,9 @@ function Earth() {
       <sphereGeometry args={[RADIUS, 64, 64]} />
       <meshStandardMaterial
         map={texture}
-        emissiveMap={texture}
-        emissive="#1a3a5c"
-        emissiveIntensity={0.3}
+        transparent
+        emissive="#0a1e3d"
+        emissiveIntensity={0.6}
         roughness={1}
         metalness={0}
       />
