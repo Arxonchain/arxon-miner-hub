@@ -13,22 +13,22 @@ interface CountryData {
 }
 
 const COUNTRIES: CountryData[] = [
-  { code: "NG", name: "Nigeria", flag: "🇳🇬", miners: 6325, color: "#22c55e", x: 46, y: 52 },
-  { code: "GH", name: "Ghana", flag: "🇬🇭", miners: 1145, color: "#eab308", x: 39, y: 48 },
-  { code: "KE", name: "Kenya", flag: "🇰🇪", miners: 923, color: "#14b8a6", x: 58, y: 56 },
-  { code: "US", name: "United States", flag: "🇺🇸", miners: 855, color: "#3b82f6", x: 18, y: 36 },
-  { code: "IN", name: "India", flag: "🇮🇳", miners: 728, color: "#f97316", x: 71, y: 44 },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", miners: 586, color: "#ef4444", x: 42, y: 22 },
-  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 494, color: "#8b5cf6", x: 52, y: 74 },
-  { code: "CM", name: "Cameroon", flag: "🇨🇲", miners: 423, color: "#06b6d4", x: 46, y: 44 },
-  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 331, color: "#ec4899", x: 56, y: 64 },
-  { code: "PH", name: "Philippines", flag: "🇵🇭", miners: 290, color: "#f59e0b", x: 83, y: 46 },
-  { code: "CA", name: "Canada", flag: "🇨🇦", miners: 225, color: "#10b981", x: 14, y: 20 },
-  { code: "AE", name: "UAE", flag: "🇦🇪", miners: 189, color: "#6366f1", x: 62, y: 38 },
-  { code: "DE", name: "Germany", flag: "🇩🇪", miners: 154, color: "#e11d48", x: 48, y: 28 },
-  { code: "BR", name: "Brazil", flag: "🇧🇷", miners: 121, color: "#d946ef", x: 28, y: 64 },
-  { code: "EG", name: "Egypt", flag: "🇪🇬", miners: 112, color: "#0ea5e9", x: 54, y: 34 },
-  { code: "PK", name: "Pakistan", flag: "🇵🇰", miners: 100, color: "#84cc16", x: 66, y: 32 },
+  { code: "CA", name: "Canada", flag: "🇨🇦", miners: 225, color: "#10b981", x: 13, y: 16 },
+  { code: "US", name: "United States", flag: "🇺🇸", miners: 855, color: "#3b82f6", x: 15, y: 34 },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", miners: 121, color: "#d946ef", x: 27, y: 68 },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", miners: 586, color: "#ef4444", x: 39, y: 10 },
+  { code: "DE", name: "Germany", flag: "🇩🇪", miners: 154, color: "#e11d48", x: 47, y: 18 },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", miners: 6325, color: "#22c55e", x: 42, y: 40 },
+  { code: "GH", name: "Ghana", flag: "🇬🇭", miners: 1145, color: "#eab308", x: 35, y: 52 },
+  { code: "CM", name: "Cameroon", flag: "🇨🇲", miners: 423, color: "#06b6d4", x: 44, y: 58 },
+  { code: "EG", name: "Egypt", flag: "🇪🇬", miners: 112, color: "#0ea5e9", x: 54, y: 30 },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", miners: 923, color: "#14b8a6", x: 58, y: 48 },
+  { code: "TZ", name: "Tanzania", flag: "🇹🇿", miners: 331, color: "#ec4899", x: 54, y: 68 },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦", miners: 494, color: "#8b5cf6", x: 50, y: 82 },
+  { code: "AE", name: "UAE", flag: "🇦🇪", miners: 189, color: "#6366f1", x: 64, y: 36 },
+  { code: "PK", name: "Pakistan", flag: "🇵🇰", miners: 100, color: "#84cc16", x: 70, y: 26 },
+  { code: "IN", name: "India", flag: "🇮🇳", miners: 728, color: "#f97316", x: 74, y: 44 },
+  { code: "PH", name: "Philippines", flag: "🇵🇭", miners: 290, color: "#f59e0b", x: 84, y: 38 },
 ];
 
 /* ── Dot-matrix world map (simplified SVG paths as dot grid) ── */
@@ -154,7 +154,7 @@ function FlagMarker({
           scale: isActive ? 1.15 : 1,
         }}
         transition={{ duration: 0.4 }}
-        className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-base md:text-lg relative"
+        className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-sm md:text-base relative"
         style={{
           background: `linear-gradient(135deg, ${country.color}22, ${country.color}44)`,
           border: `1.5px solid ${country.color}88`,
@@ -191,7 +191,7 @@ export default function GlobeMap() {
   }, []);
 
   return (
-    <div className="w-full relative" style={{ aspectRatio: "16/9", maxHeight: 520 }}>
+    <div className="w-full relative" style={{ aspectRatio: "2/1", minHeight: 300, maxHeight: 520 }}>
       {/* Dot matrix map */}
       <DotMap />
 
