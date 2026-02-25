@@ -44,7 +44,7 @@ const MarketBettingModal = ({
   storedFingerprintHash,
 }: MarketBettingModalProps) => {
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | null>(null);
-  const [stakeAmount, setStakeAmount] = useState(100);
+  const [stakeAmount, setStakeAmount] = useState(1000);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -422,8 +422,8 @@ const MarketBettingModal = ({
                 <div className="space-y-2">
                   <input
                     type="range"
-                    min={100}
-                    max={Math.max(availablePoints, 100)}
+                    min={1000}
+                    max={Math.min(Math.max(availablePoints, 1000), 100000)}
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(Number(e.target.value))}
                     className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
@@ -448,14 +448,14 @@ const MarketBettingModal = ({
                     "
                   />
                   <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-                    <span>100</span>
+                    <span>1K</span>
                     <span className="font-bold text-foreground text-lg">{stakeAmount.toLocaleString()} ARX-P</span>
                     <span>{availablePoints.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {/* Returns Preview */}
-                {returns && stakeAmount >= 100 && (
+                {returns && stakeAmount >= 1000 && (
                   <div className="space-y-3">
                     {/* Win scenario */}
                     <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
@@ -527,18 +527,18 @@ const MarketBettingModal = ({
                 <button
                   type="button"
                   onClick={handlePlaceBet}
-                  disabled={stakeAmount < 100 || availablePoints < 100}
+                  disabled={stakeAmount < 1000 || availablePoints < 1000}
                   className={`
                     w-full py-4 rounded-xl font-bold text-lg transition-all duration-200
                     flex items-center justify-center gap-3 touch-manipulation select-none
-                    ${stakeAmount < 100 || availablePoints < 100
+                    ${stakeAmount < 1000 || availablePoints < 1000
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
                       : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 active:scale-[0.98] shadow-lg shadow-primary/25'
                     }
                   `}
                 >
                   <Fingerprint className="w-5 h-5" />
-                  {stakeAmount < 100 ? 'Minimum 100 ARX-P' : `Place Bet • ${stakeAmount.toLocaleString()} ARX-P`}
+                  {stakeAmount < 1000 ? 'Min 1K / Max 100K ARX-P' : `Place Bet • ${stakeAmount.toLocaleString()} ARX-P`}
                 </button>
 
                 <p className="text-xs text-muted-foreground text-center">

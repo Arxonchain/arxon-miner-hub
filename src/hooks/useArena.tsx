@@ -364,13 +364,13 @@ export const useArena = () => {
       return false;
     }
 
-    if (powerAmount < 100) {
-      toast.error('Minimum vote is 100 ARX-P');
+    if (powerAmount < 1000) {
+      toast.error('Minimum stake is 1,000 ARX-P');
       return false;
     }
 
-    if (powerAmount > 1000000) {
-      toast.error('Maximum vote is 1,000,000 ARX-P');
+    if (powerAmount > 100000) {
+      toast.error('Maximum stake is 100,000 ARX-P');
       return false;
     }
 

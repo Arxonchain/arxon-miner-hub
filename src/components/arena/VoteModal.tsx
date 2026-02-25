@@ -24,10 +24,10 @@ const VoteModal = ({
   onConfirmVote,
   isVoting,
 }: VoteModalProps) => {
-  const [voteAmount, setVoteAmount] = useState(100);
+  const [voteAmount, setVoteAmount] = useState(1000);
   const [showSuccess, setShowSuccess] = useState(false);
-  const minVote = 100;
-  const maxVote = Math.floor(availablePoints);
+  const minVote = 1000;
+  const maxVote = Math.min(Math.floor(availablePoints), 100000);
 
   const sideName = selectedSide === 'a' ? battle.side_a_name : battle.side_b_name;
   const sideColor = selectedSide === 'a' ? battle.side_a_color : battle.side_b_color;
@@ -204,7 +204,7 @@ const VoteModal = ({
                 ) : (
                   <div className="flex items-center gap-2 text-destructive text-sm">
                     <AlertTriangle className="w-4 h-4" />
-                    <span>Minimum 100 ARX-P required to stake</span>
+                    <span>Min 1,000 / Max 100,000 ARX-P required to stake</span>
                   </div>
                 )}
 
