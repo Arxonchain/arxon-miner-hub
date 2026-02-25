@@ -312,13 +312,13 @@ export const useArenaMarkets = () => {
       return false;
     }
 
-    if (amount < 100) {
-      toast.error('Minimum stake is 100 ARX-P');
+    if (amount < 1000) {
+      toast.error('Minimum stake is 1,000 ARX-P');
       return false;
     }
 
-    if (amount > 1000000) {
-      toast.error('Maximum stake is 1,000,000 ARX-P');
+    if (amount > 100000) {
+      toast.error('Maximum stake is 100,000 ARX-P');
       return false;
     }
 

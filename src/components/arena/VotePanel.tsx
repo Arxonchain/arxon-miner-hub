@@ -26,13 +26,13 @@ const VotePanel = ({
   storedFingerprintHash,
   onReregisterFingerprint
 }: VotePanelProps) => {
-  const [stakeAmount, setStakeAmount] = useState(100);
+  const [stakeAmount, setStakeAmount] = useState(1000);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [isReregistering, setIsReregistering] = useState(false);
 
   const potentialReturns = useMemo(() => {
-    if (!battle || stakeAmount < 100) return null;
+    if (!battle || stakeAmount < 1000) return null;
 
     const userSide = userClub === 'alpha' ? 'a' : 'b';
     const myPool = userSide === 'a' ? battle.side_a_power : battle.side_b_power;
@@ -77,15 +77,17 @@ const VotePanel = ({
     );
   }
 
+  const MAX_STAKE = 100000;
+  const MIN_STAKE = 1000;
   const stakeTiers = [
-    { label: '10%', value: Math.max(Math.floor(availablePoints * 0.1), 100) },
-    { label: '25%', value: Math.max(Math.floor(availablePoints * 0.25), 100) },
-    { label: '50%', value: Math.max(Math.floor(availablePoints * 0.5), 100) },
-    { label: 'MAX', value: Math.max(availablePoints, 100) },
+    { label: '10%', value: Math.min(Math.max(Math.floor(availablePoints * 0.1), MIN_STAKE), MAX_STAKE) },
+    { label: '25%', value: Math.min(Math.max(Math.floor(availablePoints * 0.25), MIN_STAKE), MAX_STAKE) },
+    { label: '50%', value: Math.min(Math.max(Math.floor(availablePoints * 0.5), MIN_STAKE), MAX_STAKE) },
+    { label: 'MAX', value: Math.min(Math.max(availablePoints, MIN_STAKE), MAX_STAKE) },
   ];
 
   const handleTierClick = (value: number) => {
-    const clampedValue = Math.min(Math.max(value, 100), availablePoints);
+    const clampedValue = Math.min(Math.max(value, MIN_STAKE), Math.min(availablePoints, MAX_STAKE));
     setStakeAmount(clampedValue);
   };
 
@@ -95,7 +97,7 @@ const VotePanel = ({
   };
 
   const handleConfirmVote = () => {
-    if (stakeAmount >= 100 && stakeAmount <= availablePoints) {
+    if (stakeAmount >= MIN_STAKE && stakeAmount <= Math.min(availablePoints, MAX_STAKE)) {
       setPendingAmount(stakeAmount);
       setShowFingerprint(true);
     }
@@ -105,7 +107,7 @@ const VotePanel = ({
     const success = await onVote(pendingAmount);
     if (success) {
       setShowFingerprint(false);
-      setStakeAmount(100);
+      setStakeAmount(MIN_STAKE);
       setPendingAmount(0);
     }
   };
@@ -225,7 +227,7 @@ const VotePanel = ({
     );
   }
 
-  const canVote = stakeAmount >= 100 && availablePoints >= 100;
+  const canVote = stakeAmount >= MIN_STAKE && stakeAmount <= MAX_STAKE && availablePoints >= MIN_STAKE;
 
   // Vote form
   return (
@@ -316,8 +318,8 @@ const VotePanel = ({
         <div className="relative">
           <input
             type="range"
-            min={100}
-            max={Math.max(availablePoints, 100)}
+            min={MIN_STAKE}
+            max={Math.min(Math.max(availablePoints, MIN_STAKE), MAX_STAKE)}
             value={stakeAmount}
             onChange={handleSliderChange}
             className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
@@ -345,7 +347,7 @@ const VotePanel = ({
           />
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">100</span>
+          <span className="text-muted-foreground">1K</span>
           <span className={`font-bold text-lg ${
             userClub === 'alpha' ? 'text-amber-500' : 'text-primary'
           }`}>
@@ -356,7 +358,7 @@ const VotePanel = ({
       </div>
 
       {/* Potential Returns Calculator */}
-      {potentialReturns && stakeAmount >= 100 && (
+      {potentialReturns && stakeAmount >= MIN_STAKE && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -412,7 +414,7 @@ const VotePanel = ({
         `}
       >
         <Fingerprint className="w-5 h-5" />
-        {!canVote ? 'Minimum 100 ARX-P' : 'Verify & Stake'}
+        {!canVote ? 'Min 1K / Max 100K ARX-P' : 'Verify & Stake'}
       </button>
 
       <p className="text-xs text-muted-foreground text-center px-4">

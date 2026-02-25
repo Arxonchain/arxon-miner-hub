@@ -39,7 +39,7 @@ const ArenaMarketDetail = ({
 }: ArenaMarketDetailProps) => {
   const { user } = useAuth();
   const [selectedSide, setSelectedSide] = useState<'a' | 'b' | 'c' | null>(null);
-  const [stakeAmount, setStakeAmount] = useState(100);
+  const [stakeAmount, setStakeAmount] = useState(1000);
   const [showFingerprint, setShowFingerprint] = useState(false);
   const [isReregistering, setIsReregistering] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -98,19 +98,21 @@ const ArenaMarketDetail = ({
   }, [market.ends_at, market.starts_at, isUpcoming]);
 
   const potentialReturns = useMemo(() => {
-    if (!selectedSide || stakeAmount < 100) return null;
+    if (!selectedSide || stakeAmount < 1000) return null;
     return calculateReturns(market, selectedSide, stakeAmount);
   }, [market, selectedSide, stakeAmount, calculateReturns]);
 
+  const MIN_STAKE = 1000;
+  const MAX_STAKE = 100000;
   const stakeTiers = [
-    { label: '10%', value: Math.floor(availablePoints * 0.1) },
-    { label: '25%', value: Math.floor(availablePoints * 0.25) },
-    { label: '50%', value: Math.floor(availablePoints * 0.5) },
-    { label: 'MAX', value: availablePoints },
+    { label: '10%', value: Math.min(Math.max(Math.floor(availablePoints * 0.1), MIN_STAKE), MAX_STAKE) },
+    { label: '25%', value: Math.min(Math.max(Math.floor(availablePoints * 0.25), MIN_STAKE), MAX_STAKE) },
+    { label: '50%', value: Math.min(Math.max(Math.floor(availablePoints * 0.5), MIN_STAKE), MAX_STAKE) },
+    { label: 'MAX', value: Math.min(Math.max(availablePoints, MIN_STAKE), MAX_STAKE) },
   ];
 
   const handleConfirmBet = () => {
-    if (selectedSide && stakeAmount >= 100) {
+    if (selectedSide && stakeAmount >= MIN_STAKE && stakeAmount <= MAX_STAKE) {
       setShowFingerprint(true);
     }
   };
@@ -525,14 +527,14 @@ const ArenaMarketDetail = ({
                 {/* Quick Stakes - Enhanced clickability */}
                 <div className="grid grid-cols-4 gap-2">
                   {stakeTiers.map((tier) => {
-                    const isSelected = stakeAmount === Math.max(tier.value, 100);
+                    const isSelected = stakeAmount === Math.min(Math.max(tier.value, MIN_STAKE), MAX_STAKE);
                     const isDisabled = tier.value > availablePoints;
                     
                     return (
                       <button
                         key={tier.label}
                         type="button"
-                        onClick={() => !isDisabled && setStakeAmount(Math.min(Math.max(tier.value, 100), availablePoints))}
+                        onClick={() => !isDisabled && setStakeAmount(Math.min(Math.max(tier.value, MIN_STAKE), Math.min(availablePoints, MAX_STAKE)))}
                         disabled={isDisabled}
                         className={`
                           py-3 rounded-xl font-bold text-sm transition-all duration-200
@@ -555,8 +557,8 @@ const ArenaMarketDetail = ({
                 <div className="space-y-2">
                   <input
                     type="range"
-                    min={100}
-                    max={Math.max(availablePoints, 100)}
+                    min={MIN_STAKE}
+                    max={Math.min(Math.max(availablePoints, MIN_STAKE), MAX_STAKE)}
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(Number(e.target.value))}
                     className="w-full h-3 rounded-full appearance-none cursor-pointer touch-manipulation
@@ -581,14 +583,14 @@ const ArenaMarketDetail = ({
                     "
                   />
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">100</span>
+                    <span className="text-xs text-muted-foreground">1K</span>
                     <span className="font-bold text-lg text-primary">{stakeAmount.toLocaleString()} ARX-P</span>
                     <span className="text-xs text-muted-foreground">{availablePoints >= 1000 ? `${(availablePoints/1000).toFixed(0)}K` : availablePoints}</span>
                   </div>
                 </div>
 
                 {/* Potential Returns - Compact */}
-                {potentialReturns && stakeAmount >= 100 && (
+                {potentialReturns && stakeAmount >= MIN_STAKE && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                       <div className="flex items-center gap-1 mb-1">
@@ -617,18 +619,18 @@ const ArenaMarketDetail = ({
                 <button
                   type="button"
                   onClick={handleConfirmBet}
-                  disabled={stakeAmount < 100 || availablePoints < 100}
+                  disabled={stakeAmount < MIN_STAKE || availablePoints < MIN_STAKE}
                   className={`
                     w-full py-4 rounded-xl font-bold text-base transition-all duration-200
                     flex items-center justify-center gap-3 touch-manipulation select-none
-                    ${stakeAmount < 100 || availablePoints < 100
+                    ${stakeAmount < MIN_STAKE || availablePoints < MIN_STAKE
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
                       : 'bg-gradient-to-r from-primary to-accent text-white hover:opacity-90 active:scale-[0.98] shadow-lg shadow-primary/25'
                     }
                   `}
                 >
                   <Fingerprint className="w-5 h-5" />
-                  {stakeAmount < 100 ? 'Minimum 100 ARX-P' : 'Verify & Vote'}
+                  {stakeAmount < MIN_STAKE ? 'Min 1K / Max 100K ARX-P' : 'Verify & Vote'}
                 </button>
 
                 <p className="text-xs text-muted-foreground text-center">
