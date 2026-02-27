@@ -11,11 +11,14 @@ const Index = () => {
   const [searchParams] = useSearchParams();
   const [showSplash, setShowSplash] = useState(true);
 
-  // Store referral code in sessionStorage for use after signup
+  // Store referral code in localStorage (persists across tabs/email confirmation)
   useEffect(() => {
     const ref = searchParams.get('ref');
     if (ref) {
-      sessionStorage.setItem('arxon_referral_code', ref.toUpperCase());
+      try {
+        localStorage.setItem('arxon_referral_code', ref.toUpperCase());
+        sessionStorage.setItem('arxon_referral_code', ref.toUpperCase());
+      } catch {}
     }
   }, [searchParams]);
 

@@ -45,6 +45,7 @@ export default function AuthDialog({
     const ref = initialReferralCode.trim().toUpperCase();
     if (!ref) return;
     try {
+      localStorage.setItem("arxon_referral_code", ref);
       sessionStorage.setItem("arxon_referral_code", ref);
     } catch {
       // ignore storage errors
