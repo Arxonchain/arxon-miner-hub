@@ -29,7 +29,7 @@ export default function AuthPage() {
       setReferralCode(ref.toUpperCase());
     } else {
       try {
-        const stored = sessionStorage.getItem('arxon_referral_code');
+        const stored = localStorage.getItem('arxon_referral_code') || sessionStorage.getItem('arxon_referral_code');
         if (stored) setReferralCode(stored.toUpperCase());
       } catch {}
     }
@@ -53,9 +53,10 @@ export default function AuthPage() {
           toast({ title: 'Error', description: 'Password must be at least 8 characters', variant: 'destructive' });
           return;
         }
-        // Store referral code in sessionStorage BEFORE signup so applyPendingReferral picks it up
+        // Store referral code in localStorage BEFORE signup so applyPendingReferral picks it up
         if (referralCode.trim()) {
           try {
+            localStorage.setItem('arxon_referral_code', referralCode.trim().toUpperCase());
             sessionStorage.setItem('arxon_referral_code', referralCode.trim().toUpperCase());
           } catch {}
         }

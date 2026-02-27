@@ -33,7 +33,7 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [referralCode, setReferralCode] = useState(() => {
     try {
-      return sessionStorage.getItem("arxon_referral_code") || "";
+      return localStorage.getItem("arxon_referral_code") || sessionStorage.getItem("arxon_referral_code") || "";
     } catch {
       return "";
     }
@@ -191,6 +191,7 @@ export default function Auth() {
       const ref = referralCode.trim().toUpperCase();
       if (ref) {
         try {
+          localStorage.setItem("arxon_referral_code", ref);
           sessionStorage.setItem("arxon_referral_code", ref);
         } catch {
           // ignore

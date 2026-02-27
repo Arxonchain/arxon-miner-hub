@@ -10,7 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 export async function applyPendingReferralCode(): Promise<void> {
   let code: string | null = null;
   try {
-    code = sessionStorage.getItem("arxon_referral_code");
+    // Try localStorage first (persists across tabs/email confirmation redirects),
+    // fall back to sessionStorage for backwards compatibility
+    code = localStorage.getItem("arxon_referral_code") || sessionStorage.getItem("arxon_referral_code");
   } catch {
     return;
   }
@@ -34,6 +36,7 @@ export async function applyPendingReferralCode(): Promise<void> {
   if (existing) {
     // Already referred — clear the pending code
     try {
+      localStorage.removeItem("arxon_referral_code");
       sessionStorage.removeItem("arxon_referral_code");
     } catch {}
     return;
@@ -49,6 +52,7 @@ export async function applyPendingReferralCode(): Promise<void> {
   if (!referrerProfile) {
     // Invalid code — clear it
     try {
+      localStorage.removeItem("arxon_referral_code");
       sessionStorage.removeItem("arxon_referral_code");
     } catch {}
     return;
@@ -57,6 +61,7 @@ export async function applyPendingReferralCode(): Promise<void> {
   // Can't refer yourself
   if (referrerProfile.user_id === user.id) {
     try {
+      localStorage.removeItem("arxon_referral_code");
       sessionStorage.removeItem("arxon_referral_code");
     } catch {}
     return;
@@ -72,6 +77,7 @@ export async function applyPendingReferralCode(): Promise<void> {
 
   if (!error) {
     try {
+      localStorage.removeItem("arxon_referral_code");
       sessionStorage.removeItem("arxon_referral_code");
     } catch {}
     console.log("[referral] Applied referral code:", code);
