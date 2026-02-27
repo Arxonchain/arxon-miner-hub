@@ -7,12 +7,13 @@ const corsHeaders = {
 };
 
 /**
- * Simplified Reward System:
+ * FIXED Reward System (v2):
  * - Total Pool = Prize Pool (admin set) + All Stakes (winners + losers)
- * - Winners share the ENTIRE pool proportionally with bonus applied
- * - Losers get NOTHING (full risk, full reward)
- * - Rewards are CAPPED to total pool (no over-distribution)
- * - Battle is marked resolved AFTER rewards are distributed (atomic)
+ * - Winners share the ENTIRE pool proportionally by (stake × earlyMultiplier)
+ * - Streak bonus = % of NET PROFIT only (never inflates beyond pool)
+ * - Hard cap: total distributed NEVER exceeds TOTAL_POOL
+ * - Losers get NOTHING
+ * - Battle marked resolved AFTER rewards distributed (atomic)
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,37 +26,26 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json().catch(() => ({}));
-    const manualWinner = body.winner_side; // 'a', 'b', or 'c'
+    const manualWinner = body.winner_side;
     const battleId = body.battle_id;
-    const forceResolve = body.force === true; // Allow re-resolving failed battles
+    const forceResolve = body.force === true;
 
     console.log("Starting battle resolution...", { manualWinner, battleId, forceResolve });
 
     let battlesToResolve;
 
     if (battleId && manualWinner) {
-      // Manual resolution
       let query = supabase.from("arena_battles").select("*").eq("id", battleId);
-      
-      // If not force-resolving, only pick battles without a winner
       if (!forceResolve) {
         query = query.is("winner_side", null);
       }
-
       const { data, error } = await query.maybeSingle();
+      if (error) throw new Error(`Database error: ${error.message}`);
+      if (!data) throw new Error("Battle not found or already resolved. Use force=true to re-resolve.");
 
-      if (error) {
-        throw new Error(`Database error: ${error.message}`);
-      }
-      if (!data) {
-        throw new Error("Battle not found or already resolved. Use force=true to re-resolve.");
-      }
-
-      // If force re-resolving, check if rewards were already distributed
       if (forceResolve && data.total_rewards_distributed && data.total_rewards_distributed > 0) {
         throw new Error(`Battle already has ${data.total_rewards_distributed} rewards distributed. Cannot re-resolve.`);
       }
-
       battlesToResolve = [{ ...data, verified_winner: manualWinner }];
     } else {
       const { data, error } = await supabase
@@ -63,20 +53,17 @@ serve(async (req) => {
         .select("*")
         .eq("is_active", true)
         .lt("ends_at", new Date().toISOString());
-
       if (error) throw new Error(`Error fetching battles: ${error.message}`);
       battlesToResolve = data || [];
     }
 
     if (battlesToResolve.length === 0) {
-      console.log("No battles to resolve");
       return new Response(JSON.stringify({ message: "No battles to resolve" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     console.log(`Found ${battlesToResolve.length} battles to resolve`);
-
     const results = [];
 
     for (const battle of battlesToResolve) {
@@ -102,31 +89,15 @@ serve(async (req) => {
         } else {
           if (sideAPower > sideBPower) winnerSide = "a";
           else if (sideBPower > sideAPower) winnerSide = "b";
-          else if (sideAPower > 0) winnerSide = "a"; // Tie-break: side A wins
-        }
-
-        // Calculate pools
-        let winningPool = 0;
-        let losingPool = 0;
-
-        if (winnerSide === "a") {
-          winningPool = sideAPower;
-          losingPool = sideBPower + sideCPower;
-        } else if (winnerSide === "b") {
-          winningPool = sideBPower;
-          losingPool = sideAPower + sideCPower;
-        } else if (winnerSide === "c") {
-          winningPool = sideCPower;
-          losingPool = sideAPower + sideBPower;
+          else if (sideAPower > 0) winnerSide = "a";
         }
 
         const prizePool = Number(battle.prize_pool) || 0;
-        const bonusPercentage = Number(battle.bonus_percentage) || 200;
         const totalStakes = sideAPower + sideBPower + sideCPower;
         const TOTAL_POOL = prizePool + totalStakes;
 
-        const winnerSideName = winnerSide === "a" ? battle.side_a_name : 
-                               winnerSide === "c" ? (battle.side_c_name || "Draw") : 
+        const winnerSideName = winnerSide === "a" ? battle.side_a_name :
+                               winnerSide === "c" ? (battle.side_c_name || "Draw") :
                                battle.side_b_name;
 
         console.log(`Winner: ${winnerSide} (${winnerSideName}), TOTAL POOL: ${TOTAL_POOL}`);
@@ -137,23 +108,20 @@ serve(async (req) => {
           .select("user_id, power_spent, side, early_stake_multiplier, created_at")
           .eq("battle_id", battle.id);
 
-        if (votesError) {
-          console.error(`Error fetching votes: ${votesError.message}`);
-          throw new Error(`Failed to fetch votes: ${votesError.message}`);
-        }
+        if (votesError) throw new Error(`Failed to fetch votes: ${votesError.message}`);
 
         const votes = allVotes || [];
         console.log(`Total votes: ${votes.length}`);
 
         if (winnerSide && votes.length > 0) {
-          // DEDUP: Check if rewards already exist for this battle
+          // DEDUP: Check if rewards already exist
           const { count: existingRewards } = await supabase
             .from("arena_earnings")
             .select("id", { count: "exact", head: true })
             .eq("battle_id", battle.id);
 
           if ((existingRewards || 0) > 0) {
-            console.log(`Battle ${battle.id} already has ${existingRewards} earnings records. Skipping to prevent duplicates.`);
+            console.log(`Battle ${battle.id} already has ${existingRewards} earnings. Skipping.`);
             await supabase.from("arena_battles").update({
               is_active: false,
               winner_side: winnerSide,
@@ -169,21 +137,22 @@ serve(async (req) => {
 
           console.log(`Winners: ${winningVotes.length}, Losers: ${losingVotes.length}`);
 
-          // Calculate weighted shares
+          // ─── FIXED WEIGHT CALCULATION ───
+          // Weight = stake × earlyMultiplier ONLY (no bonus_percentage multiplier)
           let totalWeight = 0;
           const winnerWeights: { vote: typeof winningVotes[0]; weight: number; earlyMultiplier: number }[] = [];
 
           for (const vote of winningVotes) {
             const earlyMultiplier = Number(vote.early_stake_multiplier) || 1.0;
-            const weight = vote.power_spent * earlyMultiplier * (1 + bonusPercentage / 100);
+            const weight = vote.power_spent * earlyMultiplier;
             winnerWeights.push({ vote, weight, earlyMultiplier });
             totalWeight += weight;
           }
 
           let totalRewardsDistributed = 0;
 
-          // Distribute rewards to winners
-          for (const { vote, weight, earlyMultiplier } of winnerWeights) {
+          // ─── DISTRIBUTE REWARDS TO WINNERS ───
+          for (const { vote, weight } of winnerWeights) {
             try {
               // Get win streak
               const { data: memberData } = await supabase
@@ -195,6 +164,7 @@ serve(async (req) => {
               const currentStreak = (memberData?.current_win_streak || 0) + 1;
               const bestStreak = Math.max(currentStreak, memberData?.best_win_streak || 0);
 
+              // Streak bonus % (applied to NET PROFIT only)
               let streakBonusPercent = 0;
               if (currentStreak >= 10) streakBonusPercent = 100;
               else if (currentStreak >= 5) streakBonusPercent = 50;
@@ -202,19 +172,22 @@ serve(async (req) => {
 
               // Base reward = proportional share of TOTAL_POOL
               const baseReward = totalWeight > 0 ? (weight / totalWeight) * TOTAL_POOL : 0;
-              // FIXED: Streak bonus applies ONLY to NET PROFIT, not the full reward
-              const netProfit = Math.max(0, baseReward - vote.power_spent);
-              const streakBonus = netProfit * (streakBonusPercent / 100);
-              let totalReward = baseReward + streakBonus;
 
-              // HARD CAP: No single user can earn more than TOTAL_POOL
-              // Cap to remaining pool to prevent over-distribution
+              // Net profit = base reward minus original stake (can be 0 if pool is tiny)
+              const netProfit = Math.max(0, baseReward - vote.power_spent);
+
+              // Streak bonus applies ONLY to net profit
+              const streakBonus = Math.floor(netProfit * (streakBonusPercent / 100));
+
+              let totalReward = Math.floor(baseReward + streakBonus);
+
+              // ─── HARD CAP: never exceed remaining pool ───
               const remainingPool = TOTAL_POOL - totalRewardsDistributed;
-              if (totalReward > remainingPool) totalReward = remainingPool;
+              if (totalReward > remainingPool) totalReward = Math.floor(remainingPool);
               if (totalReward < 0) totalReward = 0;
               totalRewardsDistributed += totalReward;
 
-              console.log(`Winner ${vote.user_id}: Stake ${vote.power_spent}, Reward ${totalReward.toFixed(0)}`);
+              console.log(`Winner ${vote.user_id}: Stake=${vote.power_spent}, Base=${Math.floor(baseReward)}, NetProfit=${Math.floor(netProfit)}, StreakBonus=${streakBonus}, Total=${totalReward}`);
 
               // Update member stats
               if (memberData) {
@@ -250,7 +223,7 @@ serve(async (req) => {
               });
 
               // Credit points (500 cap per RPC call)
-              let remainingReward = Math.ceil(totalReward);
+              let remainingReward = totalReward;
               while (remainingReward > 0) {
                 const increment = Math.min(remainingReward, 500);
                 await supabase.rpc("increment_user_points", {
@@ -267,11 +240,11 @@ serve(async (req) => {
                 user_id: vote.user_id,
                 badge_type: "winner",
                 badge_name: `${winnerSideName} Champion`,
-                description: `Won ${Math.round(totalReward)} ARX-P in "${battle.title}"${streakText}`,
+                description: `Won ${totalReward} ARX-P in "${battle.title}"${streakText}`,
                 battle_id: battle.id,
               });
 
-              // Extended boost
+              // Extended boost (7 days)
               const boostExpiry = new Date();
               boostExpiry.setDate(boostExpiry.getDate() + 7);
               await supabase.from("arena_boosts").upsert({
@@ -283,7 +256,6 @@ serve(async (req) => {
 
             } catch (winnerErr) {
               console.error(`Error processing winner ${vote.user_id}:`, winnerErr);
-              // Continue with other winners
             }
           }
 
@@ -304,8 +276,8 @@ serve(async (req) => {
                 pool_share_earned: 0, streak_bonus: 0, total_earned: 0, is_winner: false,
               });
 
-              const loserSideName = vote.side === "a" ? battle.side_a_name : 
-                                    vote.side === "c" ? (battle.side_c_name || "Draw") : 
+              const loserSideName = vote.side === "a" ? battle.side_a_name :
+                                    vote.side === "c" ? (battle.side_c_name || "Draw") :
                                     battle.side_b_name;
               await supabase.from("user_badges").insert({
                 user_id: vote.user_id, badge_type: "participant",
@@ -331,8 +303,8 @@ serve(async (req) => {
             });
           }
 
-          // NOW mark battle as resolved (AFTER rewards distributed)
-          const { error: updateError } = await supabase.from("arena_battles").update({
+          // Mark battle as resolved AFTER rewards distributed
+          await supabase.from("arena_battles").update({
             is_active: false,
             winner_side: winnerSide,
             outcome_verified: !!battle.verified_winner,
@@ -340,10 +312,6 @@ serve(async (req) => {
             losing_pool_distributed: true,
             total_rewards_distributed: totalRewardsDistributed,
           }).eq("id", battle.id);
-
-          if (updateError) {
-            console.error(`Error updating battle: ${updateError.message}`);
-          }
 
           results.push({
             battle: battle.title,
@@ -357,7 +325,7 @@ serve(async (req) => {
           });
 
         } else {
-          // No winner or no votes - just mark as resolved
+          // No winner or no votes
           await supabase.from("arena_battles").update({
             is_active: false,
             winner_side: winnerSide || "none",
@@ -368,14 +336,10 @@ serve(async (req) => {
           }).eq("id", battle.id);
 
           results.push({
-            battle: battle.title,
-            battleId: battle.id,
-            winner: winnerSide || "none",
-            winnerName: "No winner",
-            winnersCount: 0,
-            losersCount: 0,
-            totalPool: TOTAL_POOL,
-            totalDistributed: 0,
+            battle: battle.title, battleId: battle.id,
+            winner: winnerSide || "none", winnerName: "No winner",
+            winnersCount: 0, losersCount: 0,
+            totalPool: TOTAL_POOL, totalDistributed: 0,
           });
         }
 
