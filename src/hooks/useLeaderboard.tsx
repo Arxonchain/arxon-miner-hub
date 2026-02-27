@@ -26,7 +26,7 @@ export const useLeaderboard = (limit: number = 100) => {
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
-  const cacheKey = `arxon:leaderboard:miners:v1:${limit}`;
+  const cacheKey = `arxon:leaderboard:miners:v3:${limit}`;
 
   const fetchLeaderboard = useCallback(async () => {
     if (inFlightRef.current) return;
