@@ -146,6 +146,24 @@ serve(async (req) => {
         console.log(`Total votes: ${votes.length}`);
 
         if (winnerSide && votes.length > 0) {
+          // DEDUP: Check if rewards already exist for this battle
+          const { count: existingRewards } = await supabase
+            .from("arena_earnings")
+            .select("id", { count: "exact", head: true })
+            .eq("battle_id", battle.id);
+
+          if ((existingRewards || 0) > 0) {
+            console.log(`Battle ${battle.id} already has ${existingRewards} earnings records. Skipping to prevent duplicates.`);
+            await supabase.from("arena_battles").update({
+              is_active: false,
+              winner_side: winnerSide,
+              outcome_verified: !!battle.verified_winner,
+              outcome_verified_at: battle.verified_winner ? new Date().toISOString() : null,
+            }).eq("id", battle.id);
+            results.push({ battle: battle.title, battleId: battle.id, skipped: true, reason: "already_distributed" });
+            continue;
+          }
+
           const winningVotes = votes.filter(v => v.side === winnerSide);
           const losingVotes = votes.filter(v => v.side !== winnerSide);
 
@@ -182,13 +200,18 @@ serve(async (req) => {
               else if (currentStreak >= 5) streakBonusPercent = 50;
               else if (currentStreak >= 3) streakBonusPercent = 25;
 
+              // Base reward = proportional share of TOTAL_POOL
               const baseReward = totalWeight > 0 ? (weight / totalWeight) * TOTAL_POOL : 0;
-              const streakBonus = baseReward * (streakBonusPercent / 100);
+              // FIXED: Streak bonus applies ONLY to NET PROFIT, not the full reward
+              const netProfit = Math.max(0, baseReward - vote.power_spent);
+              const streakBonus = netProfit * (streakBonusPercent / 100);
               let totalReward = baseReward + streakBonus;
 
-              // Cap to remaining pool
+              // HARD CAP: No single user can earn more than TOTAL_POOL
+              // Cap to remaining pool to prevent over-distribution
               const remainingPool = TOTAL_POOL - totalRewardsDistributed;
               if (totalReward > remainingPool) totalReward = remainingPool;
+              if (totalReward < 0) totalReward = 0;
               totalRewardsDistributed += totalReward;
 
               console.log(`Winner ${vote.user_id}: Stake ${vote.power_spent}, Reward ${totalReward.toFixed(0)}`);
