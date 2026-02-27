@@ -31,10 +31,10 @@ type UseMiningOptions = {
   tickMs?: number;
 };
 
-const miningSettingsCacheKey = 'arxon:mining_settings:v1';
-const xProfileBoostCacheKey = (userId: string) => `arxon:x_profile_boost:v1:${userId}`;
-const arenaBoostsCacheKey = (userId: string) => `arxon:arena_boosts:v1:${userId}`;
-const nexusBoostsCacheKey = (userId: string) => `arxon:nexus_boosts:v1:${userId}`;
+const miningSettingsCacheKey = 'arxon:mining_settings:v2';
+const xProfileBoostCacheKey = (userId: string) => `arxon:x_profile_boost:v2:${userId}`;
+const arenaBoostsCacheKey = (userId: string) => `arxon:arena_boosts:v2:${userId}`;
+const nexusBoostsCacheKey = (userId: string) => `arxon:nexus_boosts:v2:${userId}`;
 
 type ActiveMiningSessionCache = {
   id: string;

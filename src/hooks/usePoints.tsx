@@ -39,8 +39,8 @@ type PointsContextType = {
 
 const PointsContext = createContext<PointsContextType | undefined>(undefined);
 
-const pointsCacheKey = (userId: string) => `arxon:points:v2:${userId}`;
-const rankCacheKey = (userId: string) => `arxon:rank:v1:${userId}`;
+const pointsCacheKey = (userId: string) => `arxon:points:v3:${userId}`;
+const rankCacheKey = (userId: string) => `arxon:rank:v2:${userId}`;
 
 // Rank computation is an expensive global aggregate.
 // Under high concurrency, we must NOT run it on every points update.
