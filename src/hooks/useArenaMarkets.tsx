@@ -197,11 +197,29 @@ export const useArenaMarkets = () => {
           .limit(100);
         
         if (fallbackError) throw fallbackError;
-        setEarningsLeaderboard((fallbackData || []) as unknown as EarningsLeaderboardEntry[]);
+        const sanitized = (fallbackData || []).map((e: any) => ({
+          ...e,
+          total_staked: Math.floor(Number(e.total_staked) || 0),
+          total_earned: Math.floor(Number(e.total_earned) || 0),
+          net_profit: Math.floor(Number(e.net_profit) || 0),
+          total_bonus_earned: Math.floor(Number(e.total_bonus_earned) || 0),
+          total_pool_share_earned: Math.floor(Number(e.total_pool_share_earned) || 0),
+          total_streak_bonus: Math.floor(Number(e.total_streak_bonus) || 0),
+        }));
+        setEarningsLeaderboard(sanitized as unknown as EarningsLeaderboardEntry[]);
         return;
       }
       
-      setEarningsLeaderboard((data || []) as unknown as EarningsLeaderboardEntry[]);
+      const sanitizedData = (data || []).map((e: any) => ({
+        ...e,
+        total_staked: Math.floor(Number(e.total_staked) || 0),
+        total_earned: Math.floor(Number(e.total_earned) || 0),
+        net_profit: Math.floor(Number(e.net_profit) || 0),
+        total_bonus_earned: Math.floor(Number(e.total_bonus_earned) || 0),
+        total_pool_share_earned: Math.floor(Number(e.total_pool_share_earned) || 0),
+        total_streak_bonus: Math.floor(Number(e.total_streak_bonus) || 0),
+      }));
+      setEarningsLeaderboard(sanitizedData as unknown as EarningsLeaderboardEntry[]);
     } catch (error) {
       console.error('Error fetching earnings leaderboard:', error);
     }

@@ -221,10 +221,10 @@ export const useArena = () => {
         user_id: entry.user_id,
         username: entry.username,
         avatar_url: entry.avatar_url,
-        total_power_staked: Number(entry.total_staked) || 0,
-        total_wins: Number(entry.total_wins) || 0,
-        total_battles: Number(entry.total_battles) || 0,
-        biggest_stake: Number(entry.total_staked) || 0,
+        total_power_staked: Math.floor(Number(entry.total_staked) || 0),
+        total_wins: Math.floor(Number(entry.total_wins) || 0),
+        total_battles: Math.floor(Number(entry.total_battles) || 0),
+        biggest_stake: Math.floor(Number(entry.total_staked) || 0),
       }));
 
       setLeaderboard(leaderboardData);

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cacheGet, cacheSet } from "@/lib/localCache";
 import { useAuth } from "./useAuth";
 
-const cacheKey = (userId: string) => `arxon:arena_boost_total:v1:${userId}`;
+const cacheKey = (userId: string) => `arxon:arena_boost_total:v2:${userId}`;
 
 export const useArenaBoostTotal = () => {
   const { user } = useAuth();
