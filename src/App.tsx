@@ -34,6 +34,7 @@ import Settings from "@/pages/Settings";
  import AdminExportFilter from "@/pages/admin/AdminExportFilter";
  import AdminBattleHistory from "@/pages/admin/AdminBattleHistory";
  import AdminGlobalMap from "@/pages/admin/AdminGlobalMap";
+ import AdminPitchDeck from "@/pages/admin/AdminPitchDeck";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -127,7 +128,8 @@ function AppRoutes() {
           <Route path="reconciliation" element={<AdminReconciliation />} />
            <Route path="export-filter" element={<AdminExportFilter />} />
          <Route path="import-users" element={<AdminImportUsers />} />
-         <Route path="global-map" element={<AdminGlobalMap />} />
+          <Route path="global-map" element={<AdminGlobalMap />} />
+          <Route path="pitch-deck" element={<AdminPitchDeck />} />
        </Route>
        
       {/* Catch all */}
