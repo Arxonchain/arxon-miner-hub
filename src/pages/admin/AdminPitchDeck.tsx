@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Grid3X3, Maximize, Minimize } from "lucide-react";
+import { ChevronLeft, ChevronRight, Grid3X3, Maximize, Minimize, Download, Loader2 } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { cn } from "@/lib/utils";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import arxonLogo from "@/assets/arxon-logo-new.jpg";
@@ -1181,12 +1183,67 @@ const AdminPitchDeck = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const next = useCallback(() => setCurrentSlide(s => Math.min(s + 1, ALL_SLIDES.length - 1)), []);
   const prev = useCallback(() => setCurrentSlide(s => Math.max(s - 1, 0)), []);
 
+  const exportToPdf = useCallback(async () => {
+    setExporting(true);
+    try {
+      // Create an offscreen container to render each slide at fixed size
+      const offscreen = document.createElement("div");
+      offscreen.style.cssText = "position:fixed;left:-9999px;top:0;width:1920px;height:1080px;overflow:hidden;z-index:-1;background:#000;";
+      document.body.appendChild(offscreen);
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1920, 1080] });
+
+      for (let i = 0; i < ALL_SLIDES.length; i++) {
+        // Render slide into offscreen container
+        const { createRoot } = await import("react-dom/client");
+        const SlideComp = ALL_SLIDES[i].component;
+
+        await new Promise<void>((resolve) => {
+          const root = createRoot(offscreen);
+          root.render(
+            <div style={{ width: 1920, height: 1080, position: "relative", overflow: "hidden", background: "hsl(220,15%,3%)" }}>
+              <SlideComp />
+            </div>
+          );
+          // Wait for rendering + charts/images to settle
+          setTimeout(() => {
+            resolve();
+            root.unmount();
+          }, 800);
+        });
+
+        const canvas = await html2canvas(offscreen, {
+          width: 1920,
+          height: 1080,
+          scale: 1.5,
+          useCORS: true,
+          backgroundColor: "#050709",
+          logging: false,
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        if (i > 0) pdf.addPage([1920, 1080], "landscape");
+        pdf.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
+      }
+
+      document.body.removeChild(offscreen);
+      pdf.save("Arxon-Pitch-Deck.pdf");
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (exporting) return;
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); next(); }
       if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
       if (e.key === "g") setShowGrid(v => !v);
@@ -1200,7 +1257,7 @@ const AdminPitchDeck = () => {
     const handleFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFs);
     return () => { window.removeEventListener("keydown", handleKey); document.removeEventListener("fullscreenchange", handleFs); };
-  }, [next, prev]);
+  }, [next, prev, exporting]);
 
   const CurrentSlideComponent = ALL_SLIDES[currentSlide].component;
 
@@ -1251,6 +1308,15 @@ const AdminPitchDeck = () => {
           <span className="text-xs font-black text-[hsl(220,20%,95%)] tracking-[0.15em] hidden md:inline">ARXON PITCH DECK</span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={exportToPdf}
+            disabled={exporting}
+            className="p-2 rounded-lg hover:bg-[hsl(220,15%,10%)] transition-colors text-[hsl(220,15%,50%)] hover:text-[hsl(220,20%,85%)] disabled:opacity-50 disabled:cursor-wait flex items-center gap-1.5"
+            title="Download as PDF"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {exporting && <span className="text-[10px] font-bold">Exporting…</span>}
+          </button>
           <button onClick={() => setShowGrid(true)} className="p-2 rounded-lg hover:bg-[hsl(220,15%,10%)] transition-colors text-[hsl(220,15%,50%)] hover:text-[hsl(220,20%,85%)]">
             <Grid3X3 className="w-4 h-4" />
           </button>
