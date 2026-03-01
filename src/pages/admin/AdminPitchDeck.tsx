@@ -1184,60 +1184,51 @@ const AdminPitchDeck = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const exportContainerRef = useRef<HTMLDivElement>(null);
+  const [exportProgress, setExportProgress] = useState("");
 
   const next = useCallback(() => setCurrentSlide(s => Math.min(s + 1, ALL_SLIDES.length - 1)), []);
   const prev = useCallback(() => setCurrentSlide(s => Math.max(s - 1, 0)), []);
 
   const exportToPdf = useCallback(async () => {
     setExporting(true);
+    setExportProgress("Preparing slides…");
     try {
-      // Create an offscreen container to render each slide at fixed size
-      const offscreen = document.createElement("div");
-      offscreen.style.cssText = "position:fixed;left:-9999px;top:0;width:1920px;height:1080px;overflow:hidden;z-index:-1;background:#000;";
-      document.body.appendChild(offscreen);
-
       const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1920, 1080] });
 
-      for (let i = 0; i < ALL_SLIDES.length; i++) {
-        // Render slide into offscreen container
-        const { createRoot } = await import("react-dom/client");
-        const SlideComp = ALL_SLIDES[i].component;
+      // Get all pre-rendered slide elements from the hidden export strip
+      const container = document.getElementById("pdf-export-strip");
+      if (!container) throw new Error("Export strip not found");
 
-        await new Promise<void>((resolve) => {
-          const root = createRoot(offscreen);
-          root.render(
-            <div style={{ width: 1920, height: 1080, position: "relative", overflow: "hidden", background: "hsl(220,15%,3%)" }}>
-              <SlideComp />
-            </div>
-          );
-          // Wait for rendering + charts/images to settle
-          setTimeout(() => {
-            resolve();
-            root.unmount();
-          }, 800);
-        });
+      const slideEls = container.querySelectorAll<HTMLElement>("[data-pdf-slide]");
 
-        const canvas = await html2canvas(offscreen, {
+      // Wait a tick for charts/images to paint
+      await new Promise(r => setTimeout(r, 500));
+
+      for (let i = 0; i < slideEls.length; i++) {
+        setExportProgress(`Capturing slide ${i + 1}/${slideEls.length}…`);
+
+        const canvas = await html2canvas(slideEls[i], {
           width: 1920,
           height: 1080,
-          scale: 1.5,
+          scale: 1,
           useCORS: true,
           backgroundColor: "#050709",
           logging: false,
+          allowTaint: true,
         });
 
-        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        const imgData = canvas.toDataURL("image/jpeg", 0.85);
         if (i > 0) pdf.addPage([1920, 1080], "landscape");
         pdf.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
       }
 
-      document.body.removeChild(offscreen);
+      setExportProgress("Saving PDF…");
       pdf.save("Arxon-Pitch-Deck.pdf");
     } catch (err) {
       console.error("PDF export failed:", err);
     } finally {
       setExporting(false);
+      setExportProgress("");
     }
   }, []);
 
@@ -1315,7 +1306,7 @@ const AdminPitchDeck = () => {
             title="Download as PDF"
           >
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {exporting && <span className="text-[10px] font-bold">Exporting…</span>}
+            {exporting && <span className="text-[10px] font-bold">{exportProgress}</span>}
           </button>
           <button onClick={() => setShowGrid(true)} className="p-2 rounded-lg hover:bg-[hsl(220,15%,10%)] transition-colors text-[hsl(220,15%,50%)] hover:text-[hsl(220,20%,85%)]">
             <Grid3X3 className="w-4 h-4" />
@@ -1381,6 +1372,25 @@ const AdminPitchDeck = () => {
           ))}
         </div>
         <span className="text-[10px] text-[hsl(220,15%,30%)] font-medium">{ALL_SLIDES[currentSlide].title}</span>
+      </div>
+
+      {/* Hidden export strip — all slides pre-rendered in DOM for html2canvas */}
+      <div
+        id="pdf-export-strip"
+        style={{ position: "fixed", left: "-9999px", top: 0, zIndex: -1, opacity: 0, pointerEvents: "none" }}
+      >
+        {ALL_SLIDES.map((slide, i) => {
+          const SlideComp = slide.component;
+          return (
+            <div
+              key={i}
+              data-pdf-slide={i}
+              style={{ width: 1920, height: 1080, position: "relative", overflow: "hidden", background: "hsl(220,15%,3%)", fontFamily: "'Creato Display', system-ui, sans-serif" }}
+            >
+              <SlideComp />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
