@@ -24,7 +24,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
+interface NavItem {
+  icon: typeof LayoutDashboard;
+  label: string;
+  path: string;
+  external?: boolean;
+}
+
+const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
   { icon: Users, label: "Users & Miners", path: "/admin/users" },
   { icon: CalendarDays, label: "Daily Signups", path: "/admin/signups" },
@@ -36,6 +43,7 @@ const navItems = [
   { icon: Upload, label: "Import Users", path: "/admin/import-users" },
   { icon: Globe, label: "Global Map", path: "/admin/global-map" },
   { icon: Presentation, label: "Pitch Deck", path: "/admin/pitch-deck" },
+  { icon: FileDown, label: "Litepaper ↗", path: "/litepaper", external: true },
 ];
 
 const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: boolean; onCollapse?: () => void; onNavigate?: () => void }) => {
@@ -79,24 +87,42 @@ const SidebarContent = ({ collapsed, onCollapse, onNavigate }: { collapsed: bool
       {/* Navigation */}
       <nav className="space-y-1 px-3 flex-1">
         {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === "/admin"}
-            onClick={handleNavClick}
-            className={({ isActive }) =>
-              cn(
+          item.external ? (
+            <a
+              key={item.path}
+              href={item.path}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleNavClick}
+              className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
-                "hover:bg-muted/50",
-                isActive && "bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
-                !isActive && "text-muted-foreground hover:text-foreground",
+                "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
                 collapsed && "justify-center"
-              )
-            }
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
-          </NavLink>
+              )}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
+            </a>
+          ) : (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === "/admin"}
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                  "hover:bg-muted/50",
+                  isActive && "bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
+                  !isActive && "text-muted-foreground hover:text-foreground",
+                  collapsed && "justify-center"
+                )
+              }
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
+            </NavLink>
+          )
         ))}
       </nav>
 
