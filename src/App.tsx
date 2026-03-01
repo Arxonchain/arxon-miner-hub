@@ -34,7 +34,8 @@ import Settings from "@/pages/Settings";
  import AdminExportFilter from "@/pages/admin/AdminExportFilter";
  import AdminBattleHistory from "@/pages/admin/AdminBattleHistory";
  import AdminGlobalMap from "@/pages/admin/AdminGlobalMap";
- import AdminPitchDeck from "@/pages/admin/AdminPitchDeck";
+import AdminPitchDeck from "@/pages/admin/AdminPitchDeck";
+import Litepaper from "@/pages/Litepaper";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -132,6 +133,9 @@ function AppRoutes() {
           <Route path="pitch-deck" element={<AdminPitchDeck />} />
        </Route>
        
+      {/* Litepaper — unlisted public route (no auth, not in nav) */}
+      <Route path="/litepaper" element={<Litepaper />} />
+
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
