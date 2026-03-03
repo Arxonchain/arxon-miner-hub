@@ -14,6 +14,7 @@ import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import ArenaBattleBanner from '@/components/arena/ArenaBattleBanner';
+import RewardNotifications from '@/components/dashboard/RewardNotifications';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
  
  export default function Dashboard() {
@@ -180,6 +181,9 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
        </header>
        
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-2xl relative z-10">
+         {/* Reward Notifications */}
+         <RewardNotifications />
+         
          {/* Welcome Section */}
         <div className="mb-4 sm:mb-6">
           <motion.div
