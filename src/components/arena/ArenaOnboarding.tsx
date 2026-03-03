@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles, AlertTriangle } from 'lucide-react';
+import { Trophy, Swords, Shield, Zap, ArrowRight, Crown, Sparkles } from 'lucide-react';
 import XIcon from '@/components/icons/XIcon';
-import FingerprintScanner from './FingerprintScanner';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-type OnboardingStep = 'intro' | 'x-connect' | 'fingerprint' | 'assigned';
+type OnboardingStep = 'intro' | 'x-connect' | 'assigned';
 
 interface ArenaOnboardingProps {
-  onComplete: (fingerprintHash: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
+  onComplete: (fingerprintHash?: string) => Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }>;
   isLoading?: boolean;
 }
 
@@ -21,7 +20,6 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
   const [step, setStep] = useState<OnboardingStep>('intro');
   const [isVerifying, setIsVerifying] = useState(false);
   const [assignedClub, setAssignedClub] = useState<'alpha' | 'omega' | null>(null);
-  const [fingerprintError, setFingerprintError] = useState<string | null>(null);
   
   // X account connection state
   const [xUsername, setXUsername] = useState('');
@@ -82,9 +80,23 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
         description: `@${username} linked to your Arena profile`,
       });
 
-      // Auto-advance to fingerprint step after short delay
-      setTimeout(() => {
-        setStep('fingerprint');
+      // Auto-register after X connect (no fingerprint needed)
+      setTimeout(async () => {
+        setIsVerifying(true);
+        try {
+          const result = await onComplete();
+          if (result.success && result.club) {
+            setAssignedClub(result.club);
+            setStep('assigned');
+          } else if (result.error) {
+            toast.error('Registration failed', { description: result.error });
+          }
+        } catch (error: any) {
+          console.error('Registration error:', error);
+          toast.error('Registration failed');
+        } finally {
+          setIsVerifying(false);
+        }
       }, 1500);
 
     } catch (error: any) {
@@ -96,40 +108,10 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
     }
   };
 
-  const handleFingerprintVerified = async (fingerprintHash?: string) => {
-    if (!fingerprintHash) {
-      toast.error('Failed to capture fingerprint');
-      return;
-    }
-    
-    setIsVerifying(true);
-    setFingerprintError(null);
-    
-    try {
-      const result = await onComplete(fingerprintHash);
-      
-      if (result.success && result.club) {
-        setAssignedClub(result.club);
-        setStep('assigned');
-      } else if (result.error) {
-        setFingerprintError(result.error);
-        toast.error('Registration failed', {
-          description: result.error,
-        });
-      }
-    } catch (error: any) {
-      console.error('Fingerprint verification error:', error);
-      setFingerprintError('Failed to verify fingerprint. Please try again.');
-      toast.error('Verification failed');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
   const features = [
     { icon: Trophy, text: 'Battle for Rewards', desc: 'Stake ARX-P to earn exclusive boosts' },
     { icon: Swords, text: 'Epic Club Wars', desc: 'Alpha vs Omega in weekly showdowns' },
-    { icon: Shield, text: 'Verified Voting', desc: 'Secure fingerprint authentication' },
+    { icon: Shield, text: 'Verified Voting', desc: 'Secure identity verification' },
     { icon: Zap, text: 'Earn Badges', desc: 'Collect achievements and climb ranks' },
   ];
 
@@ -254,7 +236,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
                     </svg>
                   </div>
                   <p className="text-foreground font-medium">@{xUsername.replace('@', '')} connected!</p>
-                  <p className="text-muted-foreground text-sm">Proceeding to fingerprint verification...</p>
+                  <p className="text-muted-foreground text-sm">Setting up your Arena profile...</p>
                 </motion.div>
               ) : (
                 <div className="space-y-4">
@@ -305,63 +287,7 @@ const ArenaOnboarding = ({ onComplete, isLoading = false }: ArenaOnboardingProps
             </motion.div>
           )}
 
-          {step === 'fingerprint' && (
-            <motion.div
-              key="fingerprint"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="glass-card p-8 border border-border/50"
-            >
-              {fingerprintError ? (
-                <div className="text-center space-y-6">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20 mb-4"
-                  >
-                    <AlertTriangle className="w-10 h-10 text-red-500" />
-                  </motion.div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground mb-2">Registration Failed</h2>
-                    <p className="text-muted-foreground text-sm">{fingerprintError}</p>
-                  </div>
-                  <motion.button
-                    onClick={() => {
-                      setFingerprintError(null);
-                    }}
-                    className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Try Again
-                  </motion.button>
-                </div>
-              ) : (
-                <>
-                  <FingerprintScanner
-                    onVerified={handleFingerprintVerified}
-                    isVerifying={isVerifying || isLoading}
-                    title="Register Your Fingerprint"
-                    subtitle="This fingerprint will be required for all your votes"
-                  />
-                  
-                  {isVerifying && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center mt-4"
-                    >
-                      <div className="flex items-center justify-center gap-2 text-primary">
-                        <Sparkles className="w-4 h-4 animate-pulse" />
-                        <span className="text-sm">Verifying device & assigning club...</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </>
-              )}
-            </motion.div>
-          )}
+          {/* Fingerprint step removed - registration happens automatically after X connect */}
 
           {step === 'assigned' && assignedClub && (
             <motion.div

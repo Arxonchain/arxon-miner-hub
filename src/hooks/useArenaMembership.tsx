@@ -64,7 +64,7 @@ export const useArenaMembership = () => {
     return Math.random() < 0.5 ? 'alpha' : 'omega';
   };
 
-  const registerMembership = async (fingerprintHash: string): Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }> => {
+  const registerMembership = async (fingerprintHash?: string): Promise<{ success: boolean; club: 'alpha' | 'omega' | null; error?: string }> => {
     if (!user) {
       toast.error('You must be logged in to join the Arena');
       return { success: false, club: null, error: 'Not logged in' };
@@ -72,38 +72,22 @@ export const useArenaMembership = () => {
 
     setRegistering(true);
     try {
-      // Check if this fingerprint is already registered to ANOTHER account
-      const { data: existingFingerprint, error: checkError } = await supabase
-        .from('arena_members')
-        .select('user_id')
-        .eq('fingerprint_hash', fingerprintHash)
-        .neq('user_id', user.id)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('Error checking fingerprint:', checkError);
-      }
-
-      if (existingFingerprint) {
-        toast.error('This fingerprint is already registered to another account', {
-          description: 'Each fingerprint can only be linked to one Arena account.'
-        });
-        return { success: false, club: null, error: 'Fingerprint already registered to another account' };
-      }
-
       // Auto-assign club
       const assignedClub = await getAutoAssignedClub();
 
-      // Store the user's fingerprint - this is tied to THIS user only
-      // The fingerprint will be used to verify votes later
+      // Register membership (fingerprint is optional - only used during voting)
+      const insertData: any = {
+        user_id: user.id,
+        club: assignedClub,
+        fingerprint_verified: !!fingerprintHash,
+      };
+      if (fingerprintHash) {
+        insertData.fingerprint_hash = fingerprintHash;
+      }
+
       const { data, error } = await supabase
         .from('arena_members')
-        .insert({
-          user_id: user.id,
-          club: assignedClub,
-          fingerprint_verified: true,
-          fingerprint_hash: fingerprintHash,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -118,7 +102,7 @@ export const useArenaMembership = () => {
 
       setMembership(data as ArenaMember);
       toast.success(`Welcome to Club ${assignedClub.toUpperCase()}!`, {
-        description: 'Your fingerprint has been recorded. Use it to verify your votes!'
+        description: 'You are now ready to battle in the Arena!'
       });
       return { success: true, club: assignedClub };
     } catch (error: any) {
