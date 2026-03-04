@@ -226,6 +226,9 @@ export const useArenaMarkets = () => {
   }, []);
 
   // Calculate potential returns for a stake
+  // Matches actual payout logic in resolve-arena-battle:
+  // Winners get: stake back + proportional share of loser pool + proportional share of prize pool
+  // No artificial multipliers or bonus percentages applied
   const calculatePotentialReturns = useCallback((
     market: ArenaMarket,
     side: 'a' | 'b' | 'c',
@@ -247,40 +250,40 @@ export const useArenaMarkets = () => {
     }
     
     const newMyPool = myPool + stakeAmount;
-    const totalPool = newMyPool + otherPools;
+    const totalStakes = newMyPool + otherPools;
     const prizePool = market.prize_pool || 0;
-    const bonusPercentage = market.bonus_percentage || 200;
 
-    // Calculate pool-based multiplier (2x-5x)
-    let multiplier: number;
-    if (newMyPool >= otherPools) {
-      const ratio = otherPools / newMyPool;
-      multiplier = Math.min(2 + (ratio * 3), 5);
-    } else {
-      multiplier = 5;
-    }
+    // TOTAL POOL = all stakes + prize pool (this is the max that can ever be distributed)
+    const totalPool = totalStakes + prizePool;
 
-    // Potential winnings breakdown
-    const stakeReturn = stakeAmount; // Original stake back
-    const bonusFromPrizePool = (stakeAmount / newMyPool) * prizePool * (bonusPercentage / 100);
-    const loserPoolShare = (stakeAmount / newMyPool) * otherPools;
-    const multiplierBonus = stakeAmount * (multiplier - 1);
-    
-    const totalWin = stakeReturn + bonusFromPrizePool + loserPoolShare + multiplierBonus;
-    const totalLoss = stakeAmount; // Lose everything
+    // Your weight in the winning pool (proportional to your stake)
+    const myShare = newMyPool > 0 ? stakeAmount / newMyPool : 0;
+
+    // Realistic payout: proportional share of entire pool (stakes + prize)
+    const stakeReturn = stakeAmount; // You get your stake back
+    const loserPoolShare = Math.floor(myShare * otherPools); // Share of losers' stakes
+    const prizePoolShare = Math.floor(myShare * prizePool); // Share of prize pool
+
+    // Total win is capped at total pool (can never exceed what's available)
+    const rawTotalWin = stakeReturn + loserPoolShare + prizePoolShare;
+    const totalWin = Math.min(rawTotalWin, totalPool);
+    const totalLoss = stakeAmount;
+
+    // Display multiplier = totalWin / stake (realistic, not inflated)
+    const multiplier = stakeAmount > 0 ? Math.round((totalWin / stakeAmount) * 10) / 10 : 1;
 
     return {
       multiplier,
-      bonusPercentage,
+      bonusPercentage: 0, // No artificial bonus inflation
       stakeReturn,
-      bonusFromPrizePool: Math.round(bonusFromPrizePool),
-      loserPoolShare: Math.round(loserPoolShare),
-      multiplierBonus: Math.round(multiplierBonus),
-      totalWin: Math.round(totalWin),
+      bonusFromPrizePool: prizePoolShare,
+      loserPoolShare,
+      multiplierBonus: 0, // Removed — was fake inflation
+      totalWin,
       totalLoss,
       isUnderdog: newMyPool < otherPools,
-      myPoolPercentage: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 33,
-      winChance: totalPool > 0 ? Math.round((newMyPool / totalPool) * 100) : 33,
+      myPoolPercentage: totalStakes > 0 ? Math.round((newMyPool / totalStakes) * 100) : 33,
+      winChance: totalStakes > 0 ? Math.round((newMyPool / totalStakes) * 100) : 33,
     };
   }, []);
 
