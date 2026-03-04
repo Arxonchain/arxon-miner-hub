@@ -39,30 +39,25 @@ const VotePanel = ({
     const theirPool = userSide === 'a' ? battle.side_b_power : battle.side_a_power;
     
     const newMyPool = myPool + stakeAmount;
-    const totalPool = newMyPool + theirPool;
+    const totalStakes = newMyPool + theirPool;
+    const prizePool = (battle as any).prize_pool || 0;
 
-    let multiplier: number;
-    if (newMyPool >= theirPool) {
-      const ratio = theirPool / newMyPool;
-      multiplier = Math.min(2 + (ratio * 3), 5);
-    } else {
-      multiplier = 5;
-    }
-
-    const stakeReturn = stakeAmount;
-    const stakeBonus = stakeAmount * (multiplier - 1);
-    const loserPoolShare = (stakeAmount / newMyPool) * theirPool;
-    const totalWinnings = stakeReturn + stakeBonus + loserPoolShare;
+    const myShare = newMyPool > 0 ? stakeAmount / newMyPool : 0;
+    const loserPoolShare = Math.floor(myShare * theirPool);
+    const prizePoolShare = Math.floor(myShare * prizePool);
+    const totalWin = Math.min(stakeAmount + loserPoolShare + prizePoolShare, totalStakes + prizePool);
+    const netProfit = totalWin - stakeAmount;
     const totalLoss = stakeAmount;
     const isUnderdog = newMyPool < theirPool;
+    const multiplier = stakeAmount > 0 ? Math.round((totalWin / stakeAmount) * 10) / 10 : 1;
 
     return {
       multiplier,
-      totalWinnings: Math.round(totalWinnings),
-      returnPercentage: Math.round((totalWinnings / stakeAmount) * 100),
+      totalWinnings: netProfit,
+      returnPercentage: stakeAmount > 0 ? Math.round((netProfit / stakeAmount) * 100) : 0,
       totalLoss,
       isUnderdog,
-      myPoolPercentage: Math.round((newMyPool / totalPool) * 100),
+      myPoolPercentage: totalStakes > 0 ? Math.round((newMyPool / totalStakes) * 100) : 50,
     };
   }, [battle, stakeAmount, userClub]);
 

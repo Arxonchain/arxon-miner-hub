@@ -272,14 +272,18 @@ export const useArenaMarkets = () => {
     // Display multiplier = totalWin / stake (realistic, not inflated)
     const multiplier = stakeAmount > 0 ? Math.round((totalWin / stakeAmount) * 10) / 10 : 1;
 
+    // Net profit = what you GAIN on top of getting your stake back
+    const netProfit = totalWin - stakeAmount;
+
     return {
       multiplier,
-      bonusPercentage: 0, // No artificial bonus inflation
+      bonusPercentage: 0,
       stakeReturn,
       bonusFromPrizePool: prizePoolShare,
       loserPoolShare,
-      multiplierBonus: 0, // Removed — was fake inflation
+      multiplierBonus: 0,
       totalWin,
+      netProfit,
       totalLoss,
       isUnderdog: newMyPool < otherPools,
       myPoolPercentage: totalStakes > 0 ? Math.round((newMyPool / totalStakes) * 100) : 33,

@@ -599,7 +599,7 @@ const ArenaMarketDetail = ({
                         <span className="text-[10px] text-muted-foreground ml-auto">{potentialReturns.multiplier.toFixed(1)}x</span>
                       </div>
                       <p className="text-lg font-black text-green-500">
-                        +{potentialReturns.totalWin >= 1000 ? `${(potentialReturns.totalWin/1000).toFixed(1)}K` : potentialReturns.totalWin}
+                        +{(() => { const np = potentialReturns.netProfit ?? (potentialReturns.totalWin - stakeAmount); return np >= 1000 ? `${(np/1000).toFixed(1)}K` : np; })()}
                       </p>
                     </div>
 
