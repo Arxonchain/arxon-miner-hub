@@ -45,8 +45,17 @@ const VotePanel = ({
     const myShare = newMyPool > 0 ? stakeAmount / newMyPool : 0;
     const loserPoolShare = Math.floor(myShare * theirPool);
     const prizePoolShare = Math.floor(myShare * prizePool);
-    const totalWin = Math.min(stakeAmount + loserPoolShare + prizePoolShare, totalStakes + prizePool);
-    const netProfit = totalWin - stakeAmount;
+
+    // Raw net profit
+    const rawNetProfit = loserPoolShare + prizePoolShare;
+
+    // Cap displayed profit based on pool fill ratio to prevent showing
+    // entire prize pool as personal win when pools are empty
+    const poolFillRatio = totalStakes > 0 ? Math.min(totalStakes / Math.max(prizePool, 1), 1) : 0;
+    const maxDisplayMultiplier = 2 + (poolFillRatio * 8);
+    const netProfit = Math.min(rawNetProfit, Math.floor(stakeAmount * maxDisplayMultiplier));
+
+    const totalWin = stakeAmount + netProfit;
     const totalLoss = stakeAmount;
     const isUnderdog = newMyPool < theirPool;
     const multiplier = stakeAmount > 0 ? Math.round((totalWin / stakeAmount) * 10) / 10 : 1;

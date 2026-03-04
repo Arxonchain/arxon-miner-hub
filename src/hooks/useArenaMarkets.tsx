@@ -259,21 +259,29 @@ export const useArenaMarkets = () => {
     // Your weight in the winning pool (proportional to your stake)
     const myShare = newMyPool > 0 ? stakeAmount / newMyPool : 0;
 
-    // Realistic payout: proportional share of entire pool (stakes + prize)
+    // Realistic payout: proportional share of pools
     const stakeReturn = stakeAmount; // You get your stake back
     const loserPoolShare = Math.floor(myShare * otherPools); // Share of losers' stakes
     const prizePoolShare = Math.floor(myShare * prizePool); // Share of prize pool
 
-    // Total win is capped at total pool (can never exceed what's available)
-    const rawTotalWin = stakeReturn + loserPoolShare + prizePoolShare;
-    const totalWin = Math.min(rawTotalWin, totalPool);
+    // Raw net profit (what you gain beyond getting stake back)
+    const rawNetProfit = loserPoolShare + prizePoolShare;
+
+    // CRITICAL: Cap displayed profit based on pool fill ratio
+    // When pools are empty, your "share" is 100% which is misleading
+    // because more people WILL join. Scale max displayed multiplier with participation.
+    const poolFillRatio = totalStakes > 0 ? Math.min(totalStakes / Math.max(prizePool, 1), 1) : 0;
+    // Empty pool: max 2x profit. Full pool: up to 10x profit.
+    const maxDisplayMultiplier = 2 + (poolFillRatio * 8);
+    const cappedNetProfit = Math.min(rawNetProfit, Math.floor(stakeAmount * maxDisplayMultiplier));
+
+    const totalWin = stakeReturn + cappedNetProfit;
     const totalLoss = stakeAmount;
 
-    // Display multiplier = totalWin / stake (realistic, not inflated)
+    // Display multiplier = totalWin / stake
     const multiplier = stakeAmount > 0 ? Math.round((totalWin / stakeAmount) * 10) / 10 : 1;
 
-    // Net profit = what you GAIN on top of getting your stake back
-    const netProfit = totalWin - stakeAmount;
+    const netProfit = cappedNetProfit;
 
     return {
       multiplier,
