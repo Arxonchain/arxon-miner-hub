@@ -23,6 +23,7 @@ interface MarketBettingModalProps {
     loserPoolShare: number;
     multiplierBonus: number;
     totalWin: number;
+    netProfit: number;
     totalLoss: number;
     isUnderdog: boolean;
     winChance: number;
@@ -476,7 +477,7 @@ const MarketBettingModal = ({
                         </button>
                       </div>
                       <p className="text-2xl font-black text-green-500">
-                        +{returns.totalWin.toLocaleString()} ARX-P
+                        +{returns.netProfit.toLocaleString()} ARX-P
                       </p>
                       
                       {showBreakdown && (
