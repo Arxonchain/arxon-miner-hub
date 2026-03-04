@@ -511,7 +511,7 @@ const Litepaper = () => {
           <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#0a0a0a", marginBottom: 8 }}>Contact</div>
             <div style={{ fontSize: 12, color: "#444", lineHeight: 1.8 }}>
-              Gabe Ademibo, Founder &amp; CEO · X: @GabeXmeta · Website: https://arxon.io/
+              Gabe Ademibo, Founder &amp; CEO · X: @GabeXmeta · Website: https://arxon.io
             </div>
           </div>
           <div style={{ position: "absolute", bottom: 48, left: 64, right: 64, borderTop: "1px solid #e5e5e5", paddingTop: 12, fontSize: 10, color: "#bbb", display: "flex", justifyContent: "space-between" }}>
