@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Trophy, X } from 'lucide-react';
+import { Gift, Trophy, X, Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,6 +17,7 @@ interface Notification {
 
 const RewardNotifications = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -67,6 +69,14 @@ const RewardNotifications = () => {
 
   return (
     <div className="space-y-2 mb-4">
+      {/* View all link */}
+      <button
+        onClick={() => navigate('/notifications')}
+        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors ml-auto mb-1"
+      >
+        <Bell className="w-3 h-3" />
+        View all notifications
+      </button>
       <AnimatePresence>
         {visibleNotifications.map((notif) => (
           <motion.div

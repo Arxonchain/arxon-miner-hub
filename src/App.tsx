@@ -36,6 +36,7 @@ import Settings from "@/pages/Settings";
  import AdminGlobalMap from "@/pages/admin/AdminGlobalMap";
 import AdminPitchDeck from "@/pages/admin/AdminPitchDeck";
 import Litepaper from "@/pages/Litepaper";
+import Notifications from "@/pages/Notifications";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +112,7 @@ function AppRoutes() {
       <Route path="/nexus" element={<Nexus />} />
       <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
       
       {/* Auth routes */}
       <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />

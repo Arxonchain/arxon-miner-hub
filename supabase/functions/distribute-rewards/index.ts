@@ -25,17 +25,16 @@ Deno.serve(async (req) => {
     // Credit 10K ARX-P to Discord rumble winners
     // ═══════════════════════════════════════════
     if (action === 'rumble_rewards') {
-      const emails = [
-        'sesawljem@gmail.com',
-        'joyh11046@gmail.com',
-        'charvi.b005@gmail.com',
-        'rayantu6@gmail.com',
-        'ayoolaoluwanifemi625@gmail.com',
-        'sholaadegboola18@gmail.com',
+      // Accept emails from request body, or use default list
+      const requestEmails = body.emails as string[] | undefined;
+      const emails = requestEmails || [
+        'metaken101@gmail.com',
+        'probandocrytobullis@gmail.com',
+        'mrvision@mail.ru',
+        'midulkhan985@gmail.com',
         'riskiafani04@gmail.com',
         'umar.bisniscore@gmail.com',
-        'midulkhan985@gmail.com',
-        'rishavgupta6879@gmail.com',
+        'sesawljem@gmail.com',
         'gabemetax@gmail.com',
       ]
 
@@ -206,7 +205,7 @@ Deno.serve(async (req) => {
 
             if (updateErr) {
               console.error(`Failed to credit ${uid}:`, updateErr.message)
-              results.push({ ...affected, username: profile?.data?.username, status: 'credit_failed' })
+              results.push({ ...affected, username: profile?.username, status: 'credit_failed' })
               continue
             }
           }
