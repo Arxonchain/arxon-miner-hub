@@ -16,6 +16,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Force ALL supabase client imports to use production credentials
+      // instead of auto-generated Lovable Cloud client
+      "@/integrations/supabase/client": path.resolve(__dirname, "./src/lib/supabase.ts"),
     },
     // Prevent duplicate React copies which can break hooks at runtime.
     dedupe: ["react", "react-dom"],
