@@ -1,16 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// For self-hosted deployment: Set these in your hosting environment
-// VITE_SUPABASE_URL=https://your-project.supabase.co
-// VITE_SUPABASE_ANON_KEY=your-anon-key
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// PRODUCTION Supabase project: lgytumkuqflksbcukjek
+// These are the ONLY credentials that should be used.
+// The anon key is a publishable/public key - safe to include in client code.
+const supabaseUrl = 'https://lgytumkuqflksbcukjek.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxneXR1bWt1cWZsa3NiY3VramVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyODU3MzYsImV4cCI6MjA4NTg2MTczNn0.2bVWmCBo4Psx7wR1IygmGWGJXtiEmBJO9UdNVcNrbk8';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
-}
-
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
