@@ -224,7 +224,7 @@ export const useArena = () => {
         total_power_staked: Math.floor(Number(entry.total_staked) || 0),
         total_wins: Math.floor(Number(entry.total_wins) || 0),
         total_battles: Math.floor(Number(entry.total_battles) || 0),
-        biggest_stake: Math.floor(Number(entry.total_staked) || 0),
+        biggest_stake: Math.floor(Number(entry.net_profit) || 0),
       }));
 
       setLeaderboard(leaderboardData);
