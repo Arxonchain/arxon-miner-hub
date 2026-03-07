@@ -26,31 +26,76 @@ export const useLeaderboard = (limit: number = 100) => {
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
-  const cacheKey = `arxon:leaderboard:miners:v5:${limit}`;
+  const cacheKey = `arxon:leaderboard:miners:v6:${limit}`;
 
   const fetchLeaderboard = useCallback(async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
     try {
-      const { data, error } = await supabase
-        .from('leaderboard_view')
-        .select('user_id, username, avatar_url, total_points, daily_streak')
-        .order('total_points', { ascending: false })
-        .limit(limit);
+      // Fetch both sources in parallel
+      const [minerRes, arenaRes] = await Promise.all([
+        supabase
+          .from('leaderboard_view')
+          .select('user_id, username, avatar_url, total_points, daily_streak')
+          .limit(limit * 2), // fetch more so merging doesn't miss anyone
+        supabase
+          .from('arena_team_leaderboard')
+          .select('user_id, username, avatar_url, total_staked, net_profit')
+          .limit(limit * 2),
+      ]);
 
-      if (error || !mountedRef.current) return;
+      if (!mountedRef.current) return;
 
-      // CRITICAL: Sanitize points to whole numbers to fix UI display issues
-      const leaderboardWithRanks: LeaderboardEntry[] = (data || []).map((entry, index) => ({
-        user_id: entry.user_id || '',
-        // Use formatPoints to ensure whole numbers - fixes 900k display bug
-        total_points: formatPoints(entry.total_points),
-        daily_streak: entry.daily_streak || 0,
-        username: entry.username || `Miner${(entry.user_id || '').slice(0, 4)}`,
-        avatar_url: entry.avatar_url || undefined,
-        rank: index + 1,
-      }));
+      // Build a map of arena scores keyed by user_id
+      // Arena score = total_staked + net_profit (same logic as Arena page)
+      const arenaScoreMap = new Map<string, number>();
+      for (const entry of arenaRes.data || []) {
+        if (!entry.user_id) continue;
+        const score = Math.floor(
+          Math.max(0, Number(entry.total_staked || 0) + Number(entry.net_profit || 0))
+        );
+        arenaScoreMap.set(entry.user_id, score);
+      }
+
+      // Merge: for every miner entry, add their arena score on top
+      // Also include arena-only users who may not appear in leaderboard_view
+      const minerMap = new Map<string, any>();
+      for (const entry of minerRes.data || []) {
+        if (!entry.user_id) continue;
+        minerMap.set(entry.user_id, entry);
+      }
+
+      // Add arena users not in miner map (they may have 0 mining points)
+      for (const entry of arenaRes.data || []) {
+        if (!entry.user_id || minerMap.has(entry.user_id)) continue;
+        minerMap.set(entry.user_id, {
+          user_id: entry.user_id,
+          username: entry.username,
+          avatar_url: entry.avatar_url,
+          total_points: 0,
+          daily_streak: 0,
+        });
+      }
+
+      const merged = Array.from(minerMap.values()).map((entry) => {
+        const miningPts = formatPoints(entry.total_points);
+        const arenaScore = arenaScoreMap.get(entry.user_id) || 0;
+        return {
+          user_id: entry.user_id || '',
+          total_points: miningPts + arenaScore, // combined total
+          daily_streak: entry.daily_streak || 0,
+          username: entry.username || `Miner${(entry.user_id || '').slice(0, 4)}`,
+          avatar_url: entry.avatar_url || undefined,
+        };
+      });
+
+      // Sort by combined total descending, then assign ranks
+      merged.sort((a, b) => b.total_points - a.total_points);
+
+      const leaderboardWithRanks: LeaderboardEntry[] = merged
+        .slice(0, limit)
+        .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
       setLeaderboard(leaderboardWithRanks);
       cacheSet(cacheKey, leaderboardWithRanks);
@@ -107,4 +152,3 @@ export const useLeaderboard = (limit: number = 100) => {
 
   return { leaderboard, loading };
 };
-
