@@ -143,7 +143,7 @@ const ArenaLeaderboard = ({ entries, currentUserId }: ArenaLeaderboardProps) => 
         </TabsContent>
 
         <TabsContent value="stake" className="mt-0">
-          {renderList(sortedByStake, 'biggest_stake', <Target className="w-4 h-4" />, 'Biggest Stake')}
+          {renderList(sortedByStake, 'biggest_stake', <Target className="w-4 h-4" />, 'Net Profit')}
         </TabsContent>
       </Tabs>
     </div>
