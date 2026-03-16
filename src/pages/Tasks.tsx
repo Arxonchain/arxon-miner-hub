@@ -188,9 +188,34 @@ const Tasks = () => {
      }
    };
  
+   const YOUTUBE_TASK_KEY = `arxon_yt_task_done_${user?.id}`;
+   const isYoutubeDone = (() => { try { return localStorage.getItem(YOUTUBE_TASK_KEY) === 'true'; } catch { return false; } })();
+   const [youtubeDone, setYoutubeDone] = useState(isYoutubeDone);
+   const [completingYoutube, setCompletingYoutube] = useState(false);
+
+   const completeYoutubeTask = async () => {
+     if (!user) { setShowAuth(true); return; }
+     if (youtubeDone) return;
+     setCompletingYoutube(true);
+     window.open('https://www.youtube.com/channel/UCrBWjlEw_17pQ0OgJgc0Gcw?sub_confirmation=1', '_blank');
+     try {
+       const credited = await addPoints(1000, 'task');
+       if (!credited.success) throw new Error(credited.error || 'Failed to credit points');
+       try { localStorage.setItem(YOUTUBE_TASK_KEY, 'true'); } catch {}
+       setYoutubeDone(true);
+       triggerConfetti();
+       toast({ title: 'Task Completed! 🎉', description: 'You earned 1,000 ARX-P for subscribing!' });
+       await refreshPoints();
+     } catch (err: any) {
+       toast({ title: 'Error', description: err.message, variant: 'destructive' });
+     } finally {
+       setCompletingYoutube(false);
+     }
+   };
+
    const completedCount = Array.from(userTasks.values()).filter(ut => ut.status === 'completed').length;
    const totalRewards = Array.from(userTasks.values()).reduce((sum, ut) => sum + (ut.points_awarded || 0), 0);
-   const availableRewards = tasks.reduce((sum, t) => sum + t.points_reward, 0);
+   const availableRewards = tasks.reduce((sum, t) => sum + t.points_reward, 0) + 1000;
  
    return (
      <div className="min-h-screen bg-background relative overflow-hidden">
@@ -307,6 +332,66 @@ const Tasks = () => {
                 <Target className="w-5 h-5 text-primary" />
                 <h2 className="text-lg font-bold text-foreground">Available Tasks</h2>
               </div>
+
+              {/* YouTube Subscribe Task */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-4 rounded-xl border backdrop-blur-sm transition-all ${
+                  youtubeDone
+                    ? 'bg-green-500/5 border-green-500/30'
+                    : 'bg-red-500/5 border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl mt-0.5">▶️</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-foreground truncate">Subscribe to Arxon YouTube</h3>
+                      {youtubeDone && (
+                        <motion.span
+                          className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                        >
+                          <CheckCircle className="w-3 h-3" />
+                          Done
+                        </motion.span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">Subscribe to our official YouTube channel for updates, tutorials & announcements</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-accent flex items-center gap-1">
+                        <Zap className="w-3 h-3" />
+                        +1,000 ARX-P
+                      </span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" />
+                        YouTube
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={completeYoutubeTask}
+                    disabled={youtubeDone || completingYoutube}
+                    className={youtubeDone
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                    }
+                  >
+                    {completingYoutube ? (
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                        <Clock className="w-4 h-4" />
+                      </motion.div>
+                    ) : youtubeDone ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      'Subscribe'
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
  
              {loading ? (
                <div className="space-y-3">
