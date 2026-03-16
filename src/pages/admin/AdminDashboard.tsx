@@ -1,7 +1,7 @@
 // Admin Dashboard - centralized stats with tooltips
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Users, Activity, Coins, Server, Clock, CheckCircle, Loader2, Download } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Users, Activity, Coins, Server, Clock, CheckCircle, Loader2, Download, RefreshCw } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subHours, startOfHour, eachHourOfInterval } from "date-fns";
@@ -13,6 +13,17 @@ import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["admin-global-stats"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-hourly-miners"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-recent-sessions"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-points-distribution"] });
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
   
   // Use centralized stats hook for consistent data
   const { data: stats, isLoading: loadingStats } = useAdminStats();
@@ -187,19 +198,30 @@ const AdminDashboard = () => {
           <h1 className="text-xl md:text-2xl font-bold text-foreground">ARXON Admin Dashboard</h1>
           <p className="text-sm md:text-base text-muted-foreground">Monitor ARX-P mining activity and user engagement</p>
         </div>
-        <Button 
-          onClick={handleExportUsers} 
-          disabled={isExporting}
-          variant="outline"
-          className="gap-2"
-        >
-          {isExporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          {isExporting ? "Exporting..." : "Download Users CSV"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline"
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+          <Button 
+            onClick={handleExportUsers} 
+            disabled={isExporting}
+            variant="outline"
+            className="gap-2"
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {isExporting ? "Exporting..." : "Download Users CSV"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -208,7 +230,7 @@ const AdminDashboard = () => {
           icon={Users} 
           label="Total Users" 
           value={formatNumber(stats?.totalUsers || 0)} 
-          subtext="Registered users"
+          subtext={`+${stats?.todaySignups || 0} today`}
           loading={loadingStats}
           tooltip="Total users who have signed up on the app"
         />
