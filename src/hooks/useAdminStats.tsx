@@ -10,7 +10,6 @@ export interface AdminStats {
   claimingEnabled: boolean;
   blockReward: number;
   totalMinersEver: number;
-  // New detailed breakdowns
   totalTaskPoints: number;
   totalSocialPoints: number;
   totalReferralPoints: number;
@@ -23,25 +22,23 @@ export interface AdminStats {
   todayMiningPoints: number;
 }
 
-/**
- * Centralized hook for admin statistics.
- * Ensures consistent data across all admin pages.
- */
 export const useAdminStats = () => {
   return useQuery({
     queryKey: ["admin-global-stats"],
     queryFn: async (): Promise<AdminStats> => {
-      // Total users from profiles table (the source of truth for signups)
-      // Use exact count with explicit error handling
-      const { count: totalUsers, error: usersError } = await supabase
+
+      // Dual-source user count for accuracy
+      const { count: profilesCount } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
-      
-      if (usersError) {
-        console.error("Failed to fetch total users:", usersError);
-      }
 
-      // Active miners (only sessions started within last 8 hours that are still active)
+      const { count: pointsCount } = await supabase
+        .from("user_points")
+        .select("*", { count: "exact", head: true });
+
+      const totalUsers = Math.max(profilesCount ?? 0, pointsCount ?? 0);
+      console.log(`[AdminStats] profiles=${profilesCount}, user_points=${pointsCount}, using=${totalUsers}`);
+
       const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
       const { count: activeMiners } = await supabase
         .from("mining_sessions")
@@ -49,7 +46,6 @@ export const useAdminStats = () => {
         .eq("is_active", true)
         .gte("started_at", eightHoursAgo);
 
-      // Unique miners who have ever mined
       const { data: allSessions } = await supabase
         .from("mining_sessions")
         .select("user_id, arx_mined");
@@ -57,9 +53,8 @@ export const useAdminStats = () => {
       const totalSessions = allSessions?.length || 0;
       const totalSessionsArxMined = allSessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
 
-      // Total points from user_points - use paginated fetch to get ALL rows
-      let allPointsData: { 
-        mining_points: number; 
+      let allPointsData: {
+        mining_points: number;
         total_points: number;
         task_points: number;
         social_points: number;
@@ -74,7 +69,6 @@ export const useAdminStats = () => {
           .from("user_points")
           .select("mining_points, total_points, task_points, social_points, referral_points")
           .range(offset, offset + batchSize - 1);
-        
         if (batch && batch.length > 0) {
           allPointsData = [...allPointsData, ...batch];
           offset += batchSize;
@@ -83,7 +77,7 @@ export const useAdminStats = () => {
           hasMore = false;
         }
       }
-      
+
       const totalMiningPoints = allPointsData.reduce((sum, p) => sum + Number(p.mining_points || 0), 0);
       const totalPoints = allPointsData.reduce((sum, p) => sum + Number(p.total_points || 0), 0);
       const totalTaskPoints = allPointsData.reduce((sum, p) => sum + Number(p.task_points || 0), 0);
@@ -91,24 +85,20 @@ export const useAdminStats = () => {
       const totalReferralPoints = allPointsData.reduce((sum, p) => sum + Number(p.referral_points || 0), 0);
       const avgPointsPerUser = allPointsData.length > 0 ? Math.round(totalPoints / allPointsData.length) : 0;
 
-      // Total referrals count
       const { count: totalReferrals } = await supabase
         .from("referrals")
         .select("*", { count: "exact", head: true });
 
-      // Arena earnings
       const { data: arenaEarnings } = await supabase
         .from("arena_earnings")
         .select("total_earned");
       const totalArenaEarnings = arenaEarnings?.reduce((sum, e) => sum + Number(e.total_earned || 0), 0) || 0;
 
-      // Check-in points from daily_checkins
       const { data: checkins } = await supabase
         .from("daily_checkins")
         .select("points_awarded");
       const totalCheckinPoints = checkins?.reduce((sum, c) => sum + Number(c.points_awarded || 0), 0) || 0;
 
-      // Today's signups
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const { count: todaySignups } = await supabase
@@ -116,25 +106,20 @@ export const useAdminStats = () => {
         .select("*", { count: "exact", head: true })
         .gte("created_at", todayStart.toISOString());
 
-      // Today's mining points from sessions started/ended today
       const { data: todaySessions } = await supabase
         .from("mining_sessions")
         .select("arx_mined")
         .gte("started_at", todayStart.toISOString());
       const todayMiningPoints = todaySessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
 
-      // Mining settings
       const { data: settings } = await supabase
         .from("mining_settings")
         .select("claiming_enabled, block_reward")
         .limit(1)
         .maybeSingle();
 
-      // Log for debugging
-      console.log("[AdminStats] Fetched totalUsers:", totalUsers);
-
       return {
-        totalUsers: totalUsers ?? 0,
+        totalUsers,
         activeMiners: activeMiners ?? 0,
         totalMiningPoints,
         totalPoints,
@@ -154,10 +139,11 @@ export const useAdminStats = () => {
         todayMiningPoints,
       };
     },
-    refetchInterval: 10000, // Refresh every 10 seconds for real-time accuracy
-    staleTime: 3000, // Consider data stale after 3 seconds
-    gcTime: 30000, // Keep in cache for 30 seconds
-    refetchOnWindowFocus: true, // Refetch when user returns to window
+    refetchInterval: 30000,
+    staleTime: 0,
+    gcTime: 10000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
 
