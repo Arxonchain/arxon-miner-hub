@@ -16,6 +16,14 @@ const LivePoolTracker = ({ market, onPoolUpdate }: LivePoolTrackerProps) => {
   const [totalParticipants, setTotalParticipants] = useState(market.total_participants || 0);
   const [recentChange, setRecentChange] = useState<{ side: 'a' | 'b' | 'c'; amount: number } | null>(null);
 
+  // Sync state when parent passes updated market props (fixes stale pool totals)
+  useEffect(() => {
+    setSideAPower(market.side_a_power);
+    setSideBPower(market.side_b_power);
+    setSideCPower(market.side_c_power || 0);
+    setTotalParticipants(market.total_participants || 0);
+  }, [market.side_a_power, market.side_b_power, market.side_c_power, market.total_participants]);
+
   const hasSideC = !!market.side_c_name;
   const totalStaked = sideAPower + sideBPower + sideCPower;
   const sideAPercent = totalStaked > 0 ? (sideAPower / totalStaked) * 100 : hasSideC ? 33.33 : 50;
