@@ -1,8 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePoints } from './usePoints';
 import { toast } from 'sonner';
+
+// Deduplicate array of markets by id to prevent double-rendering
+function dedupeById<T extends { id: string }>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  return arr.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
 
 export interface ArenaMarket {
   id: string;
@@ -89,6 +99,7 @@ export const useArenaMarkets = () => {
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
   const [selectedMarket, setSelectedMarket] = useState<ArenaMarket | null>(null);
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch all markets categorized by status
   const fetchMarkets = useCallback(async () => {
@@ -140,9 +151,10 @@ export const useArenaMarkets = () => {
       upcoming.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
       ended.sort((a, b) => new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime());
 
-      setLiveMarkets(live);
-      setUpcomingMarkets(upcoming);
-      setEndedMarkets(ended); // show full history (UI/search already filters)
+      // Deduplicate by id to prevent any double-rendering bugs
+      setLiveMarkets(dedupeById(live));
+      setUpcomingMarkets(dedupeById(upcoming));
+      setEndedMarkets(dedupeById(ended));
 
       return { live, upcoming, ended };
     } catch (error) {
@@ -442,6 +454,15 @@ export const useArenaMarkets = () => {
 
   // Real-time subscription for market updates and leaderboard
   useEffect(() => {
+    const debouncedFetch = () => {
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+      fetchDebounceRef.current = setTimeout(() => {
+        fetchMarkets();
+        fetchEarningsLeaderboard();
+        if (user) fetchUserPositions();
+      }, 500); // wait 500ms before refetching to batch rapid updates
+    };
+
     const channel = supabase
       .channel('arena-markets-updates')
       .on(
@@ -451,9 +472,7 @@ export const useArenaMarkets = () => {
           schema: 'public',
           table: 'arena_battles',
         },
-        () => {
-          fetchMarkets();
-        }
+        debouncedFetch
       )
       .on(
         'postgres_changes',
@@ -462,11 +481,7 @@ export const useArenaMarkets = () => {
           schema: 'public',
           table: 'arena_votes',
         },
-        () => {
-          fetchMarkets();
-          fetchEarningsLeaderboard(); // Refresh leaderboard when new votes come in
-          if (user) fetchUserPositions();
-        }
+        debouncedFetch
       )
       .on(
         'postgres_changes',
@@ -475,9 +490,7 @@ export const useArenaMarkets = () => {
           schema: 'public',
           table: 'arena_members',
         },
-        () => {
-          fetchEarningsLeaderboard(); // Refresh leaderboard when members change
-        }
+        debouncedFetch
       )
       .on(
         'postgres_changes',
@@ -486,13 +499,12 @@ export const useArenaMarkets = () => {
           schema: 'public',
           table: 'arena_earnings',
         },
-        () => {
-          fetchEarningsLeaderboard(); // Refresh leaderboard when earnings are distributed
-        }
+        debouncedFetch
       )
       .subscribe();
 
     return () => {
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
       supabase.removeChannel(channel);
     };
   }, [fetchMarkets, fetchUserPositions, fetchEarningsLeaderboard, user]);
