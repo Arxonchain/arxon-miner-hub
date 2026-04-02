@@ -27,18 +27,12 @@ export const useAdminStats = () => {
     queryKey: ["admin-global-stats"],
     queryFn: async (): Promise<AdminStats> => {
 
-      // Dual-source user count for accuracy
-      const { count: profilesCount } = await supabase
+      // Total users
+      const { count: totalUsers } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true });
 
-      const { count: pointsCount } = await supabase
-        .from("user_points")
-        .select("*", { count: "exact", head: true });
-
-      const totalUsers = Math.max(profilesCount ?? 0, pointsCount ?? 0);
-      console.log(`[AdminStats] profiles=${profilesCount}, user_points=${pointsCount}, using=${totalUsers}`);
-
+      // Active miners (last 8 hours only)
       const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
       const { count: activeMiners } = await supabase
         .from("mining_sessions")
@@ -46,13 +40,25 @@ export const useAdminStats = () => {
         .eq("is_active", true)
         .gte("started_at", eightHoursAgo);
 
-      const { data: allSessions } = await supabase
-        .from("mining_sessions")
-        .select("user_id, arx_mined");
-      const totalMinersEver = new Set(allSessions?.map(s => s.user_id)).size;
-      const totalSessions = allSessions?.length || 0;
-      const totalSessionsArxMined = allSessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
+      // Mining session stats via RPC (no full table scan)
+      const { data: sessionAgg } = await supabase
+        .rpc("get_mining_session_stats" as any);
+      const totalMinersEver = Number(sessionAgg?.[0]?.unique_miners || 0);
+      const totalSessions = Number(sessionAgg?.[0]?.total_sessions || 0);
+      const totalSessionsArxMined = Number(sessionAgg?.[0]?.total_arx_mined || 0);
 
+      // Today's mining points (today only, not all time)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { data: todaySessions } = await supabase
+        .from("mining_sessions")
+        .select("arx_mined")
+        .gte("started_at", todayStart.toISOString());
+      const todayMiningPoints = todaySessions?.reduce(
+        (sum, s) => sum + Number(s.arx_mined || 0), 0
+      ) || 0;
+
+      // User points — aggregated in batches
       let allPointsData: {
         mining_points: number;
         total_points: number;
@@ -63,7 +69,6 @@ export const useAdminStats = () => {
       let offset = 0;
       const batchSize = 1000;
       let hasMore = true;
-
       while (hasMore) {
         const { data: batch } = await supabase
           .from("user_points")
@@ -77,41 +82,56 @@ export const useAdminStats = () => {
           hasMore = false;
         }
       }
+      const totalMiningPoints = allPointsData.reduce(
+        (sum, p) => sum + Number(p.mining_points || 0), 0
+      );
+      const totalPoints = allPointsData.reduce(
+        (sum, p) => sum + Number(p.total_points || 0), 0
+      );
+      const totalTaskPoints = allPointsData.reduce(
+        (sum, p) => sum + Number(p.task_points || 0), 0
+      );
+      const totalSocialPoints = allPointsData.reduce(
+        (sum, p) => sum + Number(p.social_points || 0), 0
+      );
+      const totalReferralPoints = allPointsData.reduce(
+        (sum, p) => sum + Number(p.referral_points || 0), 0
+      );
+      const avgPointsPerUser =
+        allPointsData.length > 0
+          ? Math.round(totalPoints / allPointsData.length)
+          : 0;
 
-      const totalMiningPoints = allPointsData.reduce((sum, p) => sum + Number(p.mining_points || 0), 0);
-      const totalPoints = allPointsData.reduce((sum, p) => sum + Number(p.total_points || 0), 0);
-      const totalTaskPoints = allPointsData.reduce((sum, p) => sum + Number(p.task_points || 0), 0);
-      const totalSocialPoints = allPointsData.reduce((sum, p) => sum + Number(p.social_points || 0), 0);
-      const totalReferralPoints = allPointsData.reduce((sum, p) => sum + Number(p.referral_points || 0), 0);
-      const avgPointsPerUser = allPointsData.length > 0 ? Math.round(totalPoints / allPointsData.length) : 0;
-
+      // Referrals count
       const { count: totalReferrals } = await supabase
         .from("referrals")
         .select("*", { count: "exact", head: true });
 
+      // Arena earnings
       const { data: arenaEarnings } = await supabase
         .from("arena_earnings")
         .select("total_earned");
-      const totalArenaEarnings = arenaEarnings?.reduce((sum, e) => sum + Number(e.total_earned || 0), 0) || 0;
+      const totalArenaEarnings =
+        arenaEarnings?.reduce(
+          (sum, e) => sum + Number(e.total_earned || 0), 0
+        ) || 0;
 
+      // Check-in points
       const { data: checkins } = await supabase
         .from("daily_checkins")
         .select("points_awarded");
-      const totalCheckinPoints = checkins?.reduce((sum, c) => sum + Number(c.points_awarded || 0), 0) || 0;
+      const totalCheckinPoints =
+        checkins?.reduce(
+          (sum, c) => sum + Number(c.points_awarded || 0), 0
+        ) || 0;
 
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      // Today's signups
       const { count: todaySignups } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
         .gte("created_at", todayStart.toISOString());
 
-      const { data: todaySessions } = await supabase
-        .from("mining_sessions")
-        .select("arx_mined")
-        .gte("started_at", todayStart.toISOString());
-      const todayMiningPoints = todaySessions?.reduce((sum, s) => sum + Number(s.arx_mined || 0), 0) || 0;
-
+      // Mining settings
       const { data: settings } = await supabase
         .from("mining_settings")
         .select("claiming_enabled, block_reward")
@@ -119,7 +139,7 @@ export const useAdminStats = () => {
         .maybeSingle();
 
       return {
-        totalUsers,
+        totalUsers: totalUsers ?? 0,
         activeMiners: activeMiners ?? 0,
         totalMiningPoints,
         totalPoints,
@@ -139,11 +159,10 @@ export const useAdminStats = () => {
         todayMiningPoints,
       };
     },
-    refetchInterval: 30000,
-    staleTime: 0,
-    gcTime: 10000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchInterval: 60000,       // was 10s → now 60s
+    staleTime: 30000,             // was 3s → now 30s
+    gcTime: 120000,
+    refetchOnWindowFocus: false,  // stop refetching on every tab switch
   });
 };
 
