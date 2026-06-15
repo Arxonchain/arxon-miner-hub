@@ -14,6 +14,7 @@ import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import ArenaBattleBanner from '@/components/arena/ArenaBattleBanner';
+import CampaignBanner from '@/components/CampaignBanner';
 import RewardNotifications from '@/components/dashboard/RewardNotifications';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
  
@@ -184,6 +185,11 @@ import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
          {/* Reward Notifications */}
          <RewardNotifications />
          
+         {/* Campaign Banner */}
+         <div className="mb-4">
+           <CampaignBanner />
+         </div>
+
          {/* Welcome Section */}
         <div className="mb-4 sm:mb-6">
           <motion.div
