@@ -1,7 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Safe native check — works even if @capacitor/core is not installed in web repo
+const IS_NATIVE = (() => {
+  try {
+    const { Capacitor } = require('@capacitor/core');
+    return IS_NATIVE;
+  } catch {
+    return false;
+  }
+})();
 
 // ── Device ID — stored in localStorage, persists across app opens ──────────
 function getDeviceId(): string {
@@ -9,7 +19,7 @@ function getDeviceId(): string {
     const key = 'arxon_device_id';
     const existing = localStorage.getItem(key);
     if (existing) return existing;
-    const id = `${Capacitor.isNativePlatform() ? 'native' : 'web'}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const id = `${IS_NATIVE ? 'native' : 'web'}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     localStorage.setItem(key, id);
     return id;
   } catch {
@@ -20,7 +30,7 @@ function getDeviceId(): string {
 // ── Is this a brand new install? ───────────────────────────────────────────
 // Returns true only on native AND if 'arxon_first_open' has never been set
 function checkAndMarkFirstOpen(): boolean {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!IS_NATIVE) return false;
   try {
     const key = 'arxon_first_open';
     const existing = localStorage.getItem(key);
