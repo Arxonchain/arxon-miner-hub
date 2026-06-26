@@ -55,7 +55,7 @@ const ScrollAnimatedStat = memo(() => {
     if (isVisible && !hasAnimated.current) {
       hasAnimated.current = true;
       const duration = 2500;
-      const end = 10000;
+      const end = 16000;
       let startTime: number;
       let animationFrame: number;
 
