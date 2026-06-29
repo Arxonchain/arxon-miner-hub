@@ -36,6 +36,7 @@ import Settings from "@/pages/Settings";
  import AdminGlobalMap from "@/pages/admin/AdminGlobalMap";
 import AdminPitchDeck from "@/pages/admin/AdminPitchDeck";
 import AdminTasks from "@/pages/admin/AdminTasks";
+import AdminReferrals from "@/pages/admin/AdminReferrals";
 import Litepaper from "@/pages/Litepaper";
 import Notifications from "@/pages/Notifications";
 
@@ -130,6 +131,7 @@ function AppRoutes() {
           <Route path="arena" element={<AdminArena />} />
           <Route path="battle-history" element={<AdminBattleHistory />} />
           <Route path="tasks" element={<AdminTasks />} />
+          <Route path="referrals" element={<AdminReferrals />} />
           <Route path="reconciliation" element={<AdminReconciliation />} />
            <Route path="export-filter" element={<AdminExportFilter />} />
          <Route path="import-users" element={<AdminImportUsers />} />
